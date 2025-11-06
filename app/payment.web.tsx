@@ -1,0 +1,310 @@
+
+import React from "react";
+import { ScrollView, Pressable, StyleSheet, View, Text } from "react-native";
+import { IconSymbol } from "@/components/IconSymbol";
+import { useTheme } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+
+export default function PaymentScreen() {
+  const theme = useTheme();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+
+  // Get payment details from params or use defaults
+  const amount = params.amount ? parseFloat(params.amount as string) : 100.00;
+  const description = params.description as string || 'Case Processing Fee';
+  const caseNumber = params.caseNumber as string || 'V-23-145';
+
+  return (
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]} 
+      edges={['top']}
+    >
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Payment</Text>
+        <View style={styles.backButton} />
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Payment Summary Card */}
+        <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={styles.summaryHeader}>
+            <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+              Payment Summary
+            </Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
+              Case Number:
+            </Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+              {caseNumber}
+            </Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
+              Description:
+            </Text>
+            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+              {description}
+            </Text>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#E0E0E0' }]} />
+
+          <View style={styles.summaryRow}>
+            <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
+              Total Amount:
+            </Text>
+            <Text style={[styles.totalValue, { color: '#2196F3' }]}>
+              ${amount.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Web Not Supported Notice */}
+        <View style={[styles.notSupportedCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={styles.iconContainer}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={48} color="#FF9800" />
+          </View>
+          
+          <Text style={[styles.notSupportedTitle, { color: theme.colors.text }]}>
+            Payment Not Available on Web
+          </Text>
+          
+          <Text style={[styles.notSupportedText, { color: theme.dark ? '#999' : '#666' }]}>
+            Stripe payment processing is only available on iOS and Android devices. 
+            Please use the mobile app to complete your payment.
+          </Text>
+
+          <View style={[styles.infoBox, { backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5' }]}>
+            <IconSymbol name="info.circle.fill" size={20} color="#2196F3" />
+            <Text style={[styles.infoBoxText, { color: theme.dark ? '#999' : '#666' }]}>
+              Download the mobile app from the App Store or Google Play to make payments securely.
+            </Text>
+          </View>
+        </View>
+
+        {/* Alternative Options */}
+        <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Alternative Options
+          </Text>
+          
+          <View style={styles.optionItem}>
+            <IconSymbol name="apps.iphone" size={24} color="#2196F3" />
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
+                Use Mobile App
+              </Text>
+              <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
+                Download our iOS or Android app for full payment functionality
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#E0E0E0' }]} />
+
+          <View style={styles.optionItem}>
+            <IconSymbol name="envelope.fill" size={24} color="#4CAF50" />
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
+                Contact Support
+              </Text>
+              <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
+                Reach out to our support team for alternative payment methods
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Back Button */}
+        <Pressable 
+          style={[styles.backToHomeButton, { backgroundColor: '#2196F3' }]}
+          onPress={() => router.back()}
+        >
+          <IconSymbol name="arrow.left" size={20} color="#fff" />
+          <Text style={styles.backToHomeText}>
+            Go Back
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    padding: 4,
+    width: 32,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    marginVertical: 16,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  totalValue: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  notSupportedCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  iconContainer: {
+    marginBottom: 16,
+  },
+  notSupportedTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  notSupportedText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'flex-start',
+  },
+  infoBoxText: {
+    fontSize: 14,
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  optionContent: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  optionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  backToHomeButton: {
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  backToHomeText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+});

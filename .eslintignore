@@ -1,0 +1,15 @@
+
+# Ignore generated files
+_expo/
+dist/
+web-build/
+
+# Ignore node modules
+node_modules/
+
+# Ignore build artifacts
+*.bundle.js
+*.bundle.js.map
+
+# Ignore Supabase Edge Functions (Deno-based, not Node.js)
+supabase/
