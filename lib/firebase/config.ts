@@ -1,6 +1,6 @@
 // Firebase configuration
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,37 +34,47 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   });
 }
 
+const ensureAuth = (firebaseApp: FirebaseApp) => {
+  try {
+    // Lazy load to avoid bundler errors when the optional module is unavailable at build time
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    const { getReactNativePersistence } = require('firebase/auth/react-native');
+    return initializeAuth(firebaseApp, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch (error: any) {
+    if (error?.code === 'auth/already-initialized') {
+      return getAuth(firebaseApp);
+    }
+    if (error?.code === 'ERR_MODULE_NOT_FOUND' || error?.message?.includes('firebase/auth/react-native')) {
+      // Fallback to default persistence (memory) when the helper isn't available
+      return initializeAuth(firebaseApp);
+    }
+    throw error;
+  }
+};
+
 let app: FirebaseApp;
-let auth: ReturnType<typeof getAuth>;
+let authInstance: ReturnType<typeof getAuth>;
 let database: ReturnType<typeof getDatabase>;
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
-  // Initialize Auth - For React Native, use initializeAuth
-  // Note: Firebase v12+ may show a warning about AsyncStorage, but auth will still work
-  // The warning is informational - Firebase will use memory persistence if AsyncStorage
-  // persistence isn't explicitly configured, but sessions will still work
-  try {
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-    });
-  } catch (error: any) {
-    // If auth already initialized (e.g., hot reload), use getAuth instead
-    if (error.code === 'auth/already-initialized') {
-      auth = getAuth(app);
-    } else {
-      throw error;
-    }
-  }
+  authInstance = ensureAuth(app);
   database = getDatabase(app);
 } else {
   app = getApps()[0];
-  auth = getAuth(app);
+  try {
+    authInstance = getAuth(app);
+  } catch {
+    authInstance = ensureAuth(app);
+  }
   database = getDatabase(app);
 }
 
 // Export messaging sender ID for FCM integration
 export const messagingSenderId = firebaseConfig.messagingSenderId;
 
-export { app, auth, database };
+export const auth = authInstance;
+export { app, database };
 

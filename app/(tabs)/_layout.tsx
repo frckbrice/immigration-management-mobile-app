@@ -1,12 +1,13 @@
 
 import React, { useMemo, useCallback } from 'react';
-import { Platform, Dimensions, StyleSheet, View, Text, Pressable } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View, Text, Pressable, type ViewStyle } from 'react-native';
 import { Tabs } from 'expo-router';
-import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { useTheme } from '@react-navigation/native';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { IconSymbol } from '@/components/IconSymbol';
+import { useAppTheme } from '@/lib/hooks/useAppTheme';
+import { withOpacity } from '@/styles/theme';
 
 const TAB_ITEMS: TabBarItem[] = [
   {
@@ -52,57 +53,78 @@ const TAB_ITEMS: TabBarItem[] = [
 ];
 
 export default function TabLayout() {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = theme.colors;
 
-  const homeWrapperStyle = useMemo(() => ({
-    backgroundColor: theme.dark ? 'rgba(28,28,30,0.92)' : '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: theme.dark ? 0.35 : 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: Platform.OS === 'android' ? 10 : 0,
-  }), [theme.dark]);
+  const elevatedWrapperStyle = useMemo<ViewStyle>(() => {
+    const base: ViewStyle = {
+      borderRadius: 28,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: withOpacity(colors.text, theme.dark ? 0.25 : 0.1),
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      shadowColor: colors.backdrop,
+      shadowOpacity: theme.dark ? 0.35 : 0.18,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 12 },
+    };
+
+    if (Platform.OS === 'ios') {
+      base.backgroundColor = theme.dark ? 'rgba(17, 24, 39, 0.42)' : 'rgba(255, 255, 255, 0.42)';
+    } else if (Platform.OS === 'android') {
+      base.backgroundColor = theme.dark ? 'rgba(17, 24, 39, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+      base.elevation = 12;
+    } else {
+      base.backgroundColor = theme.dark ? 'rgba(17, 24, 39, 0.4)' : 'rgba(255, 255, 255, 0.4)';
+    }
+
+    return base;
+  }, [colors.backdrop, colors.text, theme.dark]);
+
+  const renderCustomTabBar = useCallback((props: BottomTabBarProps, focusedRouteName: string) => (
+    <SafeAreaView edges={['bottom']} style={styles.customTabSafeArea} pointerEvents="box-none">
+      <View style={[styles.customTabWrapper, elevatedWrapperStyle]}>
+        {TAB_ITEMS.map((tab) => {
+          const isActive = tab.routeName === focusedRouteName;
+          return (
+            <Pressable
+              key={tab.route}
+              style={[styles.customTabItem, isActive && styles.customTabItemActive]}
+              onPress={() => {
+                if (tab.routeName) {
+                  props.navigation.navigate(tab.routeName as never);
+                } else {
+                  props.navigation.navigate(tab.route as never);
+                }
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+            >
+              <IconSymbol
+                name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
+                size={24}
+                color={isActive ? colors.primary : colors.muted}
+              />
+              <Text
+                style={[styles.customTabLabel, { color: isActive ? colors.primary : colors.muted }]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </SafeAreaView>
+  ), [colors.muted, colors.primary, elevatedWrapperStyle]);
 
   const renderTabBar = useCallback((props: BottomTabBarProps) => {
     const focusedRouteName = props.state.routeNames[props.state.index];
-    const isHome = focusedRouteName === '(home)';
 
-    if (isHome) {
-      return (
-        <SafeAreaView edges={['bottom']} style={styles.homeTabSafeArea} pointerEvents="box-none">
-          <View style={[styles.homeTabWrapper, homeWrapperStyle]}>
-            {TAB_ITEMS.map((tab) => {
-              const isActive = tab.routeName === focusedRouteName;
-              return (
-                <Pressable
-                  key={tab.route}
-                  style={[styles.homeTabItem, isActive && styles.homeTabItemActive]}
-                  onPress={() => {
-                    if (tab.routeName) {
-                      props.navigation.navigate(tab.routeName as never);
-                    } else {
-                      props.navigation.navigate(tab.route as never);
-                    }
-                  }}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isActive }}
-                >
-                  <IconSymbol
-                    name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
-                    size={24}
-                    color={isActive ? theme.colors.primary : theme.dark ? '#98989D' : '#8E8E93'}
-                  />
-                  <Text
-                    style={[styles.homeTabLabel, { color: isActive ? theme.colors.primary : theme.dark ? '#98989D' : '#8E8E93' }]}
-                  >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </SafeAreaView>
-      );
+    if (focusedRouteName === '(home)' || focusedRouteName === 'profile') {
+      return renderCustomTabBar(props, focusedRouteName);
     }
 
     return (
@@ -119,14 +141,14 @@ export default function TabLayout() {
         }}
       />
     );
-  }, [homeWrapperStyle]);
+  }, [renderCustomTabBar]);
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.dark ? '#98989D' : '#8E8E93',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: styles.tabLabel,
         tabBarItemStyle: styles.tabItem,
         tabBarStyle: styles.hiddenTabBar,
@@ -209,39 +231,38 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  homeTabSafeArea: {
+  customTabSafeArea: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: Platform.OS === 'android' ? 2 : 0,
     alignItems: 'center',
+    paddingBottom: Platform.OS === 'android' ? 4 : 0,
   },
-  homeTabWrapper: {
-    flexDirection: 'row',
+  customTabWrapper: {
     width: Dimensions.get('window').width - 32,
-    borderRadius: 28,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    justifyContent: 'space-between',
   },
-  homeTabItem: {
+  customTabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  homeTabItemActive: {
+  customTabItemActive: {
     transform: [{ translateY: -2 }],
   },
-  homeTabLabel: {
+  customTabLabel: {
     fontSize: 12,
     fontWeight: '600',
+    backgroundColor: 'transparent',
   },
   tabLabel: {
     fontSize: 12,
     fontWeight: '600',
     marginBottom: Platform.OS === 'android' ? 4 : 0,
+    backgroundColor: 'transparent',
   },
   tabItem: {
     paddingVertical: 4,

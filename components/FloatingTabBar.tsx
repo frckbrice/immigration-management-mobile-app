@@ -169,26 +169,44 @@ export default function FloatingTabBar({
     };
   });
 
+  const activeTab = tabs[activeTabIndex];
+  const isTransparentTabActive = React.useMemo(() => {
+    if (!activeTab) return false;
+    const normalizedRoute = normalizeRoute(activeTab.route);
+    return (
+      normalizedRoute.endsWith('/(home)') ||
+      normalizedRoute.includes('(home)') ||
+      normalizedRoute.endsWith('/profile') ||
+      normalizedRoute.includes('/profile')
+    );
+  }, [activeTab]);
+
   // Dynamic styles based on theme
   const dynamicStyles = {
     blurContainer: {
       ...styles.blurContainer,
       ...Platform.select({
         ios: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.8)'
-            : 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: isTransparentTabActive
+            ? 'transparent'
+            : theme.dark
+              ? 'rgba(28, 28, 30, 0.8)'
+              : 'rgba(255, 255, 255, 0.8)',
         },
         android: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: isTransparentTabActive
+            ? 'transparent'
+            : theme.dark
+              ? 'rgba(28, 28, 30, 0.95)'
+              : 'rgba(255, 255, 255, 0.95)',
           elevation: 8,
         },
         web: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: isTransparentTabActive
+            ? 'transparent'
+            : theme.dark
+              ? 'rgba(28, 28, 30, 0.95)'
+              : 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
           boxShadow: theme.dark
             ? '0 8px 32px rgba(0, 0, 0, 0.4)'
@@ -198,9 +216,11 @@ export default function FloatingTabBar({
     },
     background: {
       ...styles.background,
-      backgroundColor: theme.dark
-        ? (Platform.OS === 'ios' ? 'transparent' : 'rgba(28, 28, 30, 0.1)')
-        : (Platform.OS === 'ios' ? 'transparent' : 'rgba(255, 255, 255, 0.1)'),
+      backgroundColor: isTransparentTabActive
+        ? 'transparent'
+        : theme.dark
+          ? (Platform.OS === 'ios' ? 'transparent' : 'rgba(28, 28, 30, 0.1)')
+          : (Platform.OS === 'ios' ? 'transparent' : 'rgba(255, 255, 255, 0.1)'),
     },
     indicator: {
       ...styles.indicator,
@@ -344,6 +364,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
+    backgroundColor: 'transparent',
     // Dynamic styling applied in component
   },
 });

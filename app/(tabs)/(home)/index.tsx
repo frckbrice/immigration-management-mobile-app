@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from "react"
 import { Stack, useRouter } from "expo-router";
 import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
-import { useTheme } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/stores/auth/authStore";
@@ -17,6 +16,8 @@ import { dashboardService } from "@/lib/services/dashboardService";
 import { logger } from "@/lib/utils/logger";
 import type { DashboardStats } from "@/lib/types";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
 
 const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
 const formatServiceTypeLabel = (serviceType?: string) =>
@@ -29,7 +30,21 @@ const formatServiceTypeLabel = (serviceType?: string) =>
 
 export default function HomeScreen() {
   console.log('[HomeScreen] Component rendering');
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = useThemeColors();
+  const surfaceCard = theme.dark ? colors.surfaceElevated : colors.surface;
+  const iconTint = useMemo(
+    () => withOpacity(colors.primary, theme.dark ? 0.35 : 0.12),
+    [colors.primary, theme.dark]
+  );
+  const successTint = useMemo(
+    () => withOpacity(colors.success, theme.dark ? 0.35 : 0.16),
+    [colors.success, theme.dark]
+  );
+  const warningTint = useMemo(
+    () => withOpacity(colors.warning, theme.dark ? 0.35 : 0.2),
+    [colors.warning, theme.dark]
+  );
   const router = useRouter();
   const { t } = useTranslation();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -300,7 +315,7 @@ export default function HomeScreen() {
         />
       )}
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.dark ? '#000' : '#F5F5F5' }]}
+        style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top']}
       >
         <ScrollView
@@ -346,14 +361,14 @@ export default function HomeScreen() {
           {/* Header with Greeting and Notification */}
           <View style={styles.header}>
             <View style={styles.greetingContainer}>
-              <View style={styles.avatarCircle}>
-                <IconSymbol name="mail.fill" size={28} color="#fff" />
+              <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
+                <IconSymbol name="mail.fill" size={28} color={colors.onPrimary} />
               </View>
               <View style={styles.greetingTextContainer}>
-                <Text style={[styles.greetingText, { color: theme.dark ? '#999' : '#666' }]}>
+                <Text style={[styles.greetingText, { color: colors.muted }]}>
                   {t('home.goodMorning')}
                 </Text>
-                <Text style={[styles.welcomeText, { color: theme.dark ? '#fff' : '#000' }]}>
+                <Text style={[styles.welcomeText, { color: colors.text }]}>
                   {t('home.welcome', { name: userName })}
                 </Text>
               </View>
@@ -362,40 +377,40 @@ export default function HomeScreen() {
               style={styles.notificationButton}
               onPress={() => router.push('/(tabs)/notifications')}
             >
-              <IconSymbol name="bell.fill" size={26} color={theme.dark ? '#fff' : '#000'} />
+              <IconSymbol name="bell.fill" size={26} color={colors.text} />
               {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+                <View style={[styles.notificationBadge, { backgroundColor: colors.danger }]}>
+                  <Text style={[styles.notificationBadgeText, { color: colors.onPrimary }]}>{unreadCount}</Text>
                 </View>
               )}
             </Pressable>
           </View>
 
           {/* Current Case Status Card */}
-          <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={[styles.card, { backgroundColor: surfaceCard }]}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
                 {t('home.currentCaseStatus')}
               </Text>
               <Pressable onPress={() => router.push('/(tabs)/cases')}>
-                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                <Text style={[styles.viewAllText, { color: colors.primary }]}>{t('common.viewAll')}</Text>
               </Pressable>
             </View>
             
             {/* Current Case Status */}
             {caseForStatusCard ? (
               <View key={caseForStatusCard.id} style={styles.statusRow}>
-                <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <IconSymbol name="hourglass" size={24} color="#2196F3" />
+                <View style={[styles.iconCircle, { backgroundColor: iconTint }]}>
+                  <IconSymbol name="hourglass" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.statusTextContainer}>
-                  <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
+                  <Text style={[styles.statusSubtitle, { color: colors.muted }]}>
                     {formatServiceTypeLabel(caseForStatusCard.serviceType)} ({caseForStatusCard.referenceNumber})
                   </Text>
-                  <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+                  <Text style={[styles.statusTitle, { color: colors.text }]}>
                     {getCaseStatusLabel(caseForStatusCard.status)}
                   </Text>
-                  <Text style={[styles.statusMeta, { color: theme.dark ? '#666' : '#888' }]}>
+                  <Text style={[styles.statusMeta, { color: colors.mutedAlt }]}>
                     {t('home.updatedOn', {
                       defaultValue: 'Updated on {{date}}',
                       date: formatCaseDate(caseForStatusCard.lastUpdated || caseForStatusCard.submissionDate)
@@ -405,14 +420,14 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View style={styles.statusRow}>
-                <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <IconSymbol name="folder.fill" size={24} color="#2196F3" />
+                  <View style={[styles.iconCircle, { backgroundColor: iconTint }]}>
+                    <IconSymbol name="folder.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.statusTextContainer}>
-                  <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
+                    <Text style={[styles.statusSubtitle, { color: colors.muted }]}>
                     {t('cases.noCases')}
                   </Text>
-                  <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+                    <Text style={[styles.statusTitle, { color: colors.text }]}>
                     {t('cases.newCase')}
                   </Text>
                 </View>
@@ -420,18 +435,18 @@ export default function HomeScreen() {
             )}
 
             {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#F0F0F0' }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* Next Appointment */}
             <View style={styles.statusRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                <IconSymbol name="calendar" size={24} color="#2196F3" />
+              <View style={[styles.iconCircle, { backgroundColor: iconTint }]}>
+                <IconSymbol name="calendar" size={24} color={colors.primary} />
               </View>
               <View style={styles.statusTextContainer}>
-                <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
+                <Text style={[styles.statusSubtitle, { color: colors.muted }]}>
                   {nextAppointmentLabel}
                 </Text>
-                <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+                <Text style={[styles.statusTitle, { color: colors.text }]}>
                   {nextAppointmentValue}
                 </Text>
               </View>
@@ -440,57 +455,57 @@ export default function HomeScreen() {
 
           {/* Stats Cards Row */}
           <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-              <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
+            <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>
                 {t('home.activeCases')}
               </Text>
-              <Text style={[styles.statValue, { color: '#2196F3' }]}>{activeCasesCount}</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{activeCasesCount}</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-              <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
+            <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>
                 {t('home.pendingDocuments')}
               </Text>
-              <Text style={[styles.statValue, { color: '#FF9800' }]}>{pendingDocsCount}</Text>
+              <Text style={[styles.statValue, { color: colors.warning }]}>{pendingDocsCount}</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-              <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
+            <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>
                 {t('home.newMessages')}
               </Text>
-              <Text style={[styles.statValue, { color: '#2196F3' }]}>{newMessagesCount}</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{newMessagesCount}</Text>
             </View>
           </View>
 
           {/* Quick Access Section */}
-          <Text style={[styles.sectionTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {t('home.quickAccess')}
           </Text>
           <View style={styles.quickAccessGrid}>
             <Pressable 
-              style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+              style={[styles.quickAccessButton, { backgroundColor: surfaceCard }]}
               onPress={() => router.push('/cases/new')}
             >
-              <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                <IconSymbol name="plus.circle.fill" size={32} color="#2196F3" />
+              <View style={[styles.quickAccessIconCircle, { backgroundColor: iconTint }]}>
+                <IconSymbol name="plus.circle.fill" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.quickAccessLabel, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
                 {t('cases.newCase')}
               </Text>
             </Pressable>
 
             <Pressable 
-              style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+              style={[styles.quickAccessButton, { backgroundColor: surfaceCard }]}
               onPress={() => router.push('/documents/upload')}
             >
-              <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                <IconSymbol name="doc.fill" size={32} color="#2196F3" />
+              <View style={[styles.quickAccessIconCircle, { backgroundColor: iconTint }]}>
+                <IconSymbol name="doc.fill" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.quickAccessLabel, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
                 {t('home.uploadDocument')}
               </Text>
             </Pressable>
 
             <Pressable 
-              style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+              style={[styles.quickAccessButton, { backgroundColor: surfaceCard }]}
               onPress={() => {
                 if (!caseForStatusCard?.referenceNumber) {
                   showAlert({
@@ -507,57 +522,57 @@ export default function HomeScreen() {
                 });
               }}
             >
-              <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E8F5E9' }]}>
-                <IconSymbol name="creditcard.fill" size={32} color="#4CAF50" />
+              <View style={[styles.quickAccessIconCircle, { backgroundColor: successTint }]}>
+                <IconSymbol name="creditcard.fill" size={32} color={colors.success} />
               </View>
-              <Text style={[styles.quickAccessLabel, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
                 {paymentButtonLabel}
               </Text>
             </Pressable>
 
             <Pressable 
-              style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+              style={[styles.quickAccessButton, { backgroundColor: surfaceCard }]}
               onPress={() => router.push('/support/contact')}
             >
-              <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                <IconSymbol name="message.fill" size={32} color="#2196F3" />
+              <View style={[styles.quickAccessIconCircle, { backgroundColor: iconTint }]}>
+                <IconSymbol name="message.fill" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.quickAccessLabel, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
                 {t('home.getHelp')}
               </Text>
             </Pressable>
           </View>
 
           {/* Important Updates Section */}
-          <Text style={[styles.sectionTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {importantUpdatesTitle}
           </Text>
 
           {/* Update Card 1 - Success */}
-          <View style={[styles.updateCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-            <View style={[styles.updateIconCircle, { backgroundColor: '#E8F5E9' }]}>
-              <IconSymbol name="checkmark.circle.fill" size={32} color="#4CAF50" />
+          <View style={[styles.updateCard, { backgroundColor: surfaceCard }]}>
+            <View style={[styles.updateIconCircle, { backgroundColor: successTint }]}>
+              <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
             </View>
             <View style={styles.updateTextContainer}>
-              <Text style={[styles.updateTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.updateTitle, { color: colors.text }]}>
                 {approvedUpdateTitle}
               </Text>
-              <Text style={[styles.updateDescription, { color: theme.dark ? '#999' : '#666' }]}>
+              <Text style={[styles.updateDescription, { color: colors.muted }]}>
                 {approvedUpdateDescription}
               </Text>
             </View>
           </View>
 
           {/* Update Card 2 - Warning */}
-          <View style={[styles.updateCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-            <View style={[styles.updateIconCircle, { backgroundColor: '#FFF3E0' }]}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={32} color="#FF9800" />
+          <View style={[styles.updateCard, { backgroundColor: surfaceCard }]}>
+            <View style={[styles.updateIconCircle, { backgroundColor: warningTint }]}>
+              <IconSymbol name="exclamationmark.triangle.fill" size={32} color={colors.warning} />
             </View>
             <View style={styles.updateTextContainer}>
-              <Text style={[styles.updateTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+              <Text style={[styles.updateTitle, { color: colors.text }]}>
                 {pendingUpdateTitle}
               </Text>
-              <Text style={[styles.updateDescription, { color: theme.dark ? '#999' : '#666' }]}>
+              <Text style={[styles.updateDescription, { color: colors.muted }]}>
                 {pendingUpdateDescription}
               </Text>
             </View>
@@ -598,7 +613,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FF9966',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -623,7 +637,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: '#FF3B30',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -632,7 +645,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   notificationBadgeText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -660,7 +672,6 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: '#2196F3',
     fontWeight: '600',
   },
   statusRow: {

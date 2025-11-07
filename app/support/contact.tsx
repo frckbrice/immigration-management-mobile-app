@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@react-navigation/native';
 import { useTranslation } from '@/lib/hooks/useTranslation';
 import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
 import { supportService } from '@/lib/services/supportService';
 import FormInput from '@/components/FormInput';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useToast } from '@/components/Toast';
+import { useAppTheme } from '@/lib/hooks/useAppTheme';
+import { withOpacity } from '@/styles/theme';
 
 export default function ContactSupportScreen() {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = theme.colors;
+  const cardBackground = theme.dark ? colors.surfaceElevated : colors.surface;
+  const subtleBackground = theme.dark ? colors.surfaceAlt : colors.surfaceAlt;
+  const headerBackground = useMemo(
+    () => withOpacity(colors.primary, theme.dark ? 0.22 : 0.12),
+    [colors.primary, theme.dark]
+  );
   const { t } = useTranslation();
   const router = useRouter();
   const { showAlert } = useBottomSheetAlert();
@@ -60,19 +68,19 @@ export default function ContactSupportScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={styles.headerIcon} hitSlop={10} onPress={() => router.back()}>
+              <Pressable style={[styles.headerIcon, { backgroundColor: headerBackground }]} hitSlop={10} onPress={() => router.back()}>
                 <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
               </Pressable>
               <View style={styles.headerCopy}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile.contactUs')}</Text>
-                <Text style={[styles.subtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
+                <Text style={[styles.subtitle, { color: colors.muted }]}>
                   {t('support.contactSubtitle', { defaultValue: 'We usually respond within one business day.' })}
                 </Text>
               </View>
-              <View style={styles.headerIcon} />
+              <View style={[styles.headerIcon, { backgroundColor: 'transparent' }]} />
             </View>
 
-            <View style={[styles.card, { backgroundColor: theme.dark ? '#111113' : '#FFFFFF', borderColor: theme.dark ? '#1E293B' : '#E2E8F0' }]}
+            <View style={[styles.card, { backgroundColor: cardBackground, borderColor: colors.border, shadowColor: colors.backdrop }]}
             >
               <FormInput
                 label={t('support.subject', { defaultValue: 'Subject' })}
@@ -93,20 +101,20 @@ export default function ContactSupportScreen() {
               />
 
               <View style={styles.metaRow}>
-                <IconSymbol name="envelope.open.fill" size={18} color={theme.dark ? '#94A3B8' : '#64748B'} />
-                <Text style={[styles.metaText, { color: theme.dark ? '#94A3B8' : '#64748B' }]}>
+                <IconSymbol name="envelope.open.fill" size={18} color={colors.muted} />
+                <Text style={[styles.metaText, { color: colors.muted }]}>
                   {t('support.contactHint', { defaultValue: 'Attach order numbers or case IDs when relevant to speed things up.' })}
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.quickLinks, { backgroundColor: theme.dark ? '#0F172A' : '#F8FAFC', borderColor: theme.dark ? '#1E293B' : '#E2E8F0' }]}>
-              <IconSymbol name="questionmark.circle" size={20} color={theme.dark ? '#38BDF8' : '#2563EB'} />
-              <Text style={[styles.quickLinkText, { color: theme.dark ? '#E2E8F0' : '#1E293B' }]}>
+            <View style={[styles.quickLinks, { backgroundColor: subtleBackground, borderColor: colors.border }]}>
+              <IconSymbol name="questionmark.circle" size={20} color={colors.accent} />
+              <Text style={[styles.quickLinkText, { color: colors.text }]}>
                 {t('support.faqPrompt', { defaultValue: 'Need quick answers? Visit the FAQ before sending a message.' })}
               </Text>
               <Pressable onPress={() => router.push('/support/faq')}>
-                <Text style={[styles.quickLinkAction, { color: '#2563EB' }]}>{t('support.openFaq', { defaultValue: 'Open FAQ' })}</Text>
+                <Text style={[styles.quickLinkAction, { color: colors.primary }]}>{t('support.openFaq', { defaultValue: 'Open FAQ' })}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -116,17 +124,17 @@ export default function ContactSupportScreen() {
           style={[
             styles.footerBar,
             {
-              backgroundColor: theme.dark ? '#000000E6' : '#FFFFFFEE',
-              borderTopColor: theme.dark ? '#1E293B' : '#E2E8F0',
+              backgroundColor: cardBackground,
+              borderTopColor: colors.border,
               paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >
-          <Pressable style={[styles.secondaryButton, { borderColor: theme.dark ? '#1E293B' : '#CBD5F5' }]} onPress={() => router.back()} disabled={submitting}>
-            <Text style={[styles.secondaryText, { color: theme.dark ? '#E2E8F0' : '#1E293B' }]}>{t('common.cancel')}</Text>
+          <Pressable style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => router.back()} disabled={submitting}>
+            <Text style={[styles.secondaryText, { color: colors.text }]}>{t('common.cancel')}</Text>
           </Pressable>
-          <Pressable style={[styles.primaryButton, { opacity: submitting ? 0.7 : 1 }]} onPress={onSubmit} disabled={submitting}>
-            {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{t('support.send', { defaultValue: 'Send Message' })}</Text>}
+          <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]} onPress={onSubmit} disabled={submitting}>
+            {submitting ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.primaryText, { color: colors.onPrimary }]}>{t('support.send', { defaultValue: 'Send Message' })}</Text>}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -149,7 +157,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 18,
     gap: 12,
-    shadowColor: '#0F172A',
     shadowOpacity: 0.04,
     shadowOffset: { width: 0, height: 12 },
     shadowRadius: 18,
@@ -184,8 +191,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   secondaryText: { fontSize: 15, fontWeight: '600' },
-  primaryButton: { flex: 1, borderRadius: 14, backgroundColor: '#2563EB', alignItems: 'center', paddingVertical: 12 },
-  primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  primaryButton: { flex: 1, borderRadius: 14, alignItems: 'center', paddingVertical: 12 },
+  primaryText: { fontSize: 15, fontWeight: '700' },
 });
 
 
