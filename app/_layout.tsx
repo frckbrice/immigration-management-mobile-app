@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { useColorScheme } from "react-native";
+import React, { useEffect, Component, ErrorInfo, ReactNode } from "react";
+import { useColorScheme, View, Text, StyleSheet } from "react-native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -17,9 +17,48 @@ import { WidgetProvider } from "@/contexts/WidgetContext";
 import { initializeAuthListener, useAuthStore } from "@/stores/auth/authStore";
 import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
+import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
+import { ScrollProvider } from "@/contexts/ScrollContext";
 import "@/lib/i18n";
 
+// Error Boundary Component
+class ErrorBoundary extends Component<
+    { children: ReactNode },
+    { hasError: boolean; error: Error | null }
+> {
+    constructor(props: { children: ReactNode }) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        console.error('ErrorBoundary caught an error:', error, errorInfo);
+        logger?.error('App Error Boundary:', { error: error.message, stack: error.stack, errorInfo });
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorTitle}>Something went wrong</Text>
+                    <Text style={styles.errorText}>{this.state.error?.message || 'Unknown error'}</Text>
+                    <Text style={styles.errorHint}>Please restart the app</Text>
+                </View>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 SplashScreen.preventAutoHideAsync();
+
+// Debug: Log that the layout file is being loaded
+console.log('[App] _layout.tsx loaded');
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -32,6 +71,8 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
+    console.log('[App] AppContent rendering');
+
     const colorScheme = useColorScheme();
     const [loaded] = useFonts({
         SpaceMono: require("@/assets/fonts/SpaceMono-Regular.ttf"),
@@ -40,9 +81,18 @@ function AppContent() {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const registerPushToken = useAuthStore((state) => state.registerPushToken);
 
+    console.log('[App] AppContent state:', { loaded, isAuthenticated });
+
     useEffect(() => {
+        // Hide splash screen after fonts load, or after a timeout
         if (loaded) {
             SplashScreen.hideAsync();
+        } else {
+            // Fallback: hide splash screen after 2 seconds even if fonts haven't loaded
+            const timeout = setTimeout(() => {
+                SplashScreen.hideAsync();
+            }, 2000);
+            return () => clearTimeout(timeout);
         }
     }, [loaded]);
 
@@ -85,10 +135,7 @@ function AppContent() {
         }
     }, [isAuthenticated, registerPushToken]);
 
-    if (!loaded) {
-        return null;
-    }
-
+    // Render app even if fonts haven't loaded yet (they'll load asynchronously)
     return (
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <SystemBars style={colorScheme === "dark" ? "light" : "dark"} />
@@ -97,6 +144,7 @@ function AppContent() {
                 <Stack.Screen name="onboarding" />
                 <Stack.Screen name="login" />
                 <Stack.Screen name="register" />
+                <Stack.Screen name="forgot-password" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="chat" />
                 <Stack.Screen name="case/[id]" />
@@ -112,15 +160,60 @@ function AppContent() {
 }
 
 export default function RootLayout() {
-    return (
-        <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <WidgetProvider>
-                    <AppContent />
-                </WidgetProvider>
-            </GestureHandlerRootView>
-        </QueryClientProvider>
-    );
+    console.log('[App] RootLayout rendering');
+
+    try {
+        return (
+            <ErrorBoundary>
+                <QueryClientProvider client={queryClient}>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <ScrollProvider>
+                            <BottomSheetAlertProvider>
+                                <WidgetProvider>
+                                    <AppContent />
+                                </WidgetProvider>
+                            </BottomSheetAlertProvider>
+                        </ScrollProvider>
+                    </GestureHandlerRootView>
+                </QueryClientProvider>
+            </ErrorBoundary>
+        );
+    } catch (error) {
+        console.error('[App] RootLayout error:', error);
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorTitle}>Root Layout Error</Text>
+                <Text style={styles.errorText}>{error instanceof Error ? error.message : 'Unknown error'}</Text>
+            </View>
+        );
+    }
 }
+
+const styles = StyleSheet.create({
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#F5F6F7',
+    },
+    errorTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#EF4444',
+    },
+    errorText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    errorHint: {
+        fontSize: 12,
+        color: '#999',
+        fontStyle: 'italic',
+    },
+});
 
 

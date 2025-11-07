@@ -145,7 +145,7 @@
 - **Charts:** Recharts
 
 #### Backend
-- **API:** Next.js API Routes + Supabase
+- **API:** Next.js API Routes
 - **Base de Données:** PostgreSQL (Neon)
 - **Temps Réel:** Firebase Realtime Database
 - **Authentification:** Firebase Auth

@@ -1,16 +1,63 @@
 {
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "autoIncrement": true
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Debug"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "autoIncrement": true
+      "channel": "preview",
+      "env": {
+        "APP_ENV": "staging"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "channel": "production",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./patrick-travel-agency-firebase-adminsdk-fbsvc-aa437e075c.json",
+        "track": "internal"
+      },
+      "ios": {
+        "appleId": "developer@unidov.com",
+        "ascAppId": "your-app-store-connect-app-id",
+        "appleTeamId": "45BF48HLZ8"
+      }
     }
   }
 }

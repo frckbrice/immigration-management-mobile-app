@@ -16,7 +16,7 @@ Your app is ready to accept payments! Here's what's been set up:
 ### Step 1: Open Your App
 Run your app if it's not already running:
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ### Step 2: Navigate to Payment
@@ -58,43 +58,7 @@ export const STRIPE_PUBLISHABLE_KEY = 'pk_test_51ABC...';
 
 ### 3. Set Up Backend (10 minutes)
 
-**Option A: Supabase (Recommended)**
-
-```bash
-# Install Supabase CLI
-npm install -g supabase
-
-# Login
-supabase login
-
-# Link your project
-supabase link --project-ref YOUR_PROJECT_REF
-
-# Set your secret key
-supabase secrets set STRIPE_SECRET_KEY=sk_test_YOUR_SECRET_KEY
-
-# Deploy the function
-supabase functions deploy create-payment-intent
-```
-
-Then update `app/payment.tsx` line 47:
-```typescript
-const response = await fetch(
-  'https://YOUR_PROJECT.supabase.co/functions/v1/create-payment-intent',
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer YOUR_ANON_KEY',
-    },
-    body: JSON.stringify({ amount, description }),
-  }
-);
-```
-
-**Option B: Your Own Backend**
-
-Create an endpoint that:
+Create a backend endpoint that:
 1. Accepts payment amount and description
 2. Creates a Stripe Payment Intent
 3. Returns the client secret

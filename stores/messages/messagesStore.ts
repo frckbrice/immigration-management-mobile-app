@@ -11,11 +11,12 @@ interface MessagesState {
   error: string | null;
   currentConversationId: string | null;
   currentCaseId: string | null;
+  currentRoomId: string | null;
   unsubscribeMessages: (() => void) | null;
 
   // Actions
   fetchMessages: () => Promise<void>;
-  loadChatMessages: (caseId: string, clientId?: string, agentId?: string) => Promise<{ messages: ChatMessage[]; hasMore: boolean; totalCount: number }>;
+  loadChatMessages: (caseId: string, clientId?: string, agentId?: string) => Promise<{ roomId: string | null; messages: ChatMessage[]; hasMore: boolean; totalCount: number }>;
   loadOlderChatMessages: (caseId: string, beforeTimestamp: number, clientId?: string, agentId?: string) => Promise<void>;
   sendChatMessage: (
     caseId: string,
@@ -43,6 +44,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   error: null,
   currentConversationId: null,
   currentCaseId: null,
+  currentRoomId: null,
   unsubscribeMessages: null,
 
   fetchMessages: async () => {
@@ -61,19 +63,27 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set({ isLoading: true, error: null, currentCaseId: caseId });
     try {
       const result = await chatService.loadInitialMessages(caseId, clientId, agentId);
-      set({ chatMessages: result.messages, isLoading: false });
+      if (!result.roomId) {
+        set({ chatMessages: [], currentRoomId: null, isLoading: false });
+        return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
+      }
+      set({ chatMessages: result.messages, currentRoomId: result.roomId, isLoading: false });
       return result;
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to load chat messages';
       logger.error('Error loading chat messages', error);
       set({ error: errorMessage, isLoading: false });
-      return { messages: [], hasMore: false, totalCount: 0 };
+      return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
     }
   },
 
   loadOlderChatMessages: async (caseId: string, beforeTimestamp: number, clientId?: string, agentId?: string) => {
     try {
-      const result = await chatService.loadOlderMessages(caseId, beforeTimestamp, 20, clientId, agentId);
+      const roomId = get().currentRoomId || caseId;
+      if (!roomId) {
+        return;
+      }
+      const result = await chatService.loadOlderMessages(roomId, beforeTimestamp, 20);
       set((state) => {
         const existingIds = new Set(state.chatMessages.map(m => m.id));
         const uniqueNew = result.messages.filter(m => !existingIds.has(m.id));
@@ -96,8 +106,14 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     agentId?: string
   ) => {
     try {
+      const roomId = get().currentRoomId || caseId;
+      if (!roomId) {
+        logger.warn('sendChatMessage aborted - no active chat room', { caseId });
+        return false;
+      }
+
       const success = await chatService.sendMessage(
-        caseId,
+        roomId,
         senderId,
         senderName,
         senderRole,
@@ -153,7 +169,11 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
   markChatAsRead: async (caseId: string, userId: string) => {
     try {
-      await chatService.markChatRoomAsRead(caseId, userId);
+      const roomId = get().currentRoomId || caseId;
+      if (!roomId) {
+        return;
+      }
+      await chatService.markChatRoomAsRead(roomId, userId);
     } catch (error: any) {
       logger.error('Error marking chat as read', error);
     }
@@ -189,11 +209,12 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     if (currentUnsubscribe) {
       currentUnsubscribe();
     }
-    set({ 
-      currentConversationId: conversationId, 
+    set({
+      currentConversationId: conversationId,
       currentCaseId: caseId || null,
+      currentRoomId: null,
       chatMessages: [],
-      unsubscribeMessages: null 
+      unsubscribeMessages: null
     });
   },
 

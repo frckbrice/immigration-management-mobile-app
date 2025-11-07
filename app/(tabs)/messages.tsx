@@ -41,7 +41,7 @@ export default function MessagesScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('messages.title')}</Text>
-          <Pressable onPress={() => console.log('New message pressed')}>
+          <Pressable onPress={() => router.push('/(tabs)/cases')}>
             <IconSymbol name="square.and.pencil" size={24} color={theme.colors.text} />
           </Pressable>
         </View>

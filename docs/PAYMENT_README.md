@@ -54,10 +54,14 @@ app/
 ├── payment-history.tsx      # Payment history screen
 ```
 
-### Backend (Supabase Edge Functions)
+### Backend API
 ```
-supabase/functions/
-└── create-payment-intent/   # Creates Stripe Payment Intents
+Your backend should provide endpoints for:
+- POST /payments/intents        # Creates Stripe Payment Intents
+- GET /payments/intents/:id     # Retrieves payment intent
+- POST /payments/intents/:id/cancel  # Cancels payment intent
+- GET /payments/history         # Gets payment history
+- POST /payments/refunds        # Creates refunds
 ```
 
 ### Utilities
@@ -77,9 +81,11 @@ utils/
 STRIPE_PUBLISHABLE_KEY = 'pk_test_...' // Your Stripe publishable key
 ```
 
-**Backend** (Supabase Secrets):
+**Backend** (Environment Variables):
 ```bash
 STRIPE_SECRET_KEY = 'sk_test_...' # Your Stripe secret key
+API_BASE_URL = 'https://your-api.com' # Your backend API URL
+API_AUTH_TOKEN = 'your-auth-token' # Your API authentication token
 ```
 
 ### App Configuration
@@ -114,27 +120,53 @@ Update `utils/stripeConfig.ts`:
 export const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_KEY';
 ```
 
-### 4. Deploy Backend
-```bash
-# Install Supabase CLI
-npm install -g supabase
+### 4. Set Up Backend
 
-# Login and link project
-supabase login
-supabase link --project-ref YOUR_PROJECT_REF
+Create backend endpoints that handle Stripe Payment Intent creation. Your backend should:
 
-# Set secret key
-supabase secrets set STRIPE_SECRET_KEY=sk_test_YOUR_KEY
+1. Accept payment requests from the mobile app
+2. Use your Stripe secret key to create Payment Intents
+3. Return the client secret to the app
 
-# Deploy function
-supabase functions deploy create-payment-intent
+Example Node.js/Express endpoint:
+```javascript
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+app.post('/payments/intents', async (req, res) => {
+  const { amount, description, currency = 'usd', metadata } = req.body;
+  
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency,
+      description,
+      metadata: metadata || {},
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        id: paymentIntent.id,
+        clientSecret: paymentIntent.client_secret,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
 ```
 
 ### 5. Update Service Configuration
-Update `utils/paymentService.ts`:
+Update `utils/paymentService.ts` or configure via `app.config.ts`:
 ```typescript
-const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+// In app.config.ts extra section:
+apiUrl: 'https://your-api.com',
+apiAuthToken: 'your-auth-token',
 ```
 
 ## 🧪 Testing
@@ -267,8 +299,8 @@ const paymentIntent = await createPaymentIntent({
 - Check card details are valid
 
 **"Backend Not Responding"**
-- Verify Supabase function is deployed
-- Check function logs in Supabase
+- Verify backend API is deployed and accessible
+- Check backend API logs
 - Ensure secret key is set
 - Test endpoint directly
 
@@ -283,7 +315,6 @@ const paymentIntent = await createPaymentIntent({
 ### Documentation
 - [Stripe Documentation](https://stripe.com/docs)
 - [Stripe React Native SDK](https://github.com/stripe/stripe-react-native)
-- [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
 - [Expo Documentation](https://docs.expo.dev)
 
 ### Support

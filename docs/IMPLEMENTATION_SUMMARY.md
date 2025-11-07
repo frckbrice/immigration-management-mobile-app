@@ -28,7 +28,7 @@ Your React Native app now has a **complete Stripe payment processing system** in
 #### 3. **Configuration & Utilities**
 - ✅ `utils/stripeConfig.ts` - Centralized Stripe configuration
 - ✅ `utils/paymentHelpers.ts` - 20+ helper functions for payment operations
-- ✅ Backend template (`supabase/functions/create-payment-intent/index.ts`)
+- ✅ Backend API integration (`utils/paymentService.ts`)
 
 #### 4. **Integration Points**
 - ✅ Home screen: "Make Payment" quick access button
@@ -92,8 +92,7 @@ Follow the detailed instructions in `STRIPE_SETUP_GUIDE.md`:
    - Replace publishable key in `utils/stripeConfig.ts`
 
 3. **Deploy Backend**
-   - Option A: Deploy Supabase Edge Function
-   - Option B: Set up your own backend endpoint
+   - Set up your backend API endpoint for payment processing
 
 4. **Test Thoroughly**
    - Use test cards in test mode
@@ -115,10 +114,6 @@ utils/
 ├── stripeConfig.ts                       # Stripe configuration
 ├── paymentHelpers.ts                     # Payment utility functions
 
-supabase/
-└── functions/
-    └── create-payment-intent/
-        └── index.ts                      # Backend payment handler
 
 Documentation/
 ├── STRIPE_SETUP_GUIDE.md                 # Setup instructions
@@ -195,7 +190,7 @@ The `utils/paymentHelpers.ts` file includes 20+ utility functions:
 ### Immediate (To Make It Work):
 1. Get your Stripe test keys
 2. Update `utils/stripeConfig.ts` with your publishable key
-3. Deploy the backend function (Supabase or your own)
+3. Deploy your backend API endpoint
 4. Update payment screen to call your backend
 5. Test with test cards
 
@@ -214,7 +209,6 @@ The `utils/paymentHelpers.ts` file includes 20+ utility functions:
 - **Stripe Docs**: https://stripe.com/docs
 - **Stripe React Native**: https://github.com/stripe/stripe-react-native
 - **Stripe Testing**: https://stripe.com/docs/testing
-- **Supabase Functions**: https://supabase.com/docs/guides/functions
 
 ## 🐛 Troubleshooting
 
@@ -321,5 +315,5 @@ Payment Processing:
 Stripe payment processing is integrated using @stripe/stripe-react-native for native platforms.
 payment.native.tsx handles payments on native platforms.
 payment.web.tsx provides a web-compatible payment screen.
-A Supabase Edge Function (supabase/functions/create-payment-intent/index.ts) is used for server-side payment intent creation.
+Backend API endpoints are used for server-side payment intent creation (handled by your backend API).
 PaymentHistoryScreen (app/payment-history.tsx) displays the payment history.

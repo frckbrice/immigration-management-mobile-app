@@ -75,7 +75,7 @@ export default function ProfileScreen() {
             )}
             <Pressable
               style={styles.editProfileButton}
-              onPress={() => console.log('Edit profile pressed')}
+              onPress={() => router.push('/profile/edit')}
             >
               <Text style={styles.editProfileButtonText}>{t('profile.editProfile')}</Text>
             </Pressable>
@@ -84,12 +84,12 @@ export default function ProfileScreen() {
           {/* Account Settings Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-              ACCOUNT SETTINGS
+              {t('profile.sections.accountSettings')}
             </Text>
             <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
-                onPress={() => console.log('Personal Information pressed')}
+                onPress={() => router.push('/profile/personal-info')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#E3F2FD' }]}>
                   <IconSymbol name="person.fill" size={20} color="#2196F3" />
@@ -104,13 +104,13 @@ export default function ProfileScreen() {
 
               <Pressable
                 style={styles.menuItem}
-                onPress={() => console.log('Change Password pressed')}
+                onPress={() => router.push('/profile/change-password')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#FFF3E0' }]}>
                   <IconSymbol name="lock.fill" size={20} color="#FF9800" />
                 </View>
                 <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
-                  Change Password
+                  {t('profile.changePassword')}
                 </Text>
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
@@ -125,7 +125,7 @@ export default function ProfileScreen() {
                   <IconSymbol name="creditcard.fill" size={20} color="#4CAF50" />
                 </View>
                 <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
-                  Payment History
+                  {t('profile.paymentHistory')}
                 </Text>
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
@@ -135,7 +135,7 @@ export default function ProfileScreen() {
           {/* Preferences Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-              PREFERENCES
+              {t('profile.sections.preferences')}
             </Text>
             <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <View style={[styles.menuItem, styles.menuItemFirst, styles.menuItemLast]}>
@@ -158,12 +158,12 @@ export default function ProfileScreen() {
           {/* Support & Legal Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-              SUPPORT & LEGAL
+              {t('profile.sections.supportLegal')}
             </Text>
             <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
-                onPress={() => console.log('FAQ pressed')}
+                onPress={() => router.push('/support/faq')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#F3E5F5' }]}>
                   <IconSymbol name="questionmark.circle.fill" size={20} color="#9C27B0" />
@@ -178,7 +178,7 @@ export default function ProfileScreen() {
 
               <Pressable
                 style={styles.menuItem}
-                onPress={() => console.log('Contact Support pressed')}
+                onPress={() => router.push('/support/contact')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#E0F7FA' }]}>
                   <IconSymbol name="headphones" size={20} color="#00BCD4" />
@@ -193,7 +193,7 @@ export default function ProfileScreen() {
 
               <Pressable
                 style={styles.menuItem}
-                onPress={() => console.log('Privacy Policy pressed')}
+                onPress={() => router.push('/legal/privacy')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#ECEFF1' }]}>
                   <IconSymbol name="hand.raised.fill" size={20} color="#607D8B" />
@@ -208,7 +208,7 @@ export default function ProfileScreen() {
 
               <Pressable
                 style={[styles.menuItem, styles.menuItemLast]}
-                onPress={() => console.log('Terms & Conditions pressed')}
+                onPress={() => router.push('/legal/terms')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#EFEBE9' }]}>
                   <IconSymbol name="doc.text.fill" size={20} color="#795548" />
@@ -224,18 +224,18 @@ export default function ProfileScreen() {
           {/* Data & Account Actions Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-              DATA & ACCOUNT ACTIONS
+              {t('profile.sections.dataAndAccount')}
             </Text>
             <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
-                onPress={() => console.log('Export My Data pressed')}
+                onPress={() => router.push('/account/export-data')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#E8EAF6' }]}>
                   <IconSymbol name="square.and.arrow.up.fill" size={20} color="#3F51B5" />
                 </View>
                 <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
-                  Export My Data
+                  {t('profile.exportMyData')}
                 </Text>
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
@@ -244,13 +244,13 @@ export default function ProfileScreen() {
 
               <Pressable
                 style={[styles.menuItem, styles.menuItemLast]}
-                onPress={() => console.log('Delete Account pressed')}
+                onPress={() => router.push('/account/delete-account')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#FFEBEE' }]}>
                   <IconSymbol name="trash.fill" size={20} color="#F44336" />
                 </View>
                 <Text style={[styles.menuTitle, { color: '#F44336' }]}>
-                  Delete Account
+                  {t('profile.deleteAccount')}
                 </Text>
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>

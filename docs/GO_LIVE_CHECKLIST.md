@@ -125,7 +125,8 @@ export const STRIPE_PUBLISHABLE_KEY = 'pk_live_YOUR_LIVE_KEY';
 
 ```bash
 # Backend
-supabase secrets set STRIPE_SECRET_KEY=sk_live_YOUR_LIVE_KEY
+# Set your Stripe secret key in your backend environment variables
+STRIPE_SECRET_KEY=sk_live_YOUR_LIVE_KEY
 ```
 
 ### Step 2: Update Configuration

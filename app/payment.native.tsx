@@ -1,102 +1,148 @@
 
 import React, { useState, useEffect } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Alert, ActivityIndicator } from "react-native";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StripeProvider, CardField, useStripe } from '@stripe/stripe-react-native';
 import { STRIPE_PUBLISHABLE_KEY, getStripeUrlScheme } from '@/utils/stripeConfig';
+import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
+import { paymentsService } from '@/lib/services/paymentsService';
+import { useAuthStore } from '@/stores/auth/authStore';
+import { logger } from '@/lib/utils/logger';
 
 export default function PaymentScreen() {
+  const { showAlert } = useBottomSheetAlert();
   const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
   const { confirmPayment } = useStripe();
+  const user = useAuthStore((state) => state.user);
 
   const [cardComplete, setCardComplete] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   // Get payment details from params or use defaults
-  const amount = params.amount ? parseFloat(params.amount as string) : 100.00;
+  const amount = params.amount ? parseFloat(params.amount as string) : 100.0;
   const description = params.description as string || 'Case Processing Fee';
-  const caseNumber = params.caseNumber as string || 'V-23-145';
+  const referenceNumber = (params.referenceNumber as string) || (params.caseNumber as string) || 'PT-REF-000';
 
   const handlePayment = async () => {
     if (!cardComplete) {
-      Alert.alert('Incomplete Card', 'Please enter complete card details');
+      logger.warn('Payment attempted with incomplete card details', {
+        referenceNumber,
+        amount,
+      });
+      showAlert({ title: 'Incomplete Card', message: 'Please enter complete card details' });
       return;
     }
 
     setLoading(true);
-    console.log('Starting payment process...');
 
     try {
-      // In a real app, you would call your backend to create a PaymentIntent
-      // For now, we'll simulate the payment process
+      logger.info('Creating payment intent', {
+        amount,
+        description,
+        referenceNumber,
+      });
+      // Step 1: Create Payment Intent on backend (amount in major units)
+      const paymentIntent = await paymentsService.createPaymentIntent({
+        amount,
+        currency: 'usd',
+        description,
+        metadata: {
+          caseNumber: referenceNumber,
+          userId: user?.uid,
+        },
+      });
 
-      // Step 1: Create Payment Intent on your backend
-      const paymentIntentResponse = await createPaymentIntent(amount, description);
-
-      if (!paymentIntentResponse.clientSecret) {
-        throw new Error('Failed to create payment intent');
+      if (!paymentIntent.clientSecret) {
+        logger.error('Payment intent missing client secret', { paymentIntentId: paymentIntent.id });
+        throw new Error('Backend did not return client secret for payment confirmation');
       }
 
-      console.log('Payment intent created:', paymentIntentResponse.id);
-
-      // Step 2: Confirm the payment with Stripe
-      const { error, paymentIntent } = await confirmPayment(paymentIntentResponse.clientSecret, {
+      // Step 2: Confirm the payment with Stripe SDK
+      logger.info('Confirming payment intent with Stripe', { paymentIntentId: paymentIntent.id });
+      const { error, paymentIntent: confirmedIntent } = await confirmPayment(paymentIntent.clientSecret, {
         paymentMethodType: 'Card',
       });
 
       if (error) {
-        console.error('Payment confirmation error:', error);
-        Alert.alert(
-          'Payment Failed',
-          error.message || 'An error occurred during payment processing'
-        );
-      } else if (paymentIntent) {
-        console.log('Payment successful:', paymentIntent.id);
-        setPaymentSuccess(true);
-        Alert.alert(
-          'Payment Successful!',
-          `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        logger.error('Stripe confirmation failed', {
+          paymentIntentId: paymentIntent.id,
+          error: error.message,
+        });
+        showAlert({ 
+          title: 'Payment Failed', 
+          message: error.message || 'An error occurred during payment processing' 
+        });
+        return;
       }
-    } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert(
-        'Payment Error',
-        'An unexpected error occurred. Please try again.'
-      );
+
+      if (confirmedIntent) {
+        logger.info('Stripe confirmed payment intent', {
+          paymentIntentId: confirmedIntent.id,
+          status: confirmedIntent.status,
+        });
+        // Step 3: Verify payment status with backend
+        try {
+          logger.info('Verifying payment status with backend', { paymentIntentId: paymentIntent.id });
+          const verifiedIntent = await paymentsService.verifyPaymentStatus(paymentIntent.id);
+          
+          if (verifiedIntent.status === 'succeeded') {
+            logger.info('Payment verified as succeeded', { paymentIntentId: paymentIntent.id });
+            setPaymentSuccess(true);
+            showAlert({
+              title: 'Payment Successful!',
+              message: `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
+              actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
+            });
+          } else {
+            logger.warn('Payment verification returned non-success status', {
+              paymentIntentId: paymentIntent.id,
+              status: verifiedIntent.status,
+            });
+            showAlert({
+              title: 'Payment Processing',
+              message: 'Your payment is being processed. Please check your payment history for updates.',
+              actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
+            });
+          }
+        } catch (verifyError: any) {
+          // If verification fails but Stripe confirmed, still show success
+          // Backend webhook will update status
+          logger.error('Payment verification failed after Stripe confirmation', {
+            paymentIntentId: paymentIntent.id,
+            error: verifyError?.message,
+          });
+          setPaymentSuccess(true);
+          showAlert({
+            title: 'Payment Submitted',
+            message: `Your payment of $${amount.toFixed(2)} has been submitted. You will receive a confirmation shortly.`,
+            actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
+          });
+        }
+      }
+    } catch (error: any) {
+      logger.error('Unhandled payment error', {
+        referenceNumber,
+        amount,
+        error: error?.message,
+      });
+      showAlert({ 
+        title: 'Payment Error', 
+        message: error.message || 'An unexpected error occurred. Please try again.' 
+      });
     } finally {
+      logger.info('Payment flow finished', {
+        referenceNumber,
+        amount,
+        success: paymentSuccess,
+      });
       setLoading(false);
     }
-  };
-
-  // Simulate backend call to create payment intent
-  // In production, this should call your Supabase Edge Function or backend API
-  const createPaymentIntent = async (amount: number, description: string) => {
-    console.log('Creating payment intent for amount:', amount);
-
-    // This is a mock response - in production, call your backend
-    // Example: const response = await fetch('YOUR_SUPABASE_EDGE_FUNCTION_URL/create-payment-intent', {...})
-
-    // For testing purposes, we'll return a mock client secret
-    // NOTE: This won't actually process a payment - you need a real backend
-    return {
-      id: 'pi_test_' + Math.random().toString(36).substring(7),
-      clientSecret: 'pi_test_secret_' + Math.random().toString(36).substring(7),
-      amount: amount * 100, // Stripe uses cents
-      currency: 'usd',
-    };
   };
 
   return (
@@ -137,10 +183,10 @@ export default function PaymentScreen() {
 
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-                Case Number:
+                Case Reference:
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {caseNumber}
+                {referenceNumber}
               </Text>
             </View>
 
@@ -187,14 +233,14 @@ export default function PaymentScreen() {
               }
             ]}>
               <CardField
-                postalCodeEnabled={true}
+                postalCodeEnabled={false}
                 placeholders={{
                   number: '4242 4242 4242 4242',
                 }}
                 cardStyle={{
                   backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5',
-                  textColor: theme.dark ? '#fff' : '#000',
-                  placeholderColor: theme.dark ? '#666' : '#999',
+                  textColor: theme.dark ? '#FFFFFF' : '#000000',
+                  placeholderColor: theme.dark ? '#666666' : '#999999',
                 }}
                 style={styles.cardField}
                 onCardChange={(cardDetails) => {
@@ -223,6 +269,9 @@ export default function PaymentScreen() {
               • Refunds take 5-10 business days{'\n'}
               • Contact support for payment issues
             </Text>
+            <Pressable onPress={() => router.push('/support/contact')} style={styles.supportLinkContainer}>
+              <Text style={styles.supportLinkText}>Contact support for payment issues</Text>
+            </Pressable>
           </View>
 
           {/* Pay Button */}
@@ -248,13 +297,11 @@ export default function PaymentScreen() {
 
           {/* Cancel Button */}
           <Pressable
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { borderColor: '#2196F3', backgroundColor: theme.dark ? '#1C1C1E' : '#ffffff' }]}
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>
-              Cancel
-            </Text>
+            <Text style={[styles.cancelButtonText, { color: '#2196F3' }]}>Cancel</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -388,6 +435,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+  supportLinkContainer: {
+    marginTop: 8,
+  },
+  supportLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E88E5',
+  },
   payButton: {
     backgroundColor: '#2196F3',
     borderRadius: 16,
@@ -413,8 +468,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   cancelButton: {
-    padding: 16,
+    paddingVertical: 14,
     alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
   },
   cancelButtonText: {
     fontSize: 16,

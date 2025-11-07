@@ -1,27 +1,85 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useCasesStore } from "@/stores/cases/casesStore";
-import type { Case } from "@/lib/types";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 
-type CaseStatus = 'all' | 'active' | 'action-required' | 'complete';
+type CaseFilter = 'all' | 'active' | 'action-required' | 'complete';
+
+const formatServiceTypeLabel = (serviceType?: string) =>
+  serviceType
+    ? serviceType
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
+    : '';
+
+const formatDateLabel = (date?: string) => {
+  if (!date) return '—';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return '—';
+  }
+  return parsed.toLocaleDateString();
+};
+
+const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
+
+const ACTIVE_STATUS_SET = new Set(['submitted', 'under_review', 'documents_required', 'processing']);
+const ACTION_REQUIRED_STATUS_SET = new Set(['documents_required']);
+const COMPLETED_STATUS_SET = new Set(['approved', 'rejected', 'closed']);
+
+const withOpacity = (hex: string, opacity: number) => {
+  const sanitized = hex.replace('#', '');
+  if (sanitized.length !== 6) {
+    return hex;
+  }
+  const r = parseInt(sanitized.slice(0, 2), 16);
+  const g = parseInt(sanitized.slice(2, 4), 16);
+  const b = parseInt(sanitized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
 
 export default function CasesScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
-  const [selectedFilter, setSelectedFilter] = useState<CaseStatus>('all');
+  const { showAlert } = useBottomSheetAlert();
+  const [selectedFilter, setSelectedFilter] = useState<CaseFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { cases, isLoading, error, fetchCases, clearError } = useCasesStore();
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    fetchCases();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const buildFilters = useCallback(() => {
+    const filters: { status?: string; search?: string } = {};
+    if (selectedFilter === 'active') {
+      filters.status = 'active';
+    } else if (selectedFilter === 'action-required') {
+      filters.status = 'DOCUMENTS_REQUIRED';
+    } else if (selectedFilter === 'complete') {
+      filters.status = 'APPROVED';
+    }
+    if (debouncedSearch) {
+      filters.search = debouncedSearch;
+    }
+    return filters;
+  }, [selectedFilter, debouncedSearch]);
+
+  useEffect(() => {
+    fetchCases(buildFilters());
+  }, [fetchCases, buildFilters]);
 
   useEffect(() => {
     if (error) {
@@ -33,60 +91,52 @@ export default function CasesScreen() {
     }
   }, [error, clearError]);
 
-  const getFilteredCases = () => {
-    let filtered = cases;
-
-    // Apply status filter
-    if (selectedFilter !== 'all') {
-      filtered = filtered.filter((c) => {
-        if (selectedFilter === 'active') {
-          return c.status === 'pending' || c.status === 'in-review';
-        }
-        if (selectedFilter === 'action-required') {
-          return c.status === 'action-required';
-        }
-        return c.status === selectedFilter;
-      });
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.title.toLowerCase().includes(query) ||
-          c.caseNumber.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'action-required':
+  // Memoize status color function to avoid recreating on every render
+  const getStatusColor = useCallback((status: string) => {
+    const normalized = normalizeStatus(status);
+    switch (normalized) {
+      case 'documents_required':
         return '#FFA726';
       case 'approved':
         return '#66BB6A';
-      case 'pending':
+      case 'rejected':
+      case 'closed':
+        return '#757575';
+      case 'submitted':
+      case 'under_review':
+      case 'processing':
         return '#42A5F5';
       default:
-        return '#999';
+        return '#999999';
     }
-  };
+  }, []);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'action-required':
-        return t('cases.filterActionRequired');
+  // Memoize status label function
+  const getStatusLabel = useCallback((status: string) => {
+    const normalized = normalizeStatus(status);
+    switch (normalized) {
+      case 'documents_required':
+        return t('cases.documentsRequired');
       case 'approved':
         return t('cases.approved');
-      case 'pending':
+      case 'submitted':
         return t('cases.submitted');
+      case 'under_review':
+        return t('cases.underReview');
+      case 'processing':
+        return t('cases.processing');
+      case 'rejected':
+        return t('cases.rejected');
+      case 'closed':
+        return t('cases.closed', { defaultValue: 'Closed' });
       default:
-        return status;
+        return t('cases.statusUnknown', { defaultValue: 'Unknown status' });
     }
-  };
+  }, [t]);
+
+  const handleRefresh = useCallback(() => {
+    return fetchCases(buildFilters());
+  }, [fetchCases, buildFilters]);
 
   return (
     <>
@@ -101,7 +151,7 @@ export default function CasesScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('cases.title')}</Text>
-          <Pressable onPress={() => console.log('Notifications pressed')}>
+          <Pressable onPress={() => router.push('/(tabs)/notifications')}>
             <IconSymbol name="bell.fill" size={24} color={theme.colors.text} />
           </Pressable>
         </View>
@@ -114,7 +164,7 @@ export default function CasesScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={fetchCases} />
+            <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
           }
         >
           {/* Search Bar */}
@@ -195,7 +245,7 @@ export default function CasesScreen() {
             </Pressable>
             <Pressable 
               style={[styles.actionButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#E3F2FD' }]}
-              onPress={() => console.log('Templates pressed')}
+              onPress={() => router.push('/templates')}
             >
               <IconSymbol name="arrow.down.doc.fill" size={24} color="#2196F3" />
               <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>{t('documents.downloadTemplates')}</Text>
@@ -217,7 +267,7 @@ export default function CasesScreen() {
           )}
 
           {/* Cases List */}
-          {getFilteredCases().length === 0 && !isLoading && (
+          {cases.length === 0 && !isLoading && (
             <View style={styles.emptyContainer}>
               <IconSymbol name="folder.fill" size={64} color={theme.dark ? '#98989D' : '#666'} />
               <Text style={[styles.emptyText, { color: theme.dark ? '#98989D' : '#666' }]}>
@@ -226,29 +276,50 @@ export default function CasesScreen() {
             </View>
           )}
 
-          {getFilteredCases().map((caseItem) => (
+          {cases.map((caseItem) => (
             <Pressable
               key={caseItem.id}
               style={[styles.caseCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-              onPress={() => router.push({
-                pathname: '/chat',
-                params: { id: caseItem.id, caseId: caseItem.id }
-              })}
+              onPress={() => {
+                const statusKey = normalizeStatus(caseItem.status);
+                if (statusKey !== 'under_review') {
+                  showAlert({
+                    title: t('cases.chatUnavailableTitle', { defaultValue: 'Chat Not Available' }),
+                    message: t('cases.chatUnavailableMessage', { defaultValue: 'Chat will be available once your advisor reviews this case.' }),
+                    actions: [{ text: t('common.close'), variant: 'primary' }],
+                  });
+                  return;
+                }
+
+                if (!caseItem.assignedAgent) {
+                  showAlert({
+                    title: t('cases.chatAwaitingAgentTitle', { defaultValue: 'Advisor Pending' }),
+                    message: t('cases.chatAwaitingAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
+                    actions: [{ text: t('common.close'), variant: 'primary' }],
+                  });
+                  return;
+                }
+
+                router.push({
+                  pathname: '/chat',
+                  params: { id: caseItem.id, caseId: caseItem.id }
+                });
+              }}
               onLongPress={() => router.push({ pathname: '/case/[id]', params: { id: caseItem.id } })}
             >
               <View style={styles.caseHeader}>
                 <View style={styles.caseHeaderLeft}>
                   <Text style={[styles.caseTitle, { color: theme.colors.text }]}>
-                    {caseItem.title}
+                    {caseItem.displayName || formatServiceTypeLabel(caseItem.serviceType) || t('cases.title')}
                   </Text>
                   <Text style={[styles.caseNumber, { color: theme.dark ? '#98989D' : '#666' }]}>
-                    {caseItem.caseNumber}
+                    {caseItem.referenceNumber}
                   </Text>
                 </View>
                 <View
                   style={[
                     styles.statusBadge,
-                    { backgroundColor: getStatusColor(caseItem.status) + '20' },
+                    { backgroundColor: withOpacity(getStatusColor(caseItem.status), 0.15) },
                   ]}
                 >
                   <View
@@ -271,7 +342,7 @@ export default function CasesScreen() {
               <View style={styles.progressContainer}>
                 <View style={styles.progressHeader}>
                   <Text style={[styles.progressLabel, { color: theme.dark ? '#98989D' : '#666' }]}>
-                    Case Progress
+                    {t('cases.progress')}
                   </Text>
                   <Text style={[styles.progressPercentage, { color: theme.colors.text }]}>
                     {caseItem.progress}%
@@ -289,7 +360,7 @@ export default function CasesScreen() {
                   />
                 </View>
                 <Text style={[styles.lastUpdated, { color: theme.dark ? '#98989D' : '#666' }]}>
-                  Last updated: {caseItem.lastUpdated}
+                  {t('cases.lastUpdated')}: {formatDateLabel(caseItem.lastUpdated)}
                 </Text>
               </View>
             </Pressable>

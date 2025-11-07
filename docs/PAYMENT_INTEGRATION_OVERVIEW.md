@@ -27,12 +27,12 @@ Centralized configuration for:
 - URL scheme handling for redirects
 - Merchant identifier for Apple Pay
 
-### 4. Backend Template (`supabase/functions/create-payment-intent/index.ts`)
-A ready-to-deploy Supabase Edge Function that:
-- Creates Stripe Payment Intents securely
-- Validates payment amounts
-- Handles errors properly
-- Returns client secrets for payment confirmation
+### 4. Backend API Integration (`utils/paymentService.ts` and `lib/services/paymentsService.ts`)
+Service layers that:
+- Communicate with your backend API to create Stripe Payment Intents securely
+- Validate payment amounts
+- Handle errors properly
+- Return client secrets for payment confirmation
 
 ### 5. Integration Points
 Payment functionality has been added to:
@@ -99,13 +99,7 @@ The integration is currently in **TEST MODE**, which means:
 ### Step 2: Set Up Backend
 Choose one option:
 
-**Option A: Supabase (Recommended)**
-1. Enable Supabase in your project
-2. Deploy the Edge Function from `supabase/functions/`
-3. Set your Stripe secret key as an environment variable
-4. Update the payment screen to call your function
-
-**Option B: Your Own Backend**
+**Set Up Your Backend**
 1. Create an endpoint that creates Payment Intents
 2. Secure it with authentication
 3. Update the payment screen to call your endpoint
@@ -147,10 +141,6 @@ app/
 utils/
 └── stripeConfig.ts               # Stripe configuration
 
-supabase/
-└── functions/
-    └── create-payment-intent/
-        └── index.ts              # Backend payment handler
 ```
 
 ## Configuration Files
@@ -220,7 +210,6 @@ Extend the payment screen to support:
 - **Stripe Documentation**: https://stripe.com/docs
 - **Stripe React Native**: https://github.com/stripe/stripe-react-native
 - **Stripe Testing**: https://stripe.com/docs/testing
-- **Supabase Functions**: https://supabase.com/docs/guides/functions
 
 ## Troubleshooting
 
@@ -231,7 +220,7 @@ This is expected in test mode. Follow the setup guide to connect to real Stripe 
 Check that you've updated the publishable key in `utils/stripeConfig.ts`.
 
 ### Backend Not Working
-Ensure you've deployed the Supabase function or set up your own backend endpoint.
+Ensure you've set up your backend API endpoint for payment processing.
 
 ### Card Input Not Working
 Make sure you've installed dependencies: `npx expo install @stripe/stripe-react-native`

@@ -1,51 +1,40 @@
-
-import React from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform } from "react-native";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-
-interface PaymentRecord {
-  id: string;
-  amount: number;
-  description: string;
-  caseNumber: string;
-  date: string;
-  status: 'completed' | 'pending' | 'failed';
-}
+import { useAuthStore } from "@/stores/auth/authStore";
+import { paymentsService } from "@/lib/services/paymentsService";
+import type { PaymentRecord } from "@/lib/types";
 
 export default function PaymentHistoryScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const [isLoading, setIsLoading] = useState(true);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const backendConfigured = true; // backend-driven payments
 
-  // Mock payment history data
-  const payments: PaymentRecord[] = [
-    {
-      id: 'pi_1234567890',
-      amount: 150.00,
-      description: 'Case Processing Fee',
-      caseNumber: 'V-23-145',
-      date: 'Oct 15, 2024',
-      status: 'completed',
-    },
-    {
-      id: 'pi_0987654321',
-      amount: 75.00,
-      description: 'Document Translation Fee',
-      caseNumber: 'V-23-145',
-      date: 'Oct 10, 2024',
-      status: 'completed',
-    },
-    {
-      id: 'pi_1122334455',
-      amount: 200.00,
-      description: 'Application Fee',
-      caseNumber: 'V-23-188',
-      date: 'Oct 5, 2024',
-      status: 'completed',
-    },
-  ];
+  const fetchPayments = useCallback(async () => {
+    if (!backendConfigured || !user?.uid) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const result = await paymentsService.getPaymentHistory(user.uid);
+      setPayments(Array.isArray(result) ? result : []);
+    } catch (e) {
+      setPayments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backendConfigured, user?.uid]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -82,13 +71,13 @@ export default function PaymentHistoryScreen() {
           }}
         />
       )}
-      <SafeAreaView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]} 
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
         edges={['top']}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable 
+          <Pressable
             style={styles.backButton}
             onPress={() => router.back()}
           >
@@ -107,21 +96,15 @@ export default function PaymentHistoryScreen() {
           <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-                  Total Paid
-                </Text>
+                <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>Total Paid</Text>
                 <Text style={[styles.summaryValue, { color: '#2196F3' }]}>
-                  ${payments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                  ${payments.reduce((sum, p) => sum + (p.amount || 0), 0).toFixed(2)}
                 </Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-                  Transactions
-                </Text>
-                <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
-                  {payments.length}
-                </Text>
+                <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>Transactions</Text>
+                <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>{payments.length}</Text>
               </View>
             </View>
           </View>
@@ -131,7 +114,11 @@ export default function PaymentHistoryScreen() {
             Recent Payments
           </Text>
 
-          {payments.map((payment) => (
+          {isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator />
+            </View>
+          ) : payments.map((payment) => (
             <Pressable
               key={payment.id}
               style={[styles.paymentCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
@@ -146,7 +133,7 @@ export default function PaymentHistoryScreen() {
                     {payment.description}
                   </Text>
                   <Text style={[styles.paymentCase, { color: theme.dark ? '#999' : '#666' }]}>
-                    Case: {payment.caseNumber}
+                    Case: {payment.caseNumber || payment.metadata?.caseNumber || 'N/A'}
                   </Text>
                 </View>
                 <View style={styles.paymentAmount}>
@@ -177,7 +164,7 @@ export default function PaymentHistoryScreen() {
           ))}
 
           {/* Empty State (if no payments) */}
-          {payments.length === 0 && (
+          {!isLoading && payments.length === 0 && (
             <View style={styles.emptyState}>
               <IconSymbol name="creditcard" size={64} color={theme.dark ? '#333' : '#E0E0E0'} />
               <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>

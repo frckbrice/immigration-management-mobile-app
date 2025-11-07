@@ -1,9 +1,10 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
 import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCasesStore } from "@/stores/cases/casesStore";
@@ -11,28 +12,283 @@ import { useNotificationsStore } from "@/stores/notifications/notificationsStore
 import { useMessagesStore } from "@/stores/messages/messagesStore";
 import { useDocumentsStore } from "@/stores/documents/documentsStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useScrollContext } from "@/contexts/ScrollContext";
+import { dashboardService } from "@/lib/services/dashboardService";
+import { logger } from "@/lib/utils/logger";
+import type { DashboardStats } from "@/lib/types";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+
+const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
+const formatServiceTypeLabel = (serviceType?: string) =>
+  serviceType
+    ? serviceType
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
+    : '';
 
 export default function HomeScreen() {
+  console.log('[HomeScreen] Component rendering');
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const lastScrollY = useRef(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { setScrollDirection, setAtBottom } = useScrollContext();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const statsCacheRef = useRef<{ data: DashboardStats | null; fetchedAt: number }>({ data: null, fetchedAt: 0 });
+  const statsUpdateRef = useRef(false);
+  const { user, isAuthenticated } = useAuthStore();
   const { cases, fetchCases } = useCasesStore();
   const { unreadCount, fetchUnreadCount } = useNotificationsStore();
   const { messages, fetchMessages } = useMessagesStore();
   const { documents, fetchDocuments } = useDocumentsStore();
+  const { showAlert } = useBottomSheetAlert();
+  const tabBarHeight = useBottomTabBarHeight();
+
+  const scrollContentPaddingBottom = useMemo(() => tabBarHeight + 40, [tabBarHeight]);
+
+  const formatCaseDate = (dateString?: string | null) => {
+    if (!dateString) {
+      return t('common.unknownDate', { defaultValue: 'Unknown date' });
+    }
+    const parsedDate = new Date(dateString);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return t('common.unknownDate', { defaultValue: 'Unknown date' });
+    }
+    return parsedDate.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const getCaseStatusLabel = (status?: string | null) => {
+    const normalized = normalizeStatus(status);
+    switch (normalized) {
+      case 'submitted':
+        return t('cases.submitted');
+      case 'under_review':
+      case 'under-review':
+        return t('cases.underReview');
+      case 'documents_required':
+      case 'action-required':
+        return t('cases.filterActionRequired');
+      case 'processing':
+        return t('cases.processing');
+      case 'approved':
+        return t('cases.approved');
+      case 'rejected':
+        return t('cases.rejected');
+      case 'closed':
+        return t('cases.closed', { defaultValue: 'Closed' });
+      default:
+        return status || t('cases.statusUnknown', { defaultValue: 'Unknown status' });
+    }
+  };
+
+  const refreshStats = useCallback(
+    (force = false) => {
+      if (!isAuthenticated) {
+        setStats(null);
+        return Promise.resolve();
+      }
+
+      const now = Date.now();
+      if (!force && statsCacheRef.current.data && now - statsCacheRef.current.fetchedAt < 60_000) {
+        setStats(statsCacheRef.current.data);
+        return Promise.resolve();
+      }
+
+      return dashboardService
+        .getStats()
+        .then((data) => {
+          statsCacheRef.current = { data, fetchedAt: now };
+          setStats(data);
+        })
+        .catch((error) => {
+          logger.error('Failed to fetch dashboard stats', error);
+        });
+    },
+    [isAuthenticated]
+  );
 
   useEffect(() => {
-    fetchCases();
-    fetchUnreadCount();
-    fetchMessages();
-    fetchDocuments();
-  }, []);
+    refreshStats();
+  }, [refreshStats]);
 
-  const userName = user?.displayName || user?.email?.split('@')[0] || "User";
-  const activeCases = cases.filter(c => c.status === 'pending' || c.status === 'in-review' || c.status === 'action-required');
-  const pendingDocs = documents.length; // You can add a status filter if needed
-  const newMessages = messages.filter(m => m.unread).length;
+  // Helper function to navigate to payment with type safety
+  // Platform-specific routes (payment.native.tsx, payment.web.tsx) are resolved at runtime
+  const navigateToPayment = (params: { amount: string; description: string; referenceNumber: string }) => {
+    const queryString = Object.entries(params)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    const route = `/payment?${queryString}`;
+    logger.info('Navigating to payment screen', {
+      route,
+      referenceNumber: params.referenceNumber,
+      amount: params.amount,
+    });
+    // Type assertion: platform-specific routes aren't in typed routes but work at runtime
+    router.push(route as typeof route & Parameters<typeof router.push>[0]);
+  };
+
+  useEffect(() => {
+    console.log('[HomeScreen] Mounted, isAuthenticated:', isAuthenticated);
+    console.log('[HomeScreen] User:', user?.email || 'No user');
+
+    // Only fetch data if user is authenticated
+    if (isAuthenticated && user) {
+      Promise.all([
+        fetchCases(),
+        fetchUnreadCount(),
+        fetchMessages(),
+        fetchDocuments(),
+      ]).finally(() => {
+        refreshStats(true);
+      });
+    }
+
+    // Initialize: assume we're at bottom when page loads
+    setAtBottom(true);
+    setScrollDirection(false); // Not scrolling down initially
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [isAuthenticated, user, setAtBottom, setScrollDirection, fetchCases, fetchUnreadCount, fetchMessages, fetchDocuments, refreshStats]);
+
+  const sortedCases = useMemo(() => {
+    if (!cases || cases.length === 0) {
+      return [] as typeof cases;
+    }
+    return [...cases].sort((a, b) => {
+      const dateA = new Date(a.lastUpdated || a.submissionDate || 0);
+      const dateB = new Date(b.lastUpdated || b.submissionDate || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [cases]);
+
+  const activeCases = useMemo(() => {
+    return sortedCases.filter((caseItem) => {
+      const status = normalizeStatus(caseItem.status);
+      return ['submitted', 'under_review', 'documents_required', 'processing'].includes(status);
+    });
+  }, [sortedCases]);
+
+  const latestActiveCase = useMemo(() => {
+    return (
+      sortedCases.find((caseItem) => {
+        const status = normalizeStatus(caseItem.status);
+        return ['submitted', 'under_review', 'documents_required', 'processing'].includes(status);
+      }) ?? null
+    );
+  }, [sortedCases]);
+
+  const latestCase = sortedCases[0] ?? null;
+  const caseForStatusCard = latestActiveCase ?? latestCase;
+
+  const latestApprovedCase = useMemo(() => {
+    return (
+      sortedCases.find((caseItem) => normalizeStatus(caseItem.status) === 'approved') ?? null
+    );
+  }, [sortedCases]);
+
+  const upcomingActionCase = useMemo(() => {
+    return (
+      sortedCases.find((caseItem) => {
+        const status = normalizeStatus(caseItem.status);
+        return ['action-required', 'pending'].includes(status);
+      }) ?? null
+    );
+  }, [sortedCases]);
+
+  const pendingDocsCount = stats?.pendingDocuments ?? documents.length;
+  const activeCasesCount = stats?.activeCases ?? activeCases.length;
+  const newMessagesCount = useMemo(() => messages.filter((m) => m.unread).length, [messages]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      statsUpdateRef.current = false;
+      return;
+    }
+    if (!statsUpdateRef.current) {
+      statsUpdateRef.current = true;
+      return;
+    }
+    refreshStats(true);
+  }, [isAuthenticated, cases.length, documents.length, unreadCount, newMessagesCount, refreshStats]);
+
+  const importantUpdatesTitle = t('home.importantUpdates', { defaultValue: 'Important Updates' });
+  const paymentDescription = t('home.paymentDescription', { defaultValue: 'Case Processing Fee' });
+  const paymentButtonLabel = t('home.makePayment', { defaultValue: 'Make Payment' });
+
+  const approvedUpdateTitle = latestApprovedCase
+    ? t('home.caseApprovedTitle', {
+      defaultValue: '{{service}} ({{reference}}) Approved',
+      service: formatServiceTypeLabel(latestApprovedCase.serviceType),
+      reference: latestApprovedCase.referenceNumber,
+    })
+    : t('home.noRecentApprovalsTitle', { defaultValue: 'No cases approved yet' });
+
+  const approvedUpdateDescription = latestApprovedCase
+    ? t('home.caseApprovedDescription', {
+      defaultValue: 'Case {{reference}} was approved on {{date}}.',
+      reference: latestApprovedCase.referenceNumber,
+      date: formatCaseDate(latestApprovedCase.approvedAt || latestApprovedCase.lastUpdated),
+    })
+    : t('home.noRecentApprovalsDescription', {
+      defaultValue: 'You will be notified when a case is approved.',
+    });
+
+  const pendingUpdateTitle = upcomingActionCase
+    ? t('home.pendingActionTitle', {
+      defaultValue: 'Action Required: {{service}} ({{reference}})',
+      service: formatServiceTypeLabel(upcomingActionCase.serviceType),
+      reference: upcomingActionCase.referenceNumber,
+    })
+    : t('home.noPendingActionsTitle', { defaultValue: 'No pending actions' });
+
+  const pendingUpdateDescription = upcomingActionCase
+    ? t('home.pendingActionDescription', {
+      defaultValue: 'Latest update on {{date}}. Please review the case details.',
+      date: formatCaseDate(upcomingActionCase.lastUpdated || upcomingActionCase.submissionDate),
+    })
+    : t('home.noPendingActionsDescription', {
+      defaultValue: 'Great job! You are all caught up.',
+    });
+
+  const upcomingAppointment = useMemo(() => {
+    const now = Date.now();
+    const futureCases = sortedCases.filter((caseItem) => {
+      if (!caseItem.estimatedCompletion) return false;
+      const time = new Date(caseItem.estimatedCompletion).getTime();
+      return time > now;
+    });
+
+    futureCases.sort((a, b) => {
+      const timeA = new Date(a.estimatedCompletion || 0).getTime();
+      const timeB = new Date(b.estimatedCompletion || 0).getTime();
+      return timeA - timeB;
+    });
+
+    return futureCases[0] ?? null;
+  }, [sortedCases]);
+
+  const nextAppointmentLabel = t('home.nextAppointment', { defaultValue: 'Next Appointment' });
+  const nextAppointmentValue = upcomingAppointment
+    ? t('home.nextAppointmentValueWithCase', {
+      defaultValue: '{{date}} · {{reference}}',
+      date: formatCaseDate(upcomingAppointment.estimatedCompletion),
+      reference: upcomingAppointment.referenceNumber,
+    })
+    : t('home.noUpcomingAppointments', { defaultValue: 'No upcoming appointments' });
+
+  const userName = user?.displayName || user?.email?.split('@')[0] || t('home.defaultUserName', { defaultValue: 'User' });
 
   return (
     <>
@@ -43,17 +299,49 @@ export default function HomeScreen() {
           }}
         />
       )}
-      <SafeAreaView 
-        style={[styles.container, { backgroundColor: theme.dark ? '#000' : '#F5F5F5' }]} 
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.dark ? '#000' : '#F5F5F5' }]}
         edges={['top']}
       >
-        <ScrollView 
+        <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            Platform.OS !== 'ios' && styles.scrollContentWithTabBar
+            { paddingBottom: scrollContentPaddingBottom }
           ]}
           showsVerticalScrollIndicator={false}
+          onScroll={(event) => {
+            const currentScrollY = event.nativeEvent.contentOffset.y;
+            const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+            const contentHeight = event.nativeEvent.contentSize.height;
+
+            // Clear any pending timeout
+            if (scrollTimeoutRef.current) {
+              clearTimeout(scrollTimeoutRef.current);
+            }
+
+            // Debounce state updates to prevent excessive re-renders
+            scrollTimeoutRef.current = setTimeout(() => {
+              // Check if at bottom (with 50px threshold)
+              const isAtBottom = currentScrollY + scrollViewHeight >= contentHeight - 50;
+              setAtBottom(isAtBottom);
+
+              // Determine scroll direction (only update if changed significantly)
+              const scrollDiff = currentScrollY - lastScrollY.current;
+              if (Math.abs(scrollDiff) > 5) { // Only update if scrolled more than 5px
+                if (scrollDiff > 0) {
+                  // Scrolling down
+                  setScrollDirection(true);
+                } else {
+                  // Scrolling up
+                  setScrollDirection(false);
+                }
+                lastScrollY.current = currentScrollY;
+              }
+            }, 50); // Debounce by 50ms
+          }}
+          scrollEventThrottle={16}
         >
           {/* Header with Greeting and Notification */}
           <View style={styles.header}>
@@ -95,25 +383,26 @@ export default function HomeScreen() {
             </View>
             
             {/* Current Case Status */}
-            {cases.length > 0 ? (
-              cases.slice(0, 1).map((caseItem) => (
-                <View key={caseItem.id} style={styles.statusRow}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                    <IconSymbol name="hourglass" size={24} color="#2196F3" />
-                  </View>
-                  <View style={styles.statusTextContainer}>
-                    <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
-                      {caseItem.title} ({caseItem.caseNumber})
-                    </Text>
-                    <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
-                      {caseItem.status === 'in-review' ? t('cases.underReview') : 
-                       caseItem.status === 'action-required' ? t('cases.filterActionRequired') :
-                       caseItem.status === 'approved' ? t('cases.approved') :
-                       caseItem.status === 'pending' ? t('cases.submitted') : caseItem.status}
-                    </Text>
-                  </View>
+            {caseForStatusCard ? (
+              <View key={caseForStatusCard.id} style={styles.statusRow}>
+                <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
+                  <IconSymbol name="hourglass" size={24} color="#2196F3" />
                 </View>
-              ))
+                <View style={styles.statusTextContainer}>
+                  <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
+                    {formatServiceTypeLabel(caseForStatusCard.serviceType)} ({caseForStatusCard.referenceNumber})
+                  </Text>
+                  <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
+                    {getCaseStatusLabel(caseForStatusCard.status)}
+                  </Text>
+                  <Text style={[styles.statusMeta, { color: theme.dark ? '#666' : '#888' }]}>
+                    {t('home.updatedOn', {
+                      defaultValue: 'Updated on {{date}}',
+                      date: formatCaseDate(caseForStatusCard.lastUpdated || caseForStatusCard.submissionDate)
+                    })}
+                  </Text>
+                </View>
+              </View>
             ) : (
               <View style={styles.statusRow}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
@@ -140,10 +429,10 @@ export default function HomeScreen() {
               </View>
               <View style={styles.statusTextContainer}>
                 <Text style={[styles.statusSubtitle, { color: theme.dark ? '#999' : '#666' }]}>
-                  Next Appointment
+                  {nextAppointmentLabel}
                 </Text>
                 <Text style={[styles.statusTitle, { color: theme.dark ? '#fff' : '#000' }]}>
-                  October 20th, 10:00 AM
+                  {nextAppointmentValue}
                 </Text>
               </View>
             </View>
@@ -155,19 +444,19 @@ export default function HomeScreen() {
               <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
                 {t('home.activeCases')}
               </Text>
-              <Text style={[styles.statValue, { color: '#2196F3' }]}>{activeCases.length}</Text>
+              <Text style={[styles.statValue, { color: '#2196F3' }]}>{activeCasesCount}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
                 {t('home.pendingDocuments')}
               </Text>
-              <Text style={[styles.statValue, { color: '#FF9800' }]}>{pendingDocs}</Text>
+              <Text style={[styles.statValue, { color: '#FF9800' }]}>{pendingDocsCount}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Text style={[styles.statLabel, { color: theme.dark ? '#999' : '#666' }]}>
                 {t('home.newMessages')}
               </Text>
-              <Text style={[styles.statValue, { color: '#2196F3' }]}>{newMessages}</Text>
+              <Text style={[styles.statValue, { color: '#2196F3' }]}>{newMessagesCount}</Text>
             </View>
           </View>
 
@@ -202,37 +491,33 @@ export default function HomeScreen() {
 
             <Pressable 
               style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-              onPress={() => router.push({
-                pathname: '/payment',
-                params: {
-                  amount: '150.00',
-                  description: 'Case Processing Fee',
-                  caseNumber: 'V-23-145'
+              onPress={() => {
+                if (!caseForStatusCard?.referenceNumber) {
+                  showAlert({
+                    title: t('common.info', { defaultValue: 'Heads up' }),
+                    message: t('home.noCaseForPayment', { defaultValue: 'No case is ready for payment yet.' }),
+                    actions: [{ text: t('common.close'), variant: 'primary' }],
+                  });
+                  return;
                 }
-              })}
+                navigateToPayment({
+                  amount: '150.00',
+                  description: paymentDescription,
+                  referenceNumber: caseForStatusCard.referenceNumber,
+                });
+              }}
             >
               <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E8F5E9' }]}>
                 <IconSymbol name="creditcard.fill" size={32} color="#4CAF50" />
               </View>
               <Text style={[styles.quickAccessLabel, { color: theme.dark ? '#fff' : '#000' }]}>
-                Make Payment
+                {paymentButtonLabel}
               </Text>
             </Pressable>
 
             <Pressable 
               style={[styles.quickAccessButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-              onPress={() => {
-                // Navigate to cases first, user can select a case to chat about
-                // Or if there's an active case, navigate directly to its chat
-                if (cases.length > 0) {
-                  router.push({
-                    pathname: '/chat',
-                    params: { id: cases[0].id, caseId: cases[0].id }
-                  });
-                } else {
-                  router.push('/(tabs)/cases');
-                }
-              }}
+              onPress={() => router.push('/support/contact')}
             >
               <View style={[styles.quickAccessIconCircle, { backgroundColor: '#E3F2FD' }]}>
                 <IconSymbol name="message.fill" size={32} color="#2196F3" />
@@ -245,7 +530,7 @@ export default function HomeScreen() {
 
           {/* Important Updates Section */}
           <Text style={[styles.sectionTitle, { color: theme.dark ? '#fff' : '#000' }]}>
-            Important Updates
+            {importantUpdatesTitle}
           </Text>
 
           {/* Update Card 1 - Success */}
@@ -255,10 +540,10 @@ export default function HomeScreen() {
             </View>
             <View style={styles.updateTextContainer}>
               <Text style={[styles.updateTitle, { color: theme.dark ? '#fff' : '#000' }]}>
-                Case V-23-145 Approved!
+                {approvedUpdateTitle}
               </Text>
               <Text style={[styles.updateDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                Your visa application has been approved. Further instructions have been sent to your email.
+                {approvedUpdateDescription}
               </Text>
             </View>
           </View>
@@ -270,10 +555,10 @@ export default function HomeScreen() {
             </View>
             <View style={styles.updateTextContainer}>
               <Text style={[styles.updateTitle, { color: theme.dark ? '#fff' : '#000' }]}>
-                Action Required: Document Submission
+                {pendingUpdateTitle}
               </Text>
               <Text style={[styles.updateDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                Please upload a copy of your new passport for case V-23-188.
+                {pendingUpdateDescription}
               </Text>
             </View>
           </View>
@@ -286,6 +571,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingBottom: 40,
   },
   scrollView: {
     flex: 1,
@@ -294,9 +580,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 20,
-  },
-  scrollContentWithTabBar: {
-    paddingBottom: 100,
   },
   
   // Header Section
@@ -403,6 +686,10 @@ const styles = StyleSheet.create({
   statusTitle: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  statusMeta: {
+    fontSize: 12,
+    marginTop: 4,
   },
   divider: {
     height: 1,

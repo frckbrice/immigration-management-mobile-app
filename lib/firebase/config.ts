@@ -1,8 +1,18 @@
 // Firebase configuration
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// For React Native, we need to use ReactNativeAsyncStorage adapter
+// Firebase v12+ uses a different persistence mechanism
+let ReactNativeAsyncStorage: any;
+try {
+  ReactNativeAsyncStorage = require('@react-native-async-storage/async-storage').default;
+} catch {
+  ReactNativeAsyncStorage = AsyncStorage;
+}
 
 const firebaseConfig = {
   apiKey: Constants.expoConfig?.extra?.firebaseApiKey,
@@ -30,10 +40,14 @@ let database: ReturnType<typeof getDatabase>;
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
-  // Initialize Auth - Firebase automatically handles persistence in React Native
-  // No need to explicitly set persistence option
+  // Initialize Auth - For React Native, use initializeAuth
+  // Note: Firebase v12+ may show a warning about AsyncStorage, but auth will still work
+  // The warning is informational - Firebase will use memory persistence if AsyncStorage
+  // persistence isn't explicitly configured, but sessions will still work
   try {
-    auth = initializeAuth(app);
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
   } catch (error: any) {
     // If auth already initialized (e.g., hot reload), use getAuth instead
     if (error.code === 'auth/already-initialized') {

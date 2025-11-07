@@ -207,12 +207,25 @@ const Pagination = ({
 };
 
 export default function OnboardingScreen() {
+  console.log('[Onboarding] Screen rendering');
   const router = useRouter();
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useSharedValue(0);
-  const ONBOARDING_SLIDES = getOnboardingSlides(t);
+  
+  // Wrap in try-catch to handle translation errors
+  let ONBOARDING_SLIDES: OnboardingSlide[] = [];
+  try {
+    ONBOARDING_SLIDES = getOnboardingSlides(t);
+    console.log('[Onboarding] Slides loaded:', ONBOARDING_SLIDES.length);
+  } catch (error) {
+    console.error('[Onboarding] Error loading slides:', error);
+    // Fallback slides if translation fails
+    ONBOARDING_SLIDES = [
+      { id: '1', title: 'Welcome', description: 'Welcome to our app', icon: 'airplane-takeoff', color: '#0066CC' },
+    ];
+  }
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {

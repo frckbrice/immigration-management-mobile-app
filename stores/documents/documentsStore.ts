@@ -8,9 +8,20 @@ interface DocumentsState {
   isLoading: boolean;
   error: string | null;
   uploading: boolean;
+  currentFilters: {
+    caseId?: string;
+    type?: string;
+    status?: string;
+    search?: string;
+  } | null;
 
   // Actions
-  fetchDocuments: (caseId?: string) => Promise<void>;
+  fetchDocuments: (filters?: {
+    caseId?: string;
+    type?: string;
+    status?: string;
+    search?: string;
+  }) => Promise<void>;
   fetchDocumentById: (documentId: string) => Promise<void>;
   uploadDocument: (data: UploadDocumentRequest) => Promise<Document | null>;
   deleteDocument: (documentId: string) => Promise<void>;
@@ -23,11 +34,13 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
   isLoading: false,
   error: null,
   uploading: false,
+  currentFilters: null,
 
-  fetchDocuments: async (caseId?: string) => {
-    set({ isLoading: true, error: null });
+  fetchDocuments: async (filters) => {
+    set({ isLoading: true, error: null, currentFilters: filters || null });
     try {
-      const documents = await documentsService.getDocuments(caseId);
+      const currentFilters = filters || get().currentFilters || undefined;
+      const documents = await documentsService.getDocuments(currentFilters || undefined);
       set({ documents, isLoading: false });
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch documents';

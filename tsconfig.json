@@ -18,7 +18,6 @@
     "workbox-config.js",
   ],
   "exclude": [
-    "node_modules",
-    "supabase/**"
+    "node_modules"
   ]
 }

@@ -10,12 +10,33 @@ config.cacheStores = [
   new FileStore({ root: path.join(__dirname, 'node_modules', '.cache', 'metro') }),
 ];
 
+// Performance optimizations
+config.transformer = {
+  ...config.transformer,
+  // Enable inline requires for better performance (lazy loading)
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+};
+
 // Configure resolver to handle platform-specific extensions properly
 config.resolver = {
   ...config.resolver,
   sourceExts: [...(config.resolver?.sourceExts || []), 'tsx', 'ts', 'jsx', 'js', 'json'],
   platforms: ['ios', 'android', 'web'],
   resolverMainFields: ['react-native', 'browser', 'main'],
+  // Enable tree shaking
+  unstable_enablePackageExports: true,
+};
+
+// Performance optimizations for serializer
+// Note: Removed custom createModuleIdFactory as it can cause module ID mismatches
+// Metro's default module ID factory is more reliable
+config.serializer = {
+  ...config.serializer,
 };
 
 // Check if we're building for web

@@ -157,26 +157,22 @@ class ChatService {
             // Determine the chat room ID
             let chatRoomId: string | null = null;
 
-            // Try to resolve as new format (client-agent pair room ID) if clientId and agentId provided
             if (clientId && agentId) {
-                const resolvedRoomId = await this.resolveChatRoomIdFromCase(caseIdOrRoomId, clientId, agentId);
-                if (resolvedRoomId) {
-                    chatRoomId = resolvedRoomId;
-                } else {
-                    // Room doesn't exist yet, create it using new format
-                    chatRoomId = getChatRoomId(clientId, agentId);
-                }
+                chatRoomId = await this.resolveChatRoomIdFromCase(caseIdOrRoomId, clientId, agentId);
             } else {
-                // Fallback: try old format (caseId as room ID)
                 const caseMetadataRef = ref(database, `chats/${caseIdOrRoomId}/metadata`);
                 const caseMetadataSnap = await get(caseMetadataRef);
-
                 if (caseMetadataSnap.exists()) {
                     chatRoomId = caseIdOrRoomId;
-                } else {
-                    logger.warn('Cannot resolve chat room ID', { caseIdOrRoomId });
-                    return false;
                 }
+            }
+
+            if (!chatRoomId) {
+                logger.warn('sendMessage aborted - chat room does not exist', {
+                    caseIdOrRoomId,
+                    senderId,
+                });
+                return false;
             }
 
             const messagesRef = ref(database, `chats/${chatRoomId}/messages`);
@@ -297,34 +293,41 @@ class ChatService {
     }
 
     // Load initial messages directly from Firebase
-    async loadInitialMessages(caseIdOrRoomId: string, clientId?: string, agentId?: string): Promise<{
+    async loadInitialMessages(caseId: string, clientId?: string, agentId?: string): Promise<{
+        roomId: string | null;
         messages: ChatMessage[];
         hasMore: boolean;
         totalCount: number;
     }> {
         try {
-            logger.info('loadInitialMessages from Firebase', { caseIdOrRoomId, clientId, agentId });
+            logger.info('loadInitialMessages from Firebase', { caseId, clientId, agentId });
 
-            // Resolve the actual chat room ID
-            let resolvedRoomId = caseIdOrRoomId;
+            // Determine existing room ID (new format or legacy case-based)
+            let resolvedRoomId: string | null = null;
 
-            const parts = caseIdOrRoomId.split('-');
-            const isAlreadyRoomId = parts.length === 2 && parts[0].length > 10 && parts[1].length > 10;
+            // Legacy format: room ID equals caseId
+            const legacyMetadataRef = ref(database, `chats/${caseId}/metadata`);
+            const legacyMetadataSnap = await get(legacyMetadataRef);
+            if (legacyMetadataSnap.exists()) {
+                resolvedRoomId = caseId;
+            }
 
-            if (isAlreadyRoomId) {
-                resolvedRoomId = caseIdOrRoomId;
-            } else if (clientId && agentId) {
-                try {
-                    const resolvedId = await this.resolveChatRoomIdFromCase(caseIdOrRoomId, clientId, agentId);
-                    if (resolvedId) {
-                        resolvedRoomId = resolvedId;
-                    } else {
-                        resolvedRoomId = getChatRoomId(clientId, agentId);
-                    }
-                } catch (error) {
-                    logger.warn('Failed to resolve room ID, using caseId', { error, caseIdOrRoomId });
-                    resolvedRoomId = caseIdOrRoomId;
+            // New format: determine via participants/case references
+            if (!resolvedRoomId && clientId && agentId) {
+                const resolvedId = await this.resolveChatRoomIdFromCase(caseId, clientId, agentId);
+                if (resolvedId) {
+                    resolvedRoomId = resolvedId;
                 }
+            }
+
+            if (!resolvedRoomId) {
+                logger.info('No existing chat room found for case', { caseId });
+                return {
+                    roomId: null,
+                    messages: [],
+                    hasMore: false,
+                    totalCount: 0,
+                };
             }
 
             // Load from Firebase using optimized query
@@ -391,7 +394,7 @@ class ChatService {
             }
 
             logger.info('Initial messages loaded from Firebase', {
-                caseIdOrRoomId,
+                caseId,
                 resolvedRoomId,
                 count: messages.length,
                 hasMore,
@@ -399,49 +402,28 @@ class ChatService {
             });
 
             return {
+                roomId: resolvedRoomId,
                 messages,
                 hasMore,
                 totalCount,
             };
         } catch (error) {
             logger.error('Error loading initial messages', error);
-            return { messages: [], hasMore: false, totalCount: 0 };
+            return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
         }
     }
 
     // Load older messages (pagination)
     async loadOlderMessages(
-        caseId: string,
+        roomId: string,
         beforeTimestamp: number,
-        limit: number = 20,
-        clientId?: string,
-        agentId?: string
+        limit: number = 20
     ): Promise<{
         messages: ChatMessage[];
         hasMore: boolean;
     }> {
         try {
-            // Resolve the actual chat room ID
-            let resolvedRoomId = caseId;
-
-            const parts = caseId.split('-');
-            const isAlreadyRoomId = parts.length === 2 && parts[0].length > 10 && parts[1].length > 10;
-
-            if (!isAlreadyRoomId && clientId && agentId) {
-                try {
-                    const resolvedId = await this.resolveChatRoomIdFromCase(caseId, clientId, agentId);
-                    if (resolvedId) {
-                        resolvedRoomId = resolvedId;
-                    } else {
-                        resolvedRoomId = getChatRoomId(clientId, agentId);
-                    }
-                } catch (error) {
-                    logger.warn('Failed to resolve room ID, using caseId', { error, caseId });
-                    resolvedRoomId = caseId;
-                }
-            }
-
-            const messagesRef = ref(database, `chats/${resolvedRoomId}/messages`);
+            const messagesRef = ref(database, `chats/${roomId}/messages`);
 
             let snapshot;
             try {
@@ -453,7 +435,7 @@ class ChatService {
                 );
                 snapshot = await get(messagesQuery);
             } catch (queryError: any) {
-                logger.warn('Ordered query failed, falling back to full load', { caseId, resolvedRoomId, error: queryError.message });
+                logger.warn('Ordered query failed, falling back to full load', { caseId: roomId, resolvedRoomId: roomId, error: queryError.message });
                 snapshot = await get(messagesRef);
             }
 
@@ -489,8 +471,7 @@ class ChatService {
             const hasMore = filtered.length >= limit;
 
             logger.info('Older messages loaded from Firebase', {
-                caseId,
-                resolvedRoomId,
+                roomId,
                 count: resultMessages.length,
                 hasMore
             });
@@ -506,13 +487,13 @@ class ChatService {
     }
 
     // Mark messages as read
-    async markMessagesAsRead(caseId: string, userId: string): Promise<void> {
+    async markMessagesAsRead(roomId: string, userId: string): Promise<void> {
         try {
-            const messagesRef = ref(database, `chats/${caseId}/messages`);
+            const messagesRef = ref(database, `chats/${roomId}/messages`);
             const snapshot = await get(messagesRef);
 
             if (!snapshot.exists()) {
-                logger.info('No messages found to mark as read', { caseId });
+                logger.info('No messages found to mark as read', { roomId });
                 return;
             }
 
@@ -521,12 +502,12 @@ class ChatService {
             snapshot.forEach((msgSnap) => {
                 const msg = msgSnap.val();
                 if (msg.senderId !== userId && !msg.isRead) {
-                    const messageRef = ref(database, `chats/${caseId}/messages/${msgSnap.key}`);
+                    const messageRef = ref(database, `chats/${roomId}/messages/${msgSnap.key}`);
                     updatePromises.push(
                         update(messageRef, { isRead: true }).catch((err: any) => {
                             if (err.code !== 'PERMISSION_DENIED') {
                                 logger.error(
-                                    `Failed to mark message as read (caseId=${caseId}, messageId=${msgSnap.key}, userId=${userId})`,
+                                    `Failed to mark message as read (roomId=${roomId}, messageId=${msgSnap.key}, userId=${userId})`,
                                     err
                                 );
                             }
@@ -538,22 +519,22 @@ class ChatService {
             if (updatePromises.length > 0) {
                 await Promise.all(updatePromises);
                 logger.info('Messages marked as read', {
-                    caseId,
+                    roomId,
                     userId,
                     count: updatePromises.length,
                 });
             }
         } catch (error) {
-            logger.error(`Failed to mark messages as read (caseId=${caseId}, userId=${userId})`, error);
+            logger.error(`Failed to mark messages as read (roomId=${roomId}, userId=${userId})`, error);
         }
     }
 
     // Mark chat room as read
-    async markChatRoomAsRead(caseId: string, userId: string): Promise<boolean> {
+    async markChatRoomAsRead(roomId: string, userId: string): Promise<boolean> {
         try {
-            logger.info('Marking chat room as read', { caseId, userId });
-            await this.markMessagesAsRead(caseId, userId);
-            logger.info('Chat room marked as read successfully', { caseId, userId });
+            logger.info('Marking chat room as read', { roomId, userId });
+            await this.markMessagesAsRead(roomId, userId);
+            logger.info('Chat room marked as read successfully', { roomId, userId });
             return true;
         } catch (error) {
             logger.error('Error marking chat room as read', error);
