@@ -1,5 +1,7 @@
+import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { apiClient } from '../api/axios';
 import { logger } from '../utils/logger';
+import { auth } from '../firebase/config';
 import type { UserProfile } from '../types';
 
 interface ApiResponse<T> {
@@ -55,6 +57,35 @@ export const profileService = {
    * Change password
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const user = auth.currentUser;
+
+    if (!user || !user.email) {
+      logger.error('Attempted to change password without authenticated user');
+      throw new Error('You need to be logged in to change your password.');
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // Force refresh token so backend sees a recent auth_time for sensitive action
+      await user.getIdToken(true);
+    } catch (reauthError: any) {
+      logger.error('Error reauthenticating before changing password', reauthError);
+
+      const errorCode = reauthError?.code;
+      switch (errorCode) {
+        case 'auth/wrong-password':
+          throw new Error('Current password is incorrect.');
+        case 'auth/too-many-requests':
+          throw new Error('Too many attempts. Please wait a moment and try again.');
+        case 'auth/network-request-failed':
+          throw new Error('Network error while verifying your password. Check your connection and try again.');
+        default:
+          throw new Error(reauthError?.message || 'Unable to verify your current password. Please try again.');
+      }
+    }
+
     try {
       await apiClient.put<ApiResponse<void>>('/users/password', {
         currentPassword,
@@ -63,7 +94,8 @@ export const profileService = {
       logger.info('Password changed successfully');
     } catch (error: any) {
       logger.error('Error changing password', error);
-      throw error;
+      const backendMessage = error?.response?.data?.error;
+      throw new Error(backendMessage || error?.message || 'Failed to change password');
     }
   },
 
