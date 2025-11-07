@@ -9,7 +9,8 @@ import {
     StyleProp,
     ViewStyle,
 } from 'react-native';
-import { useTheme } from '@react-navigation/native';
+import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
 import { IconSymbol } from './IconSymbol';
 
 type FormInputProps = TextInputProps & {
@@ -37,7 +38,8 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
     },
     ref,
 ) => {
-    const theme = useTheme();
+    const theme = useAppTheme();
+    const colors = useThemeColors();
     const [isFocused, setIsFocused] = useState(false);
     const [isPasswordVisible, setPasswordVisible] = useState(false);
 
@@ -50,14 +52,28 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
 
     const resolvedSecureEntry = showPasswordToggle ? !isPasswordVisible : secureTextEntry;
 
-    const palette = useMemo(() => ({
-        borderDefault: theme.dark ? '#2C2C2E' : '#E5E7EB',
-        borderFocused: theme.colors.primary ?? '#2196F3',
-        borderError: '#EF4444',
-        surface: theme.dark ? '#111113' : '#F8FAFC',
-        textMuted: theme.dark ? '#8E8E93' : '#6B7280',
-        placeholder: theme.dark ? '#6C6C70' : '#9CA3AF',
-    }), [theme]);
+    const palette = useMemo(() => {
+        const baseText = colors.text;
+        const softFill = theme.dark
+            ? withOpacity(colors.surfaceAlt ?? colors.surface, 0.6)
+            : withOpacity(baseText, 0.05);
+        const borderNeutral = theme.dark
+            ? withOpacity(colors.onSurface ?? baseText, 0.2)
+            : withOpacity(baseText, 0.08);
+
+        return {
+            borderDefault: borderNeutral,
+            borderFocused: colors.primary,
+            borderError: colors.danger,
+            surface: colors.surface,
+            surfaceSoft: softFill,
+            textMuted: colors.muted,
+            placeholder: withOpacity(
+                theme.dark ? (colors.onSurface ?? baseText) : baseText,
+                theme.dark ? 0.45 : 0.35,
+            ),
+        };
+    }, [colors, theme.dark]);
 
     const borderColor = errorText
         ? palette.borderError
@@ -69,7 +85,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
         <View style={[styles.container, containerStyle]}>
             {label ? (
                 <View style={styles.labelRow}>
-                    <Text style={[styles.label, { color: theme.colors.text }]}>{label}</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
                     {labelRight ? <View style={styles.labelRight}>{labelRight}</View> : null}
                 </View>
             ) : null}
@@ -79,7 +95,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
                     styles.inputWrapper,
                     {
                         borderColor,
-                        backgroundColor: palette.surface,
+                        backgroundColor: isFocused ? palette.surface : palette.surfaceSoft,
                         shadowOpacity: isFocused ? 0.08 : 0,
                     },
                 ]}
@@ -88,8 +104,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
                     ref={ref}
                     style={[
                         styles.input,
-                        { color: theme.colors.text },
-                        theme.dark ? styles.inputDark : undefined,
+                        { color: colors.text },
                         style,
                     ]}
                     placeholderTextColor={palette.placeholder}
@@ -121,7 +136,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
             </View>
 
             {errorText ? (
-                <Text style={styles.errorText}>{errorText}</Text>
+                <Text style={[styles.errorText, { color: palette.borderError }]}>{errorText}</Text>
             ) : helperText ? (
                 <Text style={[styles.helperText, { color: palette.textMuted }]}>{helperText}</Text>
             ) : null}
@@ -161,17 +176,11 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
         elevation: 0,
     },
-    inputWrapperError: {
-        borderColor: '#EF4444',
-    },
     input: {
         flex: 1,
         fontSize: 16,
         fontWeight: '500',
         letterSpacing: 0.2,
-    },
-    inputDark: {
-        color: '#F2F2F7',
     },
     iconButton: {
         marginLeft: 12,
@@ -184,7 +193,6 @@ const styles = StyleSheet.create({
     },
     errorText: {
         fontSize: 13,
-        color: '#EF4444',
         marginTop: 6,
     },
 });

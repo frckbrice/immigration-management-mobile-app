@@ -23,6 +23,8 @@ const API_BASE_URL =
     envSelectedApi ||
     'http://localhost:3000/api';
 
+// const API_BASE_URL = 'http://172.20.10.10:3000/api';
+
 logger.info('API Client initialized', { baseURL: API_BASE_URL });
 
 export const apiClient = axios.create({

@@ -10,6 +10,7 @@ import { useCasesStore } from "@/stores/cases/casesStore";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { templatesService, Template } from "@/lib/services/templatesService";
+import { documentsService } from "@/lib/services/documentsService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Linking } from "react-native";
 import { logger } from "@/lib/utils/logger";
@@ -500,11 +501,22 @@ export default function DocumentsScreen() {
                     key={document.id}
                     style={[styles.documentCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
                     onPress={async () => {
-                      const targetUrl = document.filePath || document.url;
-                      if (!targetUrl) {
-                        return;
-                      }
                       try {
+                        let targetUrl: string | null = document.filePath || null;
+                        if (!targetUrl) {
+                          const downloaded = await documentsService.downloadDocument(document.id);
+                          targetUrl = downloaded ?? null;
+                        }
+
+                        if (!targetUrl) {
+                          showAlert({
+                            title: t('documents.downloadOpenErrorTitle', { defaultValue: 'Unable to open file' }),
+                            message: t('documents.downloadOpenErrorMessage', { defaultValue: 'This document cannot be opened on your device.' }),
+                            actions: [{ text: t('common.close'), variant: 'primary' }],
+                          });
+                          return;
+                        }
+
                         const canOpen = await Linking.canOpenURL(targetUrl);
                         if (canOpen) {
                           await Linking.openURL(targetUrl);

@@ -63,7 +63,7 @@ export default function ChatScreen() {
     const initializeChat = async () => {
       try {
         const clientFirebaseId = auth.currentUser?.uid || user?.uid;
-        let agentFirebaseId = agentInfo?.id || null;
+        let agentFirebaseId: string | undefined = agentInfo?.id;
 
         if (!clientFirebaseId) {
           showAlert({
@@ -104,7 +104,7 @@ export default function ChatScreen() {
         }
 
         if (!agentFirebaseId && caseData.assignedAgent) {
-          agentFirebaseId = caseData.assignedAgent.id;
+          agentFirebaseId = caseData.assignedAgent.id || undefined;
           setAgentInfo({
             id: agentFirebaseId,
             name: `${caseData.assignedAgent.firstName || ''} ${caseData.assignedAgent.lastName || ''}`.trim() || 'Agent',

@@ -1,21 +1,25 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Switch, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
-import { useTheme } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useProfileStore } from "@/stores/profile/profileStore";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useAppTheme } from "@/lib/hooks/useAppTheme";
+import { type AppThemeColors } from "@/styles/theme";
 
 export default function ProfileScreen() {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = theme.colors as AppThemeColors;
   const router = useRouter();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const { profile, isLoading, fetchProfile } = useProfileStore();
   const { user, logout } = useAuthStore();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -49,10 +53,12 @@ export default function ProfileScreen() {
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            Platform.OS !== 'ios' && styles.scrollContentWithTabBar
+            Platform.OS !== 'ios' && styles.scrollContentWithTabBar,
+            { paddingBottom: insets.bottom + 160 },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -259,10 +265,16 @@ export default function ProfileScreen() {
 
           {/* Logout Button */}
           <Pressable
-            style={styles.logoutButton}
+            style={[
+              styles.logoutButton,
+              {
+                backgroundColor: colors.primary,
+                shadowColor: colors.backdrop,
+              },
+            ]}
             onPress={handleLogout}
           >
-            <Text style={styles.logoutText}>{t('profile.logout')}</Text>
+            <Text style={[styles.logoutText, { color: colors.background }]}>{t('profile.logout')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -273,6 +285,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -299,7 +312,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   scrollContentWithTabBar: {
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   profileCard: {
     borderRadius: 16,
@@ -391,20 +404,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   logoutButton: {
-    backgroundColor: '#003366',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   logoutText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

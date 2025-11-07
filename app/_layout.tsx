@@ -5,11 +5,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SystemBars } from "react-native-edge-to-edge";
-import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
-} from "@react-navigation/native";
+import { ThemeProvider } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "react-native-reanimated";
@@ -18,7 +14,9 @@ import { initializeAuthListener, useAuthStore } from "@/stores/auth/authStore";
 import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
 import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
+import { ToastProvider } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
+import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
 
 // Error Boundary Component
@@ -137,7 +135,7 @@ function AppContent() {
 
     // Render app even if fonts haven't loaded yet (they'll load asynchronously)
     return (
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={colorScheme === "dark" ? themes.dark : themes.light}>
             <SystemBars style={colorScheme === "dark" ? "light" : "dark"} />
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
@@ -169,9 +167,11 @@ export default function RootLayout() {
                     <GestureHandlerRootView style={{ flex: 1 }}>
                         <ScrollProvider>
                             <BottomSheetAlertProvider>
-                                <WidgetProvider>
-                                    <AppContent />
-                                </WidgetProvider>
+                                <ToastProvider>
+                                    <WidgetProvider>
+                                        <AppContent />
+                                    </WidgetProvider>
+                                </ToastProvider>
                             </BottomSheetAlertProvider>
                         </ScrollProvider>
                     </GestureHandlerRootView>
@@ -195,23 +195,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#F5F6F7',
+        backgroundColor: palette.background,
     },
     errorTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 10,
-        color: '#EF4444',
+        color: palette.danger,
     },
     errorText: {
         fontSize: 14,
-        color: '#666',
+        color: palette.textMuted,
         textAlign: 'center',
         marginBottom: 20,
     },
     errorHint: {
         fontSize: 12,
-        color: '#999',
+        color: palette.textSecondary,
         fontStyle: 'italic',
     },
 });

@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import BottomSheetModal, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import { useTheme } from '@react-navigation/native';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetModalProvider, BottomSheetView } from '@gorhom/bottom-sheet';
+import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
+import { useAppTheme, useThemeColors } from '@/lib/hooks/useAppTheme';
 import { useTranslation } from '@/lib/hooks/useTranslation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,11 +31,19 @@ export const useBottomSheetAlert = (): BottomSheetAlertContextType => {
   return ctx;
 };
 
+const MaybeBottomSheetModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (typeof BottomSheetModalProvider === 'function') {
+    return <BottomSheetModalProvider>{children}</BottomSheetModalProvider>;
+  }
+  return <>{children}</>;
+};
+
 export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = useThemeColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const sheetRef = useRef<BottomSheetModal>(null);
+  const sheetRef = useRef<BottomSheetModalType>(null);
   // Add extra bottom padding to account for tab bar (typically 60-80px) + safe area
   const bottomPadding = Platform.OS === 'ios' ? Math.max(insets.bottom, 20) + 80 : 100;
   // Use dynamic sizing instead of fixed snap points for content-based height
@@ -44,9 +53,7 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
 
   const hideAlert = useCallback(() => {
     try {
-      if (sheetRef.current && typeof sheetRef.current.dismiss === 'function') {
-        sheetRef.current.dismiss();
-      }
+      sheetRef.current?.dismiss();
     } catch (error) {
       console.warn('Failed to dismiss bottom sheet:', error);
     }
@@ -67,9 +74,7 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
       // Use a small delay to ensure ref is attached
       const timer = setTimeout(() => {
         try {
-          if (sheetRef.current && typeof sheetRef.current.present === 'function') {
-            sheetRef.current.present();
-          }
+          sheetRef.current?.present();
         } catch (error) {
           console.warn('Failed to present bottom sheet:', error);
         }
@@ -90,66 +95,72 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
   const value = useMemo(() => ({ showAlert, hideAlert }), [showAlert, hideAlert]);
 
   return (
-    <BottomSheetAlertContext.Provider value={value}>
-      {children}
+    <MaybeBottomSheetModalProvider>
+      <BottomSheetAlertContext.Provider value={value}>
+        {children}
 
-      <BottomSheetModal
-        ref={sheetRef}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        enableDynamicSizing
-        backdropComponent={content ? backdrop : undefined}
-        handleIndicatorStyle={{ backgroundColor: theme.dark ? '#666' : '#CCC' }}
-        backgroundStyle={{ backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }}
-        bottomInset={bottomPadding}
-        android_keyboardInputMode="adjustResize"
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        onDismiss={() => {
-          setContent(null);
-        }}
-        index={-1}
-        enableContentPanningGesture={false}
-      >
-        <BottomSheetView style={{ paddingBottom: bottomPadding }}>
-          {content && (
-            <View style={styles.container}>
-              {content.title ? (
-                <Text style={[styles.title, { color: theme.colors.text }]}>{content.title}</Text>
-              ) : null}
-              {content.message ? (
-                <Text style={[styles.message, { color: theme.dark ? '#98989D' : '#666' }]}>{content.message}</Text>
-              ) : null}
+        <BottomSheetModal
+          ref={sheetRef}
+          snapPoints={snapPoints}
+          enablePanDownToClose
+          enableDynamicSizing
+          backdropComponent={content ? backdrop : undefined}
+          handleIndicatorStyle={{ backgroundColor: colors.muted }}
+          backgroundStyle={{ backgroundColor: colors.surface }}
+          bottomInset={bottomPadding}
+          android_keyboardInputMode="adjustResize"
+          keyboardBehavior="interactive"
+          keyboardBlurBehavior="restore"
+          onDismiss={() => {
+            setContent(null);
+          }}
+          index={-1}
+          enableContentPanningGesture={false}
+        >
+          <BottomSheetView style={{ paddingBottom: bottomPadding }}>
+            {content && (
+              <View style={styles.container}>
+                {content.title ? (
+                  <Text style={[styles.title, { color: colors.text }]}>{content.title}</Text>
+                ) : null}
+                {content.message ? (
+                  <Text style={[styles.message, { color: colors.muted }]}>{content.message}</Text>
+                ) : null}
 
-              <View style={styles.actionsRow}>
-                {(content.actions || []).map((action, idx) => (
-                  <Pressable
-                    key={`${action.text}-${idx}`}
-                    onPress={() => {
-                      hideAlert();
-                      action.onPress?.();
-                    }}
-                    style={[
-                      styles.actionButton,
-                      action.variant === 'primary' && styles.actionPrimary,
-                      action.variant === 'destructive' && styles.actionDestructive,
-                    ]}
-                  >
-                    <Text style={[
-                      styles.actionText,
-                      action.variant === 'primary' ? styles.actionTextPrimary : undefined,
-                      action.variant === 'destructive' ? styles.actionTextDestructive : undefined,
-                    ]}>
-                      {action.text}
-                    </Text>
-                  </Pressable>
-                ))}
+                <View style={styles.actionsRow}>
+                  {(content.actions || []).map((action, idx) => (
+                    <Pressable
+                      key={`${action.text}-${idx}`}
+                      onPress={() => {
+                        hideAlert();
+                        action.onPress?.();
+                      }}
+                      style={[
+                        styles.actionButton,
+                        action.variant === 'primary' && { backgroundColor: colors.primary },
+                        action.variant === 'secondary' && { borderColor: colors.borderStrong, borderWidth: 1 },
+                        action.variant === 'destructive' && { backgroundColor: colors.danger },
+                      ]}
+                    >
+                      <Text style={[
+                        styles.actionText,
+                        { color: colors.text },
+                        action.variant === 'primary' && { color: colors.onPrimary },
+                        action.variant === 'secondary' && { color: colors.primary },
+                        action.variant === 'destructive' && { color: colors.onPrimary },
+                        !action.variant && { color: colors.primary },
+                      ]}>
+                        {action.text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
-        </BottomSheetView>
-      </BottomSheetModal>
-    </BottomSheetAlertContext.Provider>
+            )}
+          </BottomSheetView>
+        </BottomSheetModal>
+      </BottomSheetAlertContext.Provider>
+    </MaybeBottomSheetModalProvider>
   );
 };
 
@@ -183,20 +194,8 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
   },
-  actionPrimary: {
-    backgroundColor: '#2196F3',
-  },
-  actionDestructive: {
-    backgroundColor: '#FF3B30',
-  },
   actionText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  actionTextPrimary: {
-    color: '#fff',
-  },
-  actionTextDestructive: {
-    color: '#fff',
   },
 });

@@ -1,5 +1,6 @@
 {
   "common": {
+    "reset": "Reset",
     "welcome": "Welcome",
     "loading": "Loading...",
     "error": "Error",

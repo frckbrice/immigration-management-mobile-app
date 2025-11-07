@@ -5,10 +5,9 @@ import {
   StyleSheet,
   Text,
   TextStyle,
-  useColorScheme,
   ViewStyle,
 } from "react-native";
-import { appleBlue, zincColors } from "@/constants/Colors";
+import { useAppTheme } from "@/lib/hooks/useAppTheme";
 
 type ButtonVariant = "filled" | "outline" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
@@ -34,8 +33,9 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const theme = useAppTheme();
+  const colors = theme.colors;
+  const isDark = theme.dark;
 
   const sizeStyles: Record<
     ButtonSize,
@@ -54,39 +54,41 @@ export const Button: React.FC<ButtonProps> = ({
       justifyContent: "center",
     };
 
-    switch (variant) {
-      case "filled":
-        return {
-          ...baseStyle,
-          backgroundColor: isDark ? zincColors[50] : zincColors[900],
-        };
-      case "outline":
-        return {
-          ...baseStyle,
-          backgroundColor: "transparent",
-          borderWidth: 1,
-          borderColor: isDark ? zincColors[700] : zincColors[300],
-        };
-      case "ghost":
-        return {
-          ...baseStyle,
-          backgroundColor: "transparent",
-        };
+    if (variant === "filled") {
+      return {
+        ...baseStyle,
+        backgroundColor: colors.primary,
+      };
     }
+
+    if (variant === "outline") {
+      return {
+        ...baseStyle,
+        backgroundColor: "transparent",
+        borderWidth: 1,
+        borderColor: colors.borderStrong,
+      };
+    }
+
+    return {
+      ...baseStyle,
+      backgroundColor: "transparent",
+    };
   };
 
   const getTextColor = () => {
     if (disabled) {
-      return isDark ? zincColors[500] : zincColors[400];
+      if (variant === "filled") {
+        return colors.onPrimary;
+      }
+      return colors.muted;
     }
 
-    switch (variant) {
-      case "filled":
-        return isDark ? zincColors[900] : zincColors[50];
-      case "outline":
-      case "ghost":
-        return appleBlue;
+    if (variant === "filled") {
+      return colors.onPrimary;
     }
+
+    return colors.primary;
   };
 
   return (
@@ -98,7 +100,7 @@ export const Button: React.FC<ButtonProps> = ({
         {
           height: sizeStyles[size].height,
           paddingHorizontal: sizeStyles[size].padding,
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled ? 0.6 : 1,
         },
         style,
       ]}
