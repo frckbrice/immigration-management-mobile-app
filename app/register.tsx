@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, Alert, ActivityIndicator, Switch, Image } from 'react-native';
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Alert, ActivityIndicator, Switch, Image } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -8,11 +8,14 @@ import { auth } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from '@/lib/hooks/useTranslation';
+import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
+import FormInput from '@/components/FormInput';
 
 export default function RegisterScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
+  const { showAlert } = useBottomSheetAlert();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -35,7 +38,7 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     const errorMsg = validate();
     if (errorMsg) {
-      Alert.alert(t('common.error'), errorMsg);
+      showAlert({ title: t('common.error'), message: errorMsg });
       return;
     }
 
@@ -60,16 +63,16 @@ export default function RegisterScreen() {
         };
         await AsyncStorage.setItem('consent_record', JSON.stringify(consent));
 
-        Alert.alert(
-          t('auth.registrationSuccess'),
-          t('auth.checkEmail'),
-          [{ text: t('common.close'), onPress: () => router.replace('/login') }]
-        );
+        showAlert({
+          title: t('auth.registrationSuccess'),
+          message: t('auth.checkEmail'),
+          actions: [{ text: t('common.close'), onPress: () => router.replace('/login'), variant: 'primary' }]
+        });
       }
     } catch (error: any) {
       logger.error('Registration error', error);
       const message = error?.message || t('errors.generic');
-      Alert.alert(t('common.error'), message);
+      showAlert({ title: t('common.error'), message });
     } finally {
       setIsLoading(false);
     }
@@ -80,74 +83,69 @@ export default function RegisterScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {/* Logo */}
+          {/* Logo - Matching onboarding design */}
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('@/assets/app_logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoIconContainer}>
+              <Image 
+                source={require('@/assets/app_logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
           </View>
           <Text style={[styles.title, { color: theme.colors.text }]}>{t('auth.createAccount')}</Text>
 
           <View style={styles.rowInputs}>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-              <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
-                placeholder={t('auth.firstName')}
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={firstName}
-                onChangeText={setFirstName}
-                autoCapitalize="words"
-              />
-            </View>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-              <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
-                placeholder={t('auth.lastName')}
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={lastName}
-                onChangeText={setLastName}
-                autoCapitalize="words"
-              />
-            </View>
-          </View>
-
-          <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-            <TextInput
-              style={[styles.input, { color: theme.colors.text }]}
-              placeholder={t('auth.email')}
-              placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+            <FormInput
+              label={t('auth.firstName')}
+              placeholder={t('auth.firstName')}
+              value={firstName}
+              onChangeText={setFirstName}
+              autoCapitalize="words"
+              containerStyle={[styles.halfInput, styles.halfInputSpacing]}
+            />
+            <FormInput
+              label={t('auth.lastName')}
+              placeholder={t('auth.lastName')}
+              value={lastName}
+              onChangeText={setLastName}
+              autoCapitalize="words"
+              containerStyle={styles.halfInput}
             />
           </View>
 
-          <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-            <TextInput
-              style={[styles.input, { color: theme.colors.text }]}
-              placeholder={t('auth.password')}
-              placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-          </View>
+          <FormInput
+            label={t('auth.email')}
+            placeholder={t('auth.email')}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
+          />
 
-          <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-            <TextInput
-              style={[styles.input, { color: theme.colors.text }]}
-              placeholder={t('auth.confirmPassword')}
-              placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-          </View>
+          <FormInput
+            label={t('auth.password')}
+            placeholder={t('auth.password')}
+            value={password}
+            onChangeText={setPassword}
+            enablePasswordToggle
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+          />
+
+          <FormInput
+            label={t('auth.confirmPassword')}
+            placeholder={t('auth.confirmPassword')}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            enablePasswordToggle
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+          />
 
           <View style={styles.consentRow}>
             <Text style={[styles.consentText, { color: theme.colors.text }]}>{t('auth.acceptTerms')}</Text>
@@ -179,11 +177,27 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },
   logoContainer: { alignItems: 'center', marginBottom: 24 },
-  logo: { width: 150, height: 150 },
+  logoIconContainer: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoImage: {
+    width: 140,
+    height: 140,
+  },
   title: { fontSize: 28, fontWeight: '700', marginBottom: 24, textAlign: 'center' },
-  rowInputs: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  inputWrapper: { borderRadius: 12, paddingHorizontal: 16, marginBottom: 12 },
-  input: { paddingVertical: 16, fontSize: 16 },
+  rowInputs: { flexDirection: 'row', marginBottom: 20 },
   consentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   consentText: { fontSize: 14, fontWeight: '500' },
   registerButton: { backgroundColor: '#2196F3', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
@@ -192,6 +206,8 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
   footerText: { fontSize: 14 },
   footerLink: { fontSize: 14, color: '#2196F3', fontWeight: '700' },
+  halfInput: { flex: 1, marginBottom: 0 },
+  halfInputSpacing: { marginRight: 12 },
 });
 
 

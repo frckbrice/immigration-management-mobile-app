@@ -14,7 +14,7 @@ export default function PaymentScreen() {
   // Get payment details from params or use defaults
   const amount = params.amount ? parseFloat(params.amount as string) : 100.00;
   const description = params.description as string || 'Case Processing Fee';
-  const caseNumber = params.caseNumber as string || 'V-23-145';
+  const caseReference = (params.referenceNumber as string) || (params.caseNumber as string) || 'PT-REF-0000';
 
   return (
     <SafeAreaView 
@@ -55,10 +55,10 @@ export default function PaymentScreen() {
 
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-              Case Number:
+              Case Reference:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-              {caseNumber}
+              {caseReference}
             </Text>
           </View>
 

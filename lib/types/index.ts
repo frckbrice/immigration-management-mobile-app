@@ -1,16 +1,50 @@
-// Type definitions for the application
+// Type definitions aligned with Patrick Travel backend APIs
+
+export type CaseStatus =
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'DOCUMENTS_REQUIRED'
+  | 'PROCESSING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CLOSED';
+
+export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
+export interface CaseClient {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+}
+
+export interface CaseAssignedAgent {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
 
 export interface Case {
   id: string;
-  title: string;
-  caseNumber: string;
-  status: 'action-required' | 'approved' | 'pending' | 'in-review' | 'complete';
-  progress: number;
+  referenceNumber: string;
+  serviceType: string;
+  status: CaseStatus;
+  priority: Priority;
+  submissionDate: string;
   lastUpdated: string;
-  createdAt: string;
-  description?: string;
-  type?: string;
-  userId: string;
+  estimatedCompletion?: string | null;
+  completedAt?: string | null;
+  approvedAt?: string | null;
+  destinationId?: string | null;
+  client?: CaseClient;
+  assignedAgent?: CaseAssignedAgent | null;
+  /**
+   * UI helpers (derived fields)
+   */
+  displayName: string;
+  progress: number;
 }
 
 export interface Message {
@@ -37,15 +71,25 @@ export interface ChatMessage {
   userId?: string;
 }
 
+export type DocumentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface Document {
   id: string;
-  name: string;
-  size: string;
-  date: string;
-  type: 'pdf' | 'doc' | 'image';
-  url?: string;
-  caseId?: string;
-  userId?: string;
+  originalName: string;
+  fileName: string;
+  documentType: string;
+  status: DocumentStatus;
+  uploadDate: string;
+  filePath: string;
+  fileSize?: number;
+  mimeType?: string;
+  caseId: string;
+  case?: {
+    id: string;
+    referenceNumber: string;
+    serviceType: string;
+  };
+  uploadedById?: string;
 }
 
 export interface Notification {
@@ -70,10 +114,19 @@ export interface UserProfile {
   address?: string;
 }
 
+export interface DashboardStats {
+  totalCases?: number;
+  activeCases?: number;
+  completedCases?: number;
+  pendingDocuments?: number;
+  assignedCases?: number;
+  unassignedCases?: number;
+  totalDocuments?: number;
+}
+
 export interface CreateCaseRequest {
-  title: string;
-  type: string;
-  description: string;
+  serviceType: string;
+  priority?: Priority;
 }
 
 export interface CreateMessageRequest {
@@ -83,8 +136,44 @@ export interface CreateMessageRequest {
 }
 
 export interface UploadDocumentRequest {
-  file: any;
-  name: string;
-  caseId?: string;
+  caseId: string;
+  documentType: string;
+  fileName: string;
+  originalName?: string;
+  filePath: string;
+  fileSize?: number;
+  mimeType: string;
+}
+
+// Payments
+export interface PaymentIntent {
+  id: string;
+  status: 'requires_payment_method' | 'requires_confirmation' | 'processing' | 'succeeded' | 'canceled' | string;
+  amount: number; // major units
+  currency: string;
+  description?: string;
+  createdAt?: string;
+  clientSecret?: string; // if you expose it for client confirmation flows
+  metadata?: Record<string, any>;
+}
+
+export interface PaymentRecord {
+  id: string;
+  amount: number; // major units
+  currency?: string;
+  description: string;
+  caseNumber?: string;
+  date: string; // ISO or formatted by backend
+  status: 'completed' | 'pending' | 'failed' | 'refunded' | string;
+  metadata?: Record<string, any>;
+}
+
+export interface RefundResponse {
+  id: string;
+  status: 'pending' | 'succeeded' | 'failed' | string;
+  amount: number; // major units
+  currency?: string;
+  paymentIntentId: string;
+  createdAt?: string;
 }
 

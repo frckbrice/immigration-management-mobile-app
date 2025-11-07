@@ -85,6 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     eas: {
       projectId: 'bc0069cd-836a-45fb-8a75-c1bc726660b3',
     },

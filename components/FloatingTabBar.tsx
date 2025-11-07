@@ -7,7 +7,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { BlurView } from 'expo-blur';
@@ -17,7 +17,9 @@ import Animated, {
   useSharedValue,
   withSpring,
   interpolate,
+  withTiming,
 } from 'react-native-reanimated';
+import { useScrollContext } from '@/contexts/ScrollContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,6 +28,8 @@ export interface TabBarItem {
   route: string;
   icon: string;
   label: string;
+  routeName?: string;
+  inactiveIcon?: string;
 }
 
 interface FloatingTabBarProps {
@@ -33,21 +37,40 @@ interface FloatingTabBarProps {
   containerWidth?: number;
   borderRadius?: number;
   bottomMargin?: number;
+  activeRouteName?: string;
+  onTabPress?: (tab: TabBarItem) => void;
 }
 
 export default function FloatingTabBar({
   tabs,
   containerWidth = 240,
   borderRadius = 25,
-  bottomMargin
+  bottomMargin,
+  activeRouteName,
+  onTabPress,
 }: FloatingTabBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
   const animatedValue = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  // Get scroll context to determine visibility
+  const { shouldShowTabBar, isScrollingDown, isAtBottom } = useScrollContext();
+
+  console.log('[TabBar] Current pathname:', pathname);
+  console.log('[TabBar] Should show:', shouldShowTabBar);
+  console.log('[TabBar] isScrollingDown:', isScrollingDown, 'isAtBottom:', isAtBottom);
 
   // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
+    if (activeRouteName) {
+      const matchIndex = tabs.findIndex((tab) => tab.routeName === activeRouteName);
+      if (matchIndex >= 0) {
+        return matchIndex;
+      }
+    }
+
     // Find the best matching tab based on the current pathname
     let bestMatch = -1;
     let bestMatchScore = 0;
@@ -80,7 +103,7 @@ export default function FloatingTabBar({
 
     // Default to first tab if no match found
     return bestMatch >= 0 ? bestMatch : 0;
-  }, [pathname, tabs]);
+  }, [activeRouteName, pathname, tabs]);
 
   React.useEffect(() => {
     if (activeTabIndex >= 0) {
@@ -92,8 +115,30 @@ export default function FloatingTabBar({
     }
   }, [activeTabIndex, animatedValue]);
 
-  const handleTabPress = (route: string) => {
-    router.push(route);
+  // Animate tab bar visibility based on scroll
+  const opacity = useSharedValue(1);
+
+  // Initialize tab bar as visible
+  React.useEffect(() => {
+    translateY.value = 0;
+    opacity.value = 1;
+  }, []);
+
+  React.useEffect(() => {
+    translateY.value = withTiming(shouldShowTabBar ? 0 : 100, {
+      duration: 300,
+    });
+    opacity.value = withTiming(shouldShowTabBar ? 1 : 0, {
+      duration: 300,
+    });
+  }, [shouldShowTabBar, translateY, opacity]);
+
+  const handleTabPress = (tab: TabBarItem) => {
+    if (onTabPress) {
+      onTabPress(tab);
+      return;
+    }
+    router.push(tab.route as Href);
   };
 
   // Remove unnecessary tabBarStyle animation to prevent flickering
@@ -112,6 +157,13 @@ export default function FloatingTabBar({
           ),
         },
       ],
+    };
+  });
+
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+      opacity: opacity.value,
     };
   });
 
@@ -157,10 +209,24 @@ export default function FloatingTabBar({
     },
   };
 
+  // Don't show tab bar on onboarding/login screens or any non-tab routes
+  const hideTabBarRoutes = ['/onboarding', '/login', '/register', '/', '/index'];
+  const shouldHide = hideTabBarRoutes.some(route =>
+    pathname === route || pathname.startsWith(route + '/')
+  );
+
+  // Also hide if we're not in a tab route
+  const isTabRoute = pathname.startsWith('/(tabs)');
+
+  if (shouldHide || !isTabRoute) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <View style={[
+      <Animated.View style={[
         styles.container,
+        containerAnimatedStyle,
         {
           width: containerWidth,
           marginBottom: bottomMargin ?? (Platform.OS === 'ios' ? 10 : 20)
@@ -180,12 +246,12 @@ export default function FloatingTabBar({
                 <TouchableOpacity
                   key={tab.name}
                   style={styles.tab}
-                  onPress={() => handleTabPress(tab.route)}
+                  onPress={() => handleTabPress(tab)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.tabContent}>
                     <IconSymbol
-                      name={tab.icon}
+                      name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
                       size={24}
                       color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#8E8E93')}
                     />
@@ -204,7 +270,7 @@ export default function FloatingTabBar({
             })}
           </View>
         </BlurView>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }

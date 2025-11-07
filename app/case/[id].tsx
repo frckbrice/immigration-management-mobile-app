@@ -7,6 +7,46 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useCasesStore } from '@/stores/cases/casesStore';
 import { useDocumentsStore } from '@/stores/documents/documentsStore';
 import { useTranslation } from '@/lib/hooks/useTranslation';
+import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
+import type { Case } from '@/lib/types';
+
+const formatServiceTypeLabel = (serviceType?: string) =>
+  serviceType
+    ? serviceType
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
+    : '';
+
+const formatDateLabel = (date?: string) => {
+  if (!date) return '—';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return '—';
+  }
+  return parsed.toLocaleDateString();
+};
+
+const formatDocumentSize = (size?: number) => {
+  if (!size || size <= 0) return '—';
+  if (size < 1024) return `${size} B`;
+  const kb = size / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} MB`;
+};
+
+const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
+
+const STATUS_TIMELINE_ORDER = [
+  'submitted',
+  'under_review',
+  'documents_required',
+  'processing',
+  'approved',
+  'rejected',
+  'closed',
+];
 
 export default function CaseDetailsScreen() {
   const theme = useTheme();
@@ -17,24 +57,72 @@ export default function CaseDetailsScreen() {
 
   const { selectedCase, isLoading, fetchCaseById } = useCasesStore();
   const { documents, fetchDocuments } = useDocumentsStore();
+  const { showAlert } = useBottomSheetAlert();
+
+  const caseData = selectedCase as Case | null;
+
+  const getStatusLabel = React.useCallback(
+    (status?: string | null) => {
+      const normalized = normalizeStatus(status);
+      switch (normalized) {
+        case 'submitted':
+          return t('cases.submitted');
+        case 'under_review':
+          return t('cases.underReview');
+        case 'documents_required':
+          return t('cases.documentsRequired');
+        case 'processing':
+          return t('cases.processing');
+        case 'approved':
+          return t('cases.approved');
+        case 'rejected':
+          return t('cases.rejected');
+        case 'closed':
+          return t('cases.closed', { defaultValue: 'Closed' });
+        default:
+          return t('cases.statusUnknown', { defaultValue: 'Unknown status' });
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     if (caseId) {
       fetchCaseById(caseId);
-      fetchDocuments(caseId);
+      fetchDocuments({ caseId });
     }
   }, [caseId]);
 
   const statusTimeline = useMemo(() => {
-    // Simple ordered timeline based on status; replace with real history when available
-    const order = ['submitted', 'under-review', 'documents-required', 'processing', 'approved', 'rejected'];
-    const status = (selectedCase as any)?.status || 'submitted';
-    const currentIdx = Math.max(0, order.indexOf(String(status)));
-    return order.map((s, idx) => ({ key: s, completed: idx <= currentIdx }));
+    const status = normalizeStatus((selectedCase as any)?.status) || 'submitted';
+    const currentIdx = STATUS_TIMELINE_ORDER.indexOf(status);
+    return STATUS_TIMELINE_ORDER.map((key, idx) => ({
+      key,
+      completed: currentIdx >= 0 ? idx <= currentIdx : false,
+    }));
   }, [selectedCase]);
 
   const handleMessageAdvisor = () => {
     if (!caseId) return;
+    const statusKey = normalizeStatus((caseData as any)?.status);
+    if (statusKey !== 'under_review') {
+      showAlert({
+        title: t('cases.chatUnavailableTitle', { defaultValue: 'Chat Not Available' }),
+        message: t('cases.chatUnavailableMessage', { defaultValue: 'Chat will be available once your advisor reviews this case.' }),
+        actions: [{ text: t('common.close'), variant: 'primary' }],
+      });
+      return;
+    }
+
+    if (!(caseData as any)?.assignedAgent) {
+      showAlert({
+        title: t('cases.chatAwaitingAgentTitle', { defaultValue: 'Advisor Pending' }),
+        message: t('cases.chatAwaitingAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
+        actions: [{ text: t('common.close'), variant: 'primary' }],
+      });
+      return;
+    }
+
     router.push({ pathname: '/chat', params: { id: caseId, caseId } });
   };
 
@@ -62,30 +150,34 @@ export default function CaseDetailsScreen() {
             {/* Case Summary */}
             <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Text style={[styles.caseRef, { color: theme.colors.text }]}>
-                {(selectedCase as any)?.caseNumber || caseId}
+                {caseData?.referenceNumber || caseId}
               </Text>
               <Text style={[styles.caseTitle, { color: theme.colors.text }]}>
-                {(selectedCase as any)?.title || t('cases.title')}
+                {formatServiceTypeLabel(caseData?.serviceType) || t('cases.title')}
               </Text>
               <View style={styles.metaRow}>
-                <Text style={[styles.metaText, { color: theme.dark ? '#98989D' : '#666' }]}>{t('caseDetails.type')}: {(selectedCase as any)?.type || '—'}</Text>
+                <Text style={[styles.metaText, { color: theme.dark ? '#98989D' : '#666' }]}>
+                  {t('caseDetails.type')}: {formatServiceTypeLabel(caseData?.serviceType) || '—'}
+                </Text>
                 <Text style={[styles.metaDot, { color: theme.dark ? '#98989D' : '#666' }]}>•</Text>
-                <Text style={[styles.metaText, { color: theme.dark ? '#98989D' : '#666' }]}>{t('caseDetails.status')}: {(selectedCase as any)?.status || '—'}</Text>
+                <Text style={[styles.metaText, { color: theme.dark ? '#98989D' : '#666' }]}>
+                  {t('caseDetails.status')}: {getStatusLabel(caseData?.status)}
+                </Text>
               </View>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${(selectedCase as any)?.progress || 0}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${caseData?.progress ?? 0}%` }]} />
               </View>
             </View>
 
             {/* Agent Info */}
             <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('caseDetails.assignedAdvisor')}</Text>
-              {(selectedCase as any)?.assignedAgent ? (
+              {caseData?.assignedAgent ? (
                 <View style={styles.agentRow}>
                   <View style={styles.agentAvatar}><IconSymbol name="person.fill" size={20} color="#fff" /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.agentName, { color: theme.colors.text }]}>
-                      {`${(selectedCase as any).assignedAgent.firstName || ''} ${(selectedCase as any).assignedAgent.lastName || ''}`.trim() || '—'}
+                      {`${caseData.assignedAgent?.firstName || ''} ${caseData.assignedAgent?.lastName || ''}`.trim() || '—'}
                     </Text>
                     <Text style={[styles.agentMeta, { color: theme.dark ? '#98989D' : '#666' }]}>{t('caseDetails.immigrationAdvisor')}</Text>
                   </View>
@@ -107,7 +199,7 @@ export default function CaseDetailsScreen() {
                 {statusTimeline.map(step => (
                   <View key={step.key} style={styles.timelineStep}>
                     <View style={[styles.timelineDot, step.completed ? styles.timelineDotDone : styles.timelineDotPending]} />
-                    <Text style={[styles.timelineLabel, { color: theme.dark ? '#98989D' : '#666' }]}>{step.key.replace(/-/g, ' ')}</Text>
+                    <Text style={[styles.timelineLabel, { color: theme.dark ? '#98989D' : '#666' }]}>{getStatusLabel(step.key)}</Text>
                   </View>
                 ))}
               </View>
@@ -123,8 +215,10 @@ export default function CaseDetailsScreen() {
                   <View key={doc.id} style={styles.docRow}>
                     <View style={styles.docIcon}><IconSymbol name="doc.fill" size={18} color="#2196F3" /></View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.docName, { color: theme.colors.text }]} numberOfLines={1}>{doc.name}</Text>
-                      <Text style={[styles.docMeta, { color: theme.dark ? '#98989D' : '#666' }]}>{doc.size} • {doc.date}</Text>
+                      <Text style={[styles.docName, { color: theme.colors.text }]} numberOfLines={1}>{doc.originalName}</Text>
+                      <Text style={[styles.docMeta, { color: theme.dark ? '#98989D' : '#666' }]}>
+                        {formatDocumentSize(doc.fileSize)} • {formatDateLabel(doc.uploadDate)}
+                      </Text>
                     </View>
                   </View>
                 ))

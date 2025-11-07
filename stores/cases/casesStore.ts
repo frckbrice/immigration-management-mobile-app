@@ -8,9 +8,20 @@ interface CasesState {
   isLoading: boolean;
   error: string | null;
   selectedCase: Case | null;
+  currentFilters: {
+    status?: string;
+    serviceType?: string;
+    priority?: string;
+    search?: string;
+  } | null;
 
   // Actions
-  fetchCases: () => Promise<void>;
+  fetchCases: (filters?: {
+    status?: string;
+    serviceType?: string;
+    priority?: string;
+    search?: string;
+  }) => Promise<void>;
   fetchCaseById: (caseId: string) => Promise<void>;
   createCase: (data: CreateCaseRequest) => Promise<Case | null>;
   updateCase: (caseId: string, data: Partial<Case>) => Promise<void>;
@@ -24,11 +35,13 @@ export const useCasesStore = create<CasesState>((set, get) => ({
   isLoading: false,
   error: null,
   selectedCase: null,
+  currentFilters: null,
 
-  fetchCases: async () => {
-    set({ isLoading: true, error: null });
+  fetchCases: async (filters) => {
+    set({ isLoading: true, error: null, currentFilters: filters || null });
     try {
-      const cases = await casesService.getCases();
+      const currentFilters = filters || get().currentFilters || undefined;
+      const cases = await casesService.getCases(currentFilters || undefined);
       set({ cases, isLoading: false });
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch cases';

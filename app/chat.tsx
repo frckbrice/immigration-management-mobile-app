@@ -12,11 +12,23 @@ import { auth } from "@/lib/firebase/config";
 import { casesService } from "@/lib/services/casesService";
 import { logger } from "@/lib/utils/logger";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+
+const formatServiceTypeLabel = (serviceType?: string) =>
+  serviceType
+    ? serviceType
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
+    : '';
+
+const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
 
 export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
+  const { showAlert } = useBottomSheetAlert();
   const params = useLocalSearchParams();
   const caseId = (params.id || params.caseId) as string;
   const [message, setMessage] = useState('');
@@ -29,7 +41,7 @@ export default function ChatScreen() {
   const lastMessageTimestampRef = useRef<number>(0);
   const chatInitializedRef = useRef(false);
 
-  const { chatMessages, isLoading, sendChatMessage, loadChatMessages, loadOlderChatMessages, subscribeToChatMessages, markChatAsRead, setCurrentConversation } = useMessagesStore();
+  const { chatMessages, isLoading, error: chatError, clearError: clearChatError, sendChatMessage, loadChatMessages, loadOlderChatMessages, subscribeToChatMessages, markChatAsRead, setCurrentConversation, currentRoomId } = useMessagesStore();
   const { user } = useAuthStore();
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
@@ -50,60 +62,96 @@ export default function ChatScreen() {
 
     const initializeChat = async () => {
       try {
-        // Step 1: Resolve chat room ID
-        let roomId = caseId;
         const clientFirebaseId = auth.currentUser?.uid || user?.uid;
-        let agentFirebaseId = agentInfo?.id;
+        let agentFirebaseId = agentInfo?.id || null;
 
-        // Get case info to get agent info
-        try {
-          const caseData = await casesService.getCaseById(caseId);
-          // Extract agent info from case (adjust based on your case structure)
-          if ((caseData as any).assignedAgent) {
-            agentFirebaseId = (caseData as any).assignedAgent.firebaseId || (caseData as any).assignedAgent.id;
-            setAgentInfo({
-              id: agentFirebaseId,
-              name: `${(caseData as any).assignedAgent.firstName || ''} ${(caseData as any).assignedAgent.lastName || ''}`.trim(),
-              profilePicture: (caseData as any).assignedAgent.profilePicture,
-              isOnline: false,
-            });
-          }
-        } catch (error) {
-          logger.warn('Failed to get case info for agent', error);
-        }
-
-        if (clientFirebaseId && agentFirebaseId) {
-          const resolvedId = await chatService.resolveChatRoomIdFromCase(caseId, clientFirebaseId, agentFirebaseId);
-          if (resolvedId) {
-            roomId = resolvedId;
-          } else {
-            roomId = chatService.getChatRoomIdFromPair(clientFirebaseId, agentFirebaseId);
-          }
-        }
-
-        setResolvedRoomId(roomId);
-
-        // Step 2: Load initial messages from Firebase
-        try {
-          await loadChatMessages(caseId, clientFirebaseId, agentFirebaseId);
-          // Get messages from store after loading
-          const store = useMessagesStore.getState();
-          if (store.chatMessages.length > 0) {
-            lastMessageTimestampRef.current = Math.max(
-              ...store.chatMessages.map((m: ChatMessage) => m.timestamp)
-            );
-          }
+        if (!clientFirebaseId) {
+          showAlert({
+            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+            message: t('chat.unavailableMessage', { defaultValue: 'You need an active session to continue the conversation.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
           setIsLoadingMessages(false);
-        } catch (error) {
-          logger.error('Failed to load initial messages', error);
-          setIsLoadingMessages(false);
+          return;
         }
 
-        // Step 3: Set up real-time listener for NEW messages only
+        let caseData: any = null;
+        try {
+          caseData = await casesService.getCaseById(caseId);
+        } catch (error) {
+          logger.error('Unable to load case details for chat', error);
+        }
+
+        if (!caseData) {
+          showAlert({
+            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+            message: t('chat.caseNotFound', { defaultValue: 'We could not locate this case. Please try again later.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
+          setIsLoadingMessages(false);
+          return;
+        }
+
+        const statusKey = normalizeStatus(caseData.status);
+        if (statusKey !== 'under_review') {
+          showAlert({
+            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+            message: t('chat.pendingReview', { defaultValue: 'Your advisor will reach out once the case is under review.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
+          setIsLoadingMessages(false);
+          return;
+        }
+
+        if (!agentFirebaseId && caseData.assignedAgent) {
+          agentFirebaseId = caseData.assignedAgent.id;
+          setAgentInfo({
+            id: agentFirebaseId,
+            name: `${caseData.assignedAgent.firstName || ''} ${caseData.assignedAgent.lastName || ''}`.trim() || 'Agent',
+            profilePicture: (caseData.assignedAgent as any)?.profilePicture,
+            isOnline: false,
+          });
+        }
+
+        if (!agentFirebaseId) {
+          showAlert({
+            title: t('chat.noAgentTitle', { defaultValue: 'Advisor Pending' }),
+            message: t('chat.noAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
+          setIsLoadingMessages(false);
+          return;
+        }
+
+        const result = await loadChatMessages(caseId, clientFirebaseId, agentFirebaseId);
+
+        if (!result.roomId) {
+          showAlert({
+            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+            message: t('chat.awaitAgentInitiation', { defaultValue: 'Your advisor will open the conversation soon. You can reply once it is available.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
+          setResolvedRoomId(null);
+          setHasMore(false);
+          setIsLoadingMessages(false);
+          return;
+        }
+
+        setResolvedRoomId(result.roomId);
+        setHasMore(result.hasMore);
+        setIsLoadingMessages(false);
+        setCurrentConversation(result.roomId, caseId);
+
+        const store = useMessagesStore.getState();
+        if (store.chatMessages.length > 0) {
+          lastMessageTimestampRef.current = Math.max(...store.chatMessages.map((m: ChatMessage) => m.timestamp));
+        } else {
+          lastMessageTimestampRef.current = 0;
+        }
+
         unsubscribe = subscribeToChatMessages(
-          roomId,
+          result.roomId,
           (newMessage) => {
-            // Auto-scroll to bottom if user is near bottom
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
@@ -111,41 +159,26 @@ export default function ChatScreen() {
           lastMessageTimestampRef.current
         );
 
-        // Step 4: Scroll to bottom after initial load
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 300);
 
-        // Step 5: Mark messages as read
-        if (user && roomId) {
+        if (user) {
           const userId = (user as any).uid || (user as any).id || '';
           if (userId) {
-            markChatAsRead(caseId, userId).catch(error => {
+            markChatAsRead(caseId, userId).catch((error) => {
               logger.warn('Failed to mark messages as read', error);
             });
-          }
-        }
-
-        // Step 6: Ensure conversation exists
-        if (clientFirebaseId && agentFirebaseId && !chatInitializedRef.current) {
-          try {
-            const caseData = await casesService.getCaseById(caseId);
-            await chatService.initializeConversation(
-              caseId,
-              (caseData as any).caseNumber || caseId,
-              clientFirebaseId,
-              `${user?.displayName || user?.email || 'User'}`,
-              agentFirebaseId,
-              agentInfo?.name || 'Agent'
-            );
-            chatInitializedRef.current = true;
-          } catch (error) {
-            logger.error('Failed to initialize conversation', error);
           }
         }
       } catch (error) {
         logger.error('Failed to initialize chat', error);
         setIsLoadingMessages(false);
+        showAlert({
+          title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+          message: t('chat.genericError', { defaultValue: 'We were unable to open this conversation. Please try again later.' }),
+          actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+        });
       }
     };
 
@@ -157,6 +190,17 @@ export default function ChatScreen() {
       }
     };
   }, [caseId, user, agentInfo?.id]);
+
+  useEffect(() => {
+    if (chatError) {
+      logger.error('Chat error state', chatError);
+      showAlert({
+        title: t('common.error'),
+        message: chatError,
+        actions: [{ text: t('common.close'), variant: 'primary', onPress: () => clearChatError() }],
+      });
+    }
+  }, [chatError, clearChatError, showAlert, t]);
 
   // Load more messages when scrolling up
   const handleLoadMore = useCallback(async () => {
@@ -188,6 +232,16 @@ export default function ChatScreen() {
   const handleSend = async () => {
     if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !caseId) return;
 
+    const activeRoomId = currentRoomId || resolvedRoomId;
+    if (!activeRoomId) {
+      showAlert({
+        title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+        message: t('chat.awaitAgentInitiation', { defaultValue: 'Your advisor will open the conversation soon. You can reply once it is available.' }),
+        actions: [{ text: t('common.close'), variant: 'primary' }],
+      });
+      return;
+    }
+
     const messageText = message.trim();
     const attachments = selectedAttachments || [];
     const tempId = `temp-${Date.now()}-${Math.random()}`;
@@ -208,7 +262,7 @@ export default function ChatScreen() {
     };
 
     // Add message to UI immediately
-    setCurrentConversation(resolvedRoomId, caseId);
+    setCurrentConversation(activeRoomId, caseId);
     // The store will handle adding the message via the subscription
 
     // Clear input immediately
@@ -312,7 +366,15 @@ export default function ChatScreen() {
 
           <Pressable
             style={styles.callButton}
-            onPress={() => console.log('Call pressed')}
+            onPress={() => {
+              // Open phone dialer with agent contact if available
+              // For now, show an alert - can be enhanced with actual phone number from agentInfo
+              showAlert({
+                title: 'Call Agent',
+                message: 'This feature will initiate a call to your assigned agent. Please contact support for the agent\'s direct number.',
+                actions: [{ text: t('common.close'), variant: 'primary' }]
+              });
+            }}
           >
             <IconSymbol name="phone.fill" size={24} color={theme.colors.text} />
           </Pressable>
@@ -331,8 +393,12 @@ export default function ChatScreen() {
             style={styles.messagesContainer}
             contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
+            onScroll={({ nativeEvent }) => {
+              if (nativeEvent.contentOffset.y <= 80 && !isLoadingMore && hasMore) {
+                handleLoadMore();
+              }
+            }}
+            scrollEventThrottle={16}
             ListHeaderComponent={isLoadingMore ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#2196F3" />
@@ -344,6 +410,12 @@ export default function ChatScreen() {
                 <ActivityIndicator size="large" color="#2196F3" />
               </View>
             ) : null}
+            // Performance optimizations
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={15}
+            windowSize={10}
             renderItem={({ item: msg }) => {
               const isUser = msg.senderId === (auth.currentUser?.uid || (user as any)?.uid || '');
               return (
@@ -416,7 +488,13 @@ export default function ChatScreen() {
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.background, borderTopColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
             <Pressable
               style={styles.attachButton}
-              onPress={() => console.log('Attach pressed')}
+              onPress={() => {
+                showAlert({
+                  title: 'Attach File',
+                  message: 'File attachment feature is coming soon. For now, please describe your document in the message and your agent will help you upload it.',
+                  actions: [{ text: t('common.close'), variant: 'primary' }]
+                });
+              }}
             >
               <IconSymbol name="paperclip" size={24} color={theme.dark ? '#98989D' : '#666'} />
             </Pressable>

@@ -8,24 +8,72 @@ interface ApiResponse<T> {
     error?: string;
 }
 
+const mapDocument = (doc: any): Document => ({
+    id: doc.id,
+    originalName: doc.originalName ?? doc.fileName,
+    fileName: doc.fileName,
+    documentType: doc.documentType,
+    status: doc.status,
+    uploadDate: doc.uploadDate,
+    filePath: doc.filePath,
+    fileSize: doc.fileSize,
+    mimeType: doc.mimeType,
+    caseId: doc.caseId,
+    case: doc.case
+        ? {
+            id: doc.case.id,
+            referenceNumber: doc.case.referenceNumber,
+            serviceType: doc.case.serviceType,
+        }
+        : undefined,
+    uploadedById: doc.uploadedById,
+});
+
 export const documentsService = {
     /**
      * Get all documents for the current user
      */
-    async getDocuments(caseId?: string, page = 1, pageSize = 20): Promise<Document[]> {
+    async getDocuments(filters?: {
+        caseId?: string;
+        type?: string;
+        status?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<Document[]> {
         try {
-            let url: string;
-            if (caseId) {
-                url = `/documents?caseId=${caseId}`;
-            } else {
-                url = `/documents?page=${page}&limit=${pageSize}`;
+            const params = new URLSearchParams();
+            const page = filters?.page || 1;
+            const limit = filters?.limit || 20;
+
+            params.set('page', String(page));
+            params.set('limit', String(limit));
+
+            if (filters?.caseId) {
+                params.set('caseId', filters.caseId);
             }
 
-            const response = await apiClient.get<ApiResponse<{ documents: Document[], pagination: any }>>(url);
+            if (filters?.type && filters.type !== 'all') {
+                params.set('type', filters.type);
+            }
+
+            if (filters?.status && filters.status !== 'all') {
+                params.set('status', filters.status);
+            }
+
+            if (filters?.search) {
+                params.set('search', filters.search.trim());
+            }
+
+            const query = params.toString();
+            const response = await apiClient.get<ApiResponse<{ documents: any[]; pagination: any }>>(
+                query ? `/documents?${query}` : '/documents'
+            );
 
             const documents = response.data.data?.documents || [];
-            logger.info('Documents fetched successfully', { count: documents.length });
-            return documents;
+            const mapped = documents.map(mapDocument);
+            logger.info('Documents fetched successfully', { count: mapped.length });
+            return mapped;
         } catch (error: any) {
             logger.error('Error fetching documents', error);
             throw error;
@@ -37,15 +85,16 @@ export const documentsService = {
      */
     async getDocumentById(documentId: string): Promise<Document> {
         try {
-            const response = await apiClient.get<ApiResponse<{ document: Document }>>(`/documents/${documentId}`);
+            const response = await apiClient.get<ApiResponse<{ document: any }>>(`/documents/${documentId}`);
 
             const document = response.data.data?.document;
             if (!document) {
                 throw new Error(response.data.error || 'Document not found');
             }
 
+            const mapped = mapDocument(document);
             logger.info('Document fetched successfully', { documentId });
-            return document;
+            return mapped;
         } catch (error: any) {
             logger.error('Error fetching document', error);
             throw error;
@@ -57,25 +106,26 @@ export const documentsService = {
      */
     async uploadDocument(data: UploadDocumentRequest): Promise<Document> {
         try {
-            // The API expects: { caseId, documentType, fileName, filePath, fileSize, mimeType }
             const uploadData = {
-                caseId: data.caseId || '',
-                documentType: 'OTHER', // Default, should be passed from UI
-                fileName: data.name,
-                filePath: data.file, // This might need to be a file path or base64
-                fileSize: 0, // Should be calculated
-                mimeType: 'application/pdf', // Should be detected
+                caseId: data.caseId,
+                documentType: data.documentType,
+                fileName: data.fileName,
+                originalName: data.originalName ?? data.fileName,
+                filePath: data.filePath,
+                fileSize: data.fileSize ?? 0,
+                mimeType: data.mimeType,
             };
 
-            const response = await apiClient.post<ApiResponse<{ document: Document }>>('/documents', uploadData);
+            const response = await apiClient.post<ApiResponse<{ document: any }>>('/documents', uploadData);
 
             const document = response.data.data?.document;
             if (!document) {
                 throw new Error(response.data.error || 'Failed to upload document');
             }
 
-            logger.info('Document uploaded successfully', { documentId: document.id });
-            return document;
+            const mapped = mapDocument(document);
+            logger.info('Document uploaded successfully', { documentId: mapped.id });
+            return mapped;
         } catch (error: any) {
             logger.error('Error uploading document', error);
             throw error;

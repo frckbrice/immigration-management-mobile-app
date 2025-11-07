@@ -1,49 +1,59 @@
 
-import React, { useState } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, ActivityIndicator, Alert } from "react-native";
+import React, { useState, useMemo } from "react";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 
 export default function NewCaseScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
-  const [caseTitle, setCaseTitle] = useState('');
-  const [caseType, setCaseType] = useState('');
-  const [description, setDescription] = useState('');
+  const { showAlert } = useBottomSheetAlert();
+  const [serviceType, setServiceType] = useState('');
+  const [priority, setPriority] = useState<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const { createCase, isLoading } = useCasesStore();
 
-  const caseTypes = [
-    'H-1B Visa',
-    'Green Card',
-    'F-1 Student Visa',
-    'L-1 Visa',
-    'O-1 Visa',
-    'Other',
-  ];
+  const serviceTypeOptions = useMemo(() => [
+    'STUDENT_VISA',
+    'WORK_PERMIT',
+    'FAMILY_REUNIFICATION',
+    'TOURIST_VISA',
+    'BUSINESS_VISA',
+    'PERMANENT_RESIDENCY',
+  ], []);
+
+  const priorityOptions: Array<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'> = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
+
+  const formatLabel = (value: string) =>
+    value
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/(^|\s)\w/g, (character) => character.toUpperCase());
 
   const handleSubmit = async () => {
-    if (!caseTitle.trim() || !caseType || !description.trim()) {
-      Alert.alert(t('common.error'), t('newCase.fillAllFields'));
+    if (!serviceType) {
+      showAlert({ title: t('common.error'), message: t('newCase.fillAllFields') });
       return;
     }
 
     const newCase = await createCase({
-      title: caseTitle.trim(),
-      type: caseType,
-      description: description.trim(),
+      serviceType,
+      priority,
     });
 
     if (newCase) {
-      Alert.alert(t('common.success'), t('newCase.caseCreated'), [
-        { text: t('common.close'), onPress: () => router.back() },
-      ]);
+      showAlert({
+        title: t('common.success'),
+        message: t('newCase.caseCreated'),
+        actions: [{ text: t('common.close'), onPress: () => router.back(), variant: 'primary' }]
+      });
     } else {
-      Alert.alert(t('common.error'), t('newCase.caseFailed'));
+      showAlert({ title: t('common.error'), message: t('newCase.caseFailed') });
     }
   };
 
@@ -75,69 +85,65 @@ export default function NewCaseScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Case Title */}
+          {/* Service Type */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
-              {t('newCase.caseTitle')} *
-            </Text>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-              <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
-                placeholder={t('newCase.caseTitlePlaceholder')}
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={caseTitle}
-                onChangeText={setCaseTitle}
-              />
-            </View>
-          </View>
-
-          {/* Case Type */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
-              {t('newCase.caseType')} *
+            <Text style={[styles.inputLabel, { color: theme.colors.text }]}> 
+              {t('newCase.serviceType')} *
             </Text>
             <View style={styles.caseTypeGrid}>
-              {caseTypes.map((type) => (
+              {serviceTypeOptions.map((option) => (
                 <Pressable
-                  key={type}
+                  key={option}
                   style={[
                     styles.caseTypeButton,
-                    caseType === type && styles.caseTypeButtonSelected,
+                    serviceType === option && styles.caseTypeButtonSelected,
                     { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' },
-                    caseType === type && { backgroundColor: '#2196F3' },
+                    serviceType === option && { backgroundColor: '#2196F3' },
                   ]}
-                  onPress={() => setCaseType(type)}
+                  onPress={() => setServiceType(option)}
                 >
                   <Text
                     style={[
                       styles.caseTypeText,
                       { color: theme.colors.text },
-                      caseType === type && { color: '#fff' },
+                      serviceType === option && { color: '#fff' },
                     ]}
                   >
-                    {type}
+                    {formatLabel(option)}
                   </Text>
                 </Pressable>
               ))}
             </View>
           </View>
 
-          {/* Description */}
+          {/* Priority */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
-              {t('newCase.description')} *
+            <Text style={[styles.inputLabel, { color: theme.colors.text }]}> 
+              {t('newCase.priority')} *
             </Text>
-            <View style={[styles.textAreaWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-              <TextInput
-                style={[styles.textArea, { color: theme.colors.text }]}
-                placeholder={t('newCase.descriptionPlaceholder')}
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={6}
-                textAlignVertical="top"
-              />
+            <View style={styles.caseTypeGrid}>
+              {priorityOptions.map((option) => (
+                <Pressable
+                  key={option}
+                  style={[
+                    styles.caseTypeButton,
+                    priority === option && styles.caseTypeButtonSelected,
+                    { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' },
+                    priority === option && { backgroundColor: '#2196F3' },
+                  ]}
+                  onPress={() => setPriority(option)}
+                >
+                  <Text
+                    style={[
+                      styles.caseTypeText,
+                      { color: theme.colors.text },
+                      priority === option && { color: '#fff' },
+                    ]}
+                  >
+                    {formatLabel(option)}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </View>
 
@@ -145,10 +151,10 @@ export default function NewCaseScreen() {
           <Pressable 
             style={[
               styles.submitButton,
-              ((!caseTitle || !caseType || !description) || isLoading) && styles.submitButtonDisabled,
+              ((!serviceType || !priority) || isLoading) && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
-            disabled={!caseTitle || !caseType || !description || isLoading}
+            disabled={!serviceType || !priority || isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
@@ -199,14 +205,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  inputWrapper: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-  },
-  input: {
-    paddingVertical: 16,
-    fontSize: 16,
-  },
   caseTypeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -223,15 +221,6 @@ const styles = StyleSheet.create({
   caseTypeText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  textAreaWrapper: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  textArea: {
-    fontSize: 16,
-    minHeight: 120,
   },
   submitButton: {
     backgroundColor: '#2196F3',

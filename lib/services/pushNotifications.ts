@@ -208,9 +208,7 @@ export const handleNotificationNavigation = async (data: NotificationData) => {
         break;
 
       case 'NEW_EMAIL':
-        if (data.messageId) {
-          router.push(`/email/${data.messageId}`);
-        } else if (data.caseId) {
+        if (data.caseId) {
           router.push({ pathname: '/case/[id]', params: { id: data.caseId } });
         } else {
           router.push('/(tabs)/messages');
@@ -220,9 +218,7 @@ export const handleNotificationNavigation = async (data: NotificationData) => {
       case 'DOCUMENT_UPLOADED':
       case 'DOCUMENT_VERIFIED':
       case 'DOCUMENT_REJECTED':
-        if (data.documentId) {
-          router.push(`/document/${data.documentId}`);
-        } else if (data.caseId) {
+        if (data.caseId) {
           router.push({ pathname: '/case/[id]', params: { id: data.caseId } });
         } else {
           router.push('/(tabs)/documents');
@@ -234,7 +230,7 @@ export const handleNotificationNavigation = async (data: NotificationData) => {
         break;
 
       default:
-        router.push('/(tabs)');
+        router.push('/(tabs)/(home)');
     }
   } catch (error) {
     logger.error('Error handling notification navigation', error);

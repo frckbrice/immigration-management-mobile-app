@@ -6,7 +6,7 @@ This guide will help you set up Stripe payment processing in your app.
 ## Prerequisites
 
 - A Stripe account (sign up at https://stripe.com)
-- Supabase project (for backend payment processing)
+- Backend API endpoint (for payment processing)
 - Your app running with Expo
 
 ## Step 1: Get Your Stripe Keys
@@ -29,65 +29,9 @@ This guide will help you set up Stripe payment processing in your app.
 export const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_ACTUAL_KEY_HERE';
 ```
 
-## Step 3: Set Up Backend (Supabase Edge Function)
+## Step 3: Set Up Backend
 
-### Option A: Using Supabase (Recommended)
-
-1. **Install Supabase CLI**:
-   ```bash
-   npm install -g supabase
-   ```
-
-2. **Login to Supabase**:
-   ```bash
-   supabase login
-   ```
-
-3. **Link Your Project**:
-   ```bash
-   supabase link --project-ref YOUR_PROJECT_REF
-   ```
-   (Find your project ref in your Supabase project settings)
-
-4. **Set Your Stripe Secret Key**:
-   ```bash
-   supabase secrets set STRIPE_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
-   ```
-
-5. **Deploy the Edge Function**:
-   ```bash
-   supabase functions deploy create-payment-intent
-   ```
-
-6. **Update Payment Screen**:
-   In `app/payment.tsx`, update the `createPaymentIntent` function to call your deployed edge function:
-
-   ```typescript
-   const createPaymentIntent = async (amount: number, description: string) => {
-     const response = await fetch(
-       'https://YOUR_PROJECT_REF.supabase.co/functions/v1/create-payment-intent',
-       {
-         method: 'POST',
-         headers: {
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer YOUR_SUPABASE_ANON_KEY`,
-         },
-         body: JSON.stringify({
-           amount,
-           description,
-           metadata: {
-             caseNumber: caseNumber,
-           },
-         }),
-       }
-     );
-     return await response.json();
-   };
-   ```
-
-### Option B: Using Your Own Backend
-
-If you have your own backend, create an endpoint that:
+Create a backend endpoint that:
 
 1. Accepts payment details (amount, description, etc.)
 2. Creates a Stripe Payment Intent using your secret key
@@ -189,7 +133,6 @@ When you're ready to accept real payments:
 
 - [Stripe Documentation](https://stripe.com/docs)
 - [Stripe React Native SDK](https://github.com/stripe/stripe-react-native)
-- [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
 - [Stripe Testing Guide](https://stripe.com/docs/testing)
 
 ## Support
@@ -198,5 +141,5 @@ If you encounter issues:
 
 1. Check the console logs in your app
 2. Check the Stripe Dashboard logs
-3. Review the Supabase function logs (if using Supabase)
+3. Review your backend API logs
 4. Contact Stripe support for payment-specific issues
