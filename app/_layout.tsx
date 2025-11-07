@@ -18,6 +18,7 @@ import { initializeAuthListener, useAuthStore } from "@/stores/auth/authStore";
 import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
 import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
+import { ToastProvider } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
 import "@/lib/i18n";
 
@@ -169,9 +170,11 @@ export default function RootLayout() {
                     <GestureHandlerRootView style={{ flex: 1 }}>
                         <ScrollProvider>
                             <BottomSheetAlertProvider>
-                                <WidgetProvider>
-                                    <AppContent />
-                                </WidgetProvider>
+                                <ToastProvider>
+                                    <WidgetProvider>
+                                        <AppContent />
+                                    </WidgetProvider>
+                                </ToastProvider>
                             </BottomSheetAlertProvider>
                         </ScrollProvider>
                     </GestureHandlerRootView>

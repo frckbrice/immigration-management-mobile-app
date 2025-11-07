@@ -1,5 +1,6 @@
 {
   "common": {
+    "reset": "Réinitialiser",
     "welcome": "Bienvenue",
     "loading": "Chargement...",
     "error": "Erreur",

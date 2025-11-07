@@ -41,6 +41,8 @@ interface FloatingTabBarProps {
   onTabPress?: (tab: TabBarItem) => void;
 }
 
+const normalizeRoute = (value: string) => value.replace(/\/+$/, '');
+
 export default function FloatingTabBar({
   tabs,
   containerWidth = 240,
@@ -210,15 +212,30 @@ export default function FloatingTabBar({
   };
 
   // Don't show tab bar on onboarding/login screens or any non-tab routes
+  const normalizedPathname = normalizeRoute(pathname || '');
   const hideTabBarRoutes = ['/onboarding', '/login', '/register', '/', '/index'];
-  const shouldHide = hideTabBarRoutes.some(route =>
-    pathname === route || pathname.startsWith(route + '/')
+  const shouldHide = hideTabBarRoutes.some((route) => {
+    const normalizedRoute = normalizeRoute(route);
+    return (
+      normalizedPathname === normalizedRoute ||
+      normalizedPathname.startsWith(`${normalizedRoute}/`)
+    );
+  });
+
+  const isTabRoute = normalizedPathname.startsWith('/(tabs)');
+  const mainTabRoutes = React.useMemo(
+    () =>
+      tabs.flatMap((tab) => {
+        const normalized = normalizeRoute(tab.route);
+        return [normalized, `${normalized}/index`];
+      }),
+    [tabs]
   );
 
-  // Also hide if we're not in a tab route
-  const isTabRoute = pathname.startsWith('/(tabs)');
+  const isMainTabRoute = mainTabRoutes.includes(normalizedPathname);
+  const isSubPageWithinTabs = isTabRoute && !isMainTabRoute;
 
-  if (shouldHide || !isTabRoute) {
+  if (shouldHide || !isTabRoute || isSubPageWithinTabs) {
     return null;
   }
 
