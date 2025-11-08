@@ -20,7 +20,8 @@
     "viewAll": "View All",
     "noResults": "No results found",
     "retry": "Retry",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "validation": "Validation"
   },
   "auth": {
     "login": "Login",
@@ -113,7 +114,24 @@
     "chatUnavailableTitle": "Chat Not Available",
     "chatUnavailableMessage": "Chat will be available once your advisor reviews this case.",
     "chatAwaitingAgentTitle": "Advisor Pending",
-    "chatAwaitingAgentMessage": "An advisor will contact you shortly. Chat becomes available after the assignment."
+    "chatAwaitingAgentMessage": "An advisor will contact you shortly. Chat becomes available after the assignment.",
+    "statusLabels": {
+      "submitted": "Submitted",
+      "under_review": "Under Review",
+      "documents_required": "Documents Required",
+      "processing": "Processing",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "closed": "Closed",
+      "unknown": "Unknown"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "normal": "Normal",
+      "low": "Low",
+      "unknown": "Unknown"
+    }
   },
   "caseDetails": {
     "title": "Case Details",
@@ -132,9 +150,58 @@
     "serviceType": "Service Type",
     "priority": "Priority",
     "required": "Required",
+    "heroTitle": "Let's set up your case",
+    "heroSubtitle": "Tell us what you need help with and how soon you need it.",
+    "serviceTypeHelper": "Select the immigration service that best fits your situation.",
+    "priorityHelper": "Let us know how urgent this request is so we can support you accordingly.",
+    "submitCta": "Submit Case",
     "fillAllFields": "Please fill in all required fields",
     "caseCreated": "Case created successfully",
-    "caseFailed": "Failed to create case. Please try again."
+    "caseFailed": "Failed to create case. Please try again.",
+    "serviceTypes": {
+      "student_visa": {
+        "title": "Student Visa",
+        "description": "Support for academic admissions, study permits, and university transitions."
+      },
+      "work_permit": {
+        "title": "Work Permit",
+        "description": "Employment-based applications including renewals and employer sponsorship."
+      },
+      "family_reunification": {
+        "title": "Family Reunification",
+        "description": "Guidance for reunifying with loved ones through spousal or dependent visas."
+      },
+      "tourist_visa": {
+        "title": "Tourist Visa",
+        "description": "Short-term travel visas for vacations, events, and short-stay visits."
+      },
+      "business_visa": {
+        "title": "Business Visa",
+        "description": "Corporate travel, conferences, and investment-related immigration needs."
+      },
+      "permanent_residency": {
+        "title": "Permanent Residency",
+        "description": "Long-term residency planning, eligibility assessments, and documentation."
+      }
+    },
+    "priorities": {
+      "low": {
+        "title": "Low",
+        "description": "Flexible timeline — I'm planning ahead."
+      },
+      "normal": {
+        "title": "Normal",
+        "description": "Standard processing speed is fine for me."
+      },
+      "high": {
+        "title": "High",
+        "description": "Time-sensitive — I prefer regular updates."
+      },
+      "urgent": {
+        "title": "Urgent",
+        "description": "Critical deadline — I need immediate assistance."
+      }
+    }
   },
   "documents": {
     "title": "Documents",
@@ -182,6 +249,7 @@
     "downloadFailedMessage": "Unable to download this template.",
     "downloadOpenErrorTitle": "Unable to open file",
     "downloadOpenErrorMessage": "This file cannot be opened on your device.",
+    "tapToDownload": "Tap to download",
     "noTemplates": "No templates available right now.",
     "noDownloads": "No downloads yet.",
     "downloadedAt": "Downloaded at {{date}}",
@@ -211,6 +279,42 @@
     "fileTooLarge": "File exceeds the 10MB limit.",
     "supportedFormats": "Supported Formats",
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
+  },
+  "payments": {
+    "history": {
+      "title": "Payment History",
+      "recentPayments": "Recent Payments",
+      "summary": {
+        "totalPaid": "Total Paid",
+        "transactions": "Transactions"
+      },
+      "status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed",
+        "processing": "Processing",
+        "unknown": "Unknown"
+      },
+      "caseLabel": "Case: {{caseNumber}}",
+      "caseUnknown": "N/A",
+      "actions": {
+        "makePayment": "Make New Payment"
+      },
+      "empty": {
+        "title": "No Payments Yet",
+        "description": "Your payment history will appear here"
+      },
+      "sheet": {
+        "title": "Choose a Case",
+        "subtitle": "Select a pending or in-progress case to continue.",
+        "secondaryInfo": "Tap to review and pay this case in full.",
+        "empty": {
+          "title": "All caught up!",
+          "subtitle": "You have no outstanding cases that require payment."
+        }
+      },
+      "priorityLabel": "Priority • {{priority}}"
+    }
   },
   "messages": {
     "title": "Messages",
@@ -258,12 +362,16 @@
   "profile": {
     "title": "Profile & Settings",
     "editProfile": "Edit Profile",
+    "editProfileSubtitle": "Update your personal details so we can stay in touch.",
     "logout": "Log Out",
     "personalInfo": "Personal Information",
+    "personalInfoSubtitle": "Everything we know about you in one place.",
     "changePassword": "Change Password",
+    "changePasswordSubtitle": "Use a strong password that you have not used elsewhere.",
     "paymentHistory": "Payment History",
     "exportMyData": "Export My Data",
     "deleteAccount": "Delete Account",
+    "noChanges": "No changes to save. Update a field first.",
     "sections": {
       "accountSettings": "ACCOUNT SETTINGS",
       "preferences": "PREFERENCES",
@@ -272,8 +380,14 @@
     },
     "name": "Name",
     "email": "Email",
+    "emailReadOnly": "Email cannot be changed",
+    "addEmail": "Add your email",
     "phone": "Phone",
+    "phonePlaceholder": "Add a phone number for quick contact",
+    "addPhone": "Add a phone number",
     "address": "Address",
+    "addressPlaceholder": "Street, City, Country",
+    "syncNotice": "Your updates sync instantly across all your devices.",
     "notifications": "Notifications",
     "pushNotifications": "Push Notifications",
     "emailNotifications": "Email Notifications",
@@ -286,7 +400,14 @@
     "version": "Version",
     "help": "Help & Support",
     "contactUs": "Contact Us",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "securityHeadline": "Your data stays secure",
+    "securityCopy": "We use industry-leading encryption to protect your personal information.",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "passwordHint": "Passwords must be at least 8 characters and include a combination of numbers and letters.",
+    "passwordUpdated": "Your password has been changed.",
+    "passwordUpdateFailed": "Failed to change password."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

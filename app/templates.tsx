@@ -92,6 +92,9 @@ export default function TemplatesScreen() {
                     style={[styles.templateCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
                     onPress={() => handleDownload(template)}
                     disabled={downloading === template.id}
+                    accessibilityRole="button"
+                    accessibilityHint={t('documents.tapToDownload', { defaultValue: 'Tap to download' })}
+                    android_ripple={{ color: 'rgba(33, 150, 243, 0.12)' }}
                   >
                     <View style={[styles.templateIcon, { backgroundColor: 'rgba(33, 150, 243, 0.15)' }]}>
                       <IconSymbol name="doc.fill" size={24} color="#2196F3" />
@@ -103,6 +106,9 @@ export default function TemplatesScreen() {
                           {template.description}
                         </Text>
                       )}
+                      <Text style={[styles.templateHint, { color: theme.dark ? '#98989D' : '#666' }]}>
+                        {t('documents.tapToDownload', { defaultValue: 'Tap to download' })}
+                      </Text>
                     </View>
                     {downloading === template.id ? (
                       <ActivityIndicator color="#2196F3" />
@@ -161,5 +167,6 @@ const styles = StyleSheet.create({
   templateContent: { flex: 1 },
   templateName: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   templateDescription: { fontSize: 14 },
+  templateHint: { fontSize: 13, marginTop: 8 },
 });
 

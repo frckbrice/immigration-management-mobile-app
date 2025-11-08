@@ -1,18 +1,22 @@
 // Firebase configuration
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// For React Native, we need to use ReactNativeAsyncStorage adapter
+
+
+
+
+// For React Native, we need to use ReactNativeAsyncStorage adapter"
 // Firebase v12+ uses a different persistence mechanism
-let ReactNativeAsyncStorage: any;
-try {
-  ReactNativeAsyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch {
-  ReactNativeAsyncStorage = AsyncStorage;
-}
+// let ReactNativeAsyncStorage: any;
+// try {
+//   ReactNativeAsyncStorage = require('@react-native-async-storage/async-storage').default;
+// } catch {
+//   ReactNativeAsyncStorage = AsyncStorage;
+// }
 
 const firebaseConfig = {
   apiKey: Constants.expoConfig?.extra?.firebaseApiKey,
@@ -38,9 +42,8 @@ const ensureAuth = (firebaseApp: FirebaseApp) => {
   try {
     // Lazy load to avoid bundler errors when the optional module is unavailable at build time
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const { getReactNativePersistence } = require('firebase/auth/react-native');
     return initializeAuth(firebaseApp, {
-      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+      persistence: getReactNativePersistence(AsyncStorage),
     });
   } catch (error: any) {
     if (error?.code === 'auth/already-initialized') {

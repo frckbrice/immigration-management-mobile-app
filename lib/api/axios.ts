@@ -18,12 +18,12 @@ const envSelectedApi = isProduction
     ? (PROD_API || DEV_API)
     : (DEV_API || PROD_API);
 
-const API_BASE_URL =
-    Constants.expoConfig?.extra?.apiUrl ||
-    envSelectedApi ||
-    'http://localhost:3000/api';
+// const API_BASE_URL =
+//     Constants.expoConfig?.extra?.apiUrl ||
+//     envSelectedApi ||
+//     'http://localhost:3000/api';
 
-// const API_BASE_URL = 'http://172.20.10.10:3000/api';
+const API_BASE_URL = 'http://172.20.10.10:3000/api';
 
 logger.info('API Client initialized', { baseURL: API_BASE_URL });
 

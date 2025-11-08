@@ -24,11 +24,14 @@ export default function ChangePasswordScreen() {
 
   const onChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      showAlert({ title: 'Validation', message: t('validation.required') });
+      showAlert({ title: t('common.validation', { defaultValue: 'Validation' }), message: t('validation.required') });
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert({ title: 'Validation', message: t('validation.passwordsDontMatch') });
+      showAlert({
+        title: t('common.validation', { defaultValue: 'Validation' }),
+        message: t('validation.passwordsDontMatch'),
+      });
       return;
     }
     try {
@@ -43,7 +46,10 @@ export default function ChangePasswordScreen() {
         message: t('profile.passwordUpdated', { defaultValue: 'Your password has been changed.' }),
       });
     } catch (e: any) {
-      showAlert({ title: 'Error', message: e?.message || 'Failed to change password' });
+      showAlert({
+        title: t('common.error'),
+        message: e?.message || t('profile.passwordUpdateFailed', { defaultValue: 'Failed to change password.' }),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -54,14 +60,14 @@ export default function ChangePasswordScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -132,7 +138,7 @@ export default function ChangePasswordScreen() {
           style={[
             styles.actionBar,
             {
-              backgroundColor: theme.dark ? '#000000E6' : '#FFFFFFEE',
+              backgroundColor: theme.dark ? '#000000E6' : 'transparent',
               borderTopColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
               paddingBottom: Math.max(insets.bottom, 16),
             },

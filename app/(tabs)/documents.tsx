@@ -13,6 +13,7 @@ import { templatesService, Template } from "@/lib/services/templatesService";
 import { documentsService } from "@/lib/services/documentsService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Linking } from "react-native";
+import * as FileSystem from "expo-file-system";
 import { logger } from "@/lib/utils/logger";
 
 type DocumentFilter = 'all' | 'pdf' | 'doc' | 'image';
@@ -24,6 +25,10 @@ interface DownloadRecord {
   name: string;
   url: string;
   downloadedAt: string;
+  localUri?: string;
+  fileSize?: number;
+  fileType?: string;
+  mimeType?: string;
 }
 
 const DOWNLOADS_STORAGE_KEY = 'pt_download_history';
@@ -116,6 +121,7 @@ export default function DocumentsScreen() {
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [activeTemplateDownloadId, setActiveTemplateDownloadId] = useState<string | null>(null);
 
   const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
   const [downloadsLoading, setDownloadsLoading] = useState(false);
@@ -219,17 +225,22 @@ export default function DocumentsScreen() {
   }, [activeTab, loadDownloads]);
 
   const handleTemplateDownload = useCallback(async (template: Template) => {
+    setActiveTemplateDownloadId(template.id);
     try {
-      await templatesService.downloadTemplate(template);
+      const download = await templatesService.downloadTemplate(template);
       const record: DownloadRecord = {
         id: template.id,
         name: template.name,
-        url: template.downloadUrl,
+        url: download.remoteUrl,
+        localUri: download.localUri,
         downloadedAt: new Date().toISOString(),
+        fileSize: download.fileSize,
+        fileType: template.fileType,
+        mimeType: download.mimeType,
       };
       setDownloads((prev) => {
         const updated = [record, ...prev.filter((item) => item.id !== record.id)];
-        persistDownloads(updated);
+        void persistDownloads(updated);
         return updated;
       });
     } catch (e: any) {
@@ -238,21 +249,47 @@ export default function DocumentsScreen() {
         message: e?.message || t('documents.downloadFailedMessage', { defaultValue: 'Unable to download this template.' }),
         actions: [{ text: t('common.close'), variant: 'primary' }],
       });
+    } finally {
+      setActiveTemplateDownloadId(null);
     }
   }, [persistDownloads, showAlert, t]);
 
   const handleDownloadOpen = useCallback(async (item: DownloadRecord) => {
     try {
-      const canOpen = await Linking.canOpenURL(item.url);
-      if (canOpen) {
-        await Linking.openURL(item.url);
-      } else {
-        showAlert({
-          title: t('documents.downloadOpenErrorTitle', { defaultValue: 'Unable to open file' }),
-          message: t('documents.downloadOpenErrorMessage', { defaultValue: 'This download cannot be opened on your device.' }),
-          actions: [{ text: t('common.close'), variant: 'primary' }],
-        });
+      const candidateUris: string[] = [];
+
+      if (item.localUri) {
+        if (Platform.OS === 'android') {
+          try {
+            const contentUri = await FileSystem.getContentUriAsync(item.localUri);
+            candidateUris.push(contentUri);
+          } catch (uriError) {
+            logger.warn('Failed to resolve content URI for download', { downloadId: item.id, error: uriError });
+            candidateUris.push(item.localUri);
+          }
+        } else {
+          candidateUris.push(item.localUri);
+        }
       }
+
+      if (item.url) {
+        candidateUris.push(item.url);
+      }
+
+      for (const uri of candidateUris) {
+        if (!uri) continue;
+        const canOpen = await Linking.canOpenURL(uri);
+        if (canOpen) {
+          await Linking.openURL(uri);
+          return;
+        }
+      }
+
+      showAlert({
+        title: t('documents.downloadOpenErrorTitle', { defaultValue: 'Unable to open file' }),
+        message: t('documents.downloadOpenErrorMessage', { defaultValue: 'This download cannot be opened on your device.' }),
+        actions: [{ text: t('common.close'), variant: 'primary' }],
+      });
     } catch (error) {
       logger.error('Failed to open downloaded file', error);
       showAlert({
@@ -591,27 +628,49 @@ export default function DocumentsScreen() {
                   </Text>
                 </View>
               ) : (
-                filteredTemplates.map((template) => (
-                  <Pressable
-                    key={template.id}
-                    style={[styles.templateCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-                    onPress={() => handleTemplateDownload(template)}
-                    disabled={templatesLoading}
-                  >
-                    <View style={[styles.templateIcon, { backgroundColor: withOpacity('#2196F3', 0.15) }]}> 
-                      <IconSymbol name="doc.fill" size={24} color="#2196F3" />
-                    </View>
-                    <View style={styles.templateContent}>
-                      <Text style={[styles.templateName, { color: theme.colors.text }]}>{template.name}</Text>
-                      {template.description ? (
-                        <Text style={[styles.templateDescription, { color: theme.dark ? '#98989D' : '#666' }]}> 
-                          {template.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <IconSymbol name="arrow.down.circle.fill" size={24} color="#2196F3" />
-                  </Pressable>
-                ))
+                filteredTemplates.map((template) => {
+                  const isDownloadingTemplate = activeTemplateDownloadId === template.id;
+                  const fileBadgeLabel = template.fileType ? template.fileType.toUpperCase() : null;
+
+                  return (
+                    <Pressable
+                      key={template.id}
+                      style={[styles.templateCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+                      onPress={() => handleTemplateDownload(template)}
+                      disabled={templatesLoading || isDownloadingTemplate}
+                      accessibilityRole="button"
+                      accessibilityHint={t('documents.tapToDownload', { defaultValue: 'Tap to download' })}
+                      android_ripple={{ color: withOpacity('#2196F3', 0.15) }}
+                    >
+                      <View style={[styles.templateIcon, { backgroundColor: withOpacity('#2196F3', 0.15) }]}> 
+                        <IconSymbol name="doc.fill" size={24} color="#2196F3" />
+                      </View>
+                      <View style={styles.templateContent}>
+                        <Text style={[styles.templateName, { color: theme.colors.text }]}>{template.name}</Text>
+                        {template.description ? (
+                          <Text style={[styles.templateDescription, { color: theme.dark ? '#98989D' : '#666' }]}> 
+                            {template.description}
+                          </Text>
+                        ) : null}
+                        <View style={styles.templateMetaRow}>
+                          {fileBadgeLabel ? (
+                            <View style={[styles.templateBadge, { backgroundColor: withOpacity('#2196F3', theme.dark ? 0.25 : 0.12) }]}>
+                              <Text style={[styles.templateBadgeText, { color: '#2196F3' }]}>{fileBadgeLabel}</Text>
+                            </View>
+                          ) : null}
+                          <Text style={[styles.templateHint, { color: theme.dark ? '#98989D' : '#666' }]}>
+                            {t('documents.tapToDownload', { defaultValue: 'Tap to download' })}
+                          </Text>
+                        </View>
+                      </View>
+                      {isDownloadingTemplate ? (
+                        <ActivityIndicator size="small" color="#2196F3" />
+                      ) : (
+                        <IconSymbol name="arrow.down.circle.fill" size={24} color="#2196F3" />
+                      )}
+                    </Pressable>
+                  );
+                })
               )}
             </>
           )}
@@ -630,26 +689,40 @@ export default function DocumentsScreen() {
                   </Text>
                 </View>
               ) : (
-                sortedDownloads.map((item) => (
-                  <Pressable
-                    key={`${item.id}-${item.downloadedAt}`}
-                    style={[styles.downloadCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-                    onPress={() => handleDownloadOpen(item)}
-                  >
-                    <View style={[styles.downloadIcon, { backgroundColor: withOpacity('#4CAF50', 0.15) }]}> 
-                      <IconSymbol name="arrow.down.circle.fill" size={20} color="#4CAF50" />
-                    </View>
-                    <View style={styles.downloadContent}>
-                      <Text style={[styles.downloadName, { color: theme.colors.text }]} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={[styles.downloadMeta, { color: theme.dark ? '#98989D' : '#666' }]}> 
-                        {t('documents.downloadedAt', { defaultValue: 'Downloaded at {{date}}', date: formatDownloadDate(item.downloadedAt) })}
-                      </Text>
-                    </View>
-                    <IconSymbol name="chevron.right" size={18} color={theme.dark ? '#98989D' : '#666'} />
-                  </Pressable>
-                ))
+                sortedDownloads.map((item) => {
+                  const metaPrimaryParts = [
+                    item.fileType ? item.fileType.toUpperCase() : undefined,
+                    typeof item.fileSize === 'number' ? formatFileSize(item.fileSize) : undefined,
+                  ].filter(Boolean).join(' • ');
+
+                  const metaColor = theme.dark ? '#98989D' : '#666';
+
+                  return (
+                    <Pressable
+                      key={`${item.id}-${item.downloadedAt}`}
+                      style={[styles.downloadCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+                      onPress={() => handleDownloadOpen(item)}
+                    >
+                      <View style={[styles.downloadIcon, { backgroundColor: withOpacity('#4CAF50', 0.15) }]}> 
+                        <IconSymbol name="arrow.down.circle.fill" size={20} color="#4CAF50" />
+                      </View>
+                      <View style={styles.downloadContent}>
+                        <Text style={[styles.downloadName, { color: theme.colors.text }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {metaPrimaryParts ? (
+                          <Text style={[styles.downloadMeta, { color: metaColor }]}>
+                            {metaPrimaryParts}
+                          </Text>
+                        ) : null}
+                        <Text style={[styles.downloadMeta, { color: metaColor }]}>
+                          {t('documents.downloadedAt', { defaultValue: 'Downloaded at {{date}}', date: formatDownloadDate(item.downloadedAt) })}
+                        </Text>
+                      </View>
+                      <IconSymbol name="chevron.right" size={18} color={metaColor} />
+                    </Pressable>
+                  );
+                })
               )}
             </>
           )}
@@ -890,6 +963,24 @@ const styles = StyleSheet.create({
   },
   templateDescription: {
     fontSize: 14,
+  },
+  templateMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  templateBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  templateBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  templateHint: {
+    fontSize: 13,
   },
   downloadCard: {
     flexDirection: 'row',

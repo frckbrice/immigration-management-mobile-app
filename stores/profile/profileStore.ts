@@ -10,7 +10,7 @@ interface ProfileState {
 
   // Actions
   fetchProfile: () => Promise<void>;
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   exportData: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -39,10 +39,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     try {
       const updatedProfile = await profileService.updateProfile(data);
       set({ profile: updatedProfile, isLoading: false });
+      return updatedProfile;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
       logger.error('Error updating profile', error);
       set({ error: errorMessage, isLoading: false });
+      throw error;
     }
   },
 

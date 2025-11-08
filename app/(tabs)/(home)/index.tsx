@@ -14,7 +14,7 @@ import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useScrollContext } from "@/contexts/ScrollContext";
 import { dashboardService } from "@/lib/services/dashboardService";
 import { logger } from "@/lib/utils/logger";
-import type { DashboardStats } from "@/lib/types";
+import type { DashboardStats, Case } from "@/lib/types";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
@@ -136,17 +136,11 @@ export default function HomeScreen() {
   // Helper function to navigate to payment with type safety
   // Platform-specific routes (payment.native.tsx, payment.web.tsx) are resolved at runtime
   const navigateToPayment = (params: { amount: string; description: string; referenceNumber: string }) => {
-    const queryString = Object.entries(params)
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join('&');
-    const route = `/payment?${queryString}`;
     logger.info('Navigating to payment screen', {
-      route,
       referenceNumber: params.referenceNumber,
       amount: params.amount,
     });
-    // Type assertion: platform-specific routes aren't in typed routes but work at runtime
-    router.push(route as typeof route & Parameters<typeof router.push>[0]);
+    router.push({ pathname: '/payment', params });
   };
 
   useEffect(() => {
@@ -515,8 +509,9 @@ export default function HomeScreen() {
                   });
                   return;
                 }
+                const amount = deriveCaseAmount(caseForStatusCard);
                 navigateToPayment({
-                  amount: '150.00',
+                  amount: amount.toFixed(2),
                   description: paymentDescription,
                   referenceNumber: caseForStatusCard.referenceNumber,
                 });
@@ -581,6 +576,22 @@ export default function HomeScreen() {
       </SafeAreaView>
     </>
   );
+}
+
+function deriveCaseAmount(caseItem: Case | null): number {
+  if (!caseItem) {
+    return 0;
+  }
+  const baseByPriority: Record<Case['priority'], number> = {
+    URGENT: 1850,
+    HIGH: 1550,
+    NORMAL: 1125,
+    LOW: 850,
+  };
+  const base = baseByPriority[caseItem.priority] ?? 995;
+  const varianceSeed = caseItem.referenceNumber?.charCodeAt(0) || 42;
+  const variance = (varianceSeed % 7) * 25;
+  return base + variance;
 }
 
 const styles = StyleSheet.create({

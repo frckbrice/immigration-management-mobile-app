@@ -123,7 +123,7 @@ export default function TabLayout() {
   const renderTabBar = useCallback((props: BottomTabBarProps) => {
     const focusedRouteName = props.state.routeNames[props.state.index];
 
-    if (focusedRouteName === '(home)' || focusedRouteName === 'profile') {
+    if (focusedRouteName === '(home)' || focusedRouteName === 'profile' || focusedRouteName === '/(tabs)/cases') {
       return renderCustomTabBar(props, focusedRouteName);
     }
 
