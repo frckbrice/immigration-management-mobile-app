@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useTheme } from "@react-navigation/native";
 
@@ -8,6 +8,9 @@ import { IconSymbol } from "@/components/IconSymbol";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useCasesStore } from "@/stores/cases/casesStore";
+import { useDestinationsStore } from "@/stores/destinations/destinationsStore";
+import { useToast } from "@/components/Toast";
+import { BackButton } from "@/components/BackButton";
 
 const PRIORITY_ACCENTS: Record<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT', string> = {
   LOW: "#38bdf8",
@@ -40,9 +43,17 @@ export default function NewCaseScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
+  const { showToast } = useToast();
   const [serviceType, setServiceType] = useState('');
+  const [destinationId, setDestinationId] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const { createCase, isLoading } = useCasesStore();
+  const insets = useSafeAreaInsets();
+
+  const destinations = useDestinationsStore((state) => state.destinations);
+  const destinationsLoading = useDestinationsStore((state) => state.isLoading);
+  const destinationsError = useDestinationsStore((state) => state.error);
+  const fetchDestinations = useDestinationsStore((state) => state.fetchDestinations);
 
   const colors = useMemo(() => ({
     primary: theme.colors.primary ?? '#2563EB',
@@ -54,24 +65,47 @@ export default function NewCaseScreen() {
     highlightBackground: theme.dark ? 'rgba(37,99,235,0.18)' : 'rgba(37,99,235,0.05)',
   }), [theme]);
 
+  useEffect(() => {
+    if (!destinationsLoading && destinations.length === 0) {
+      fetchDestinations({ force: false });
+    }
+  }, [destinations.length, destinationsLoading, fetchDestinations]);
+
+  useEffect(() => {
+    if (destinationId && !destinations.some((dest) => dest.id === destinationId)) {
+      setDestinationId('');
+    }
+  }, [destinations, destinationId]);
+
   const handleSubmit = async () => {
-    if (!serviceType) {
+    if (!serviceType || !destinationId) {
       showAlert({ title: t('common.error'), message: t('newCase.fillAllFields') });
       return;
     }
 
     const newCase = await createCase({
       serviceType,
+      destinationId,
       priority,
     });
 
     if (newCase) {
+      showToast({
+        title: t('common.success'),
+        message: t('newCase.caseCreated'),
+        type: 'success',
+      });
       showAlert({
         title: t('common.success'),
         message: t('newCase.caseCreated'),
         actions: [{ text: t('common.close'), onPress: () => router.back(), variant: 'primary' }],
       });
     } else {
+      showToast({
+        title: t('common.error'),
+        message: t('newCase.caseFailed'),
+        type: 'error',
+      });
       showAlert({ title: t('common.error'), message: t('newCase.caseFailed') });
     }
   };
@@ -79,11 +113,12 @@ export default function NewCaseScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background, paddingBottom: insets.bottom ?? 0 }]}
+        edges={['top']}
+      >
         <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('newCase.title')}</Text>
           <View style={styles.placeholder} />
         </View>
@@ -95,13 +130,100 @@ export default function NewCaseScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={[styles.hero, { backgroundColor: colors.subtleBackground, borderColor: colors.cardBorder }]}>
-            <View style={[styles.heroIcon, { backgroundColor: colors.elevatedBackground }]}>
+            <View style={[styles.heroIcon, { backgroundColor: colors.elevatedBackground }]}> 
               <IconSymbol name="square.and.pencil" size={22} color={colors.primary} />
             </View>
             <View style={styles.heroCopy}>
               <Text style={[styles.heroTitle, { color: theme.colors.text }]}>{t('newCase.heroTitle')}</Text>
               <Text style={[styles.heroSubtitle, { color: colors.mutedText }]}>{t('newCase.heroSubtitle')}</Text>
             </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                {t('newCase.destination')} <Text style={[styles.sectionRequired, { color: colors.mutedText }]}>{t('newCase.required')}</Text>
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.mutedText }]}>
+                {t('newCase.destinationHelper')}
+              </Text>
+            </View>
+
+            {destinationsLoading ? (
+              <View style={[styles.slateCard, { borderColor: colors.cardBorder, backgroundColor: colors.subtleBackground }]}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={[styles.slateMessage, { color: colors.mutedText }]}>
+                  {t('newCase.destinationLoading')}
+                </Text>
+              </View>
+            ) : destinations.length === 0 ? (
+              <View style={[styles.slateCard, { borderColor: colors.cardBorder, backgroundColor: colors.subtleBackground }]}>
+                <Text style={[styles.slateMessage, { color: colors.mutedText }]}>
+                  {destinationsError ? t('newCase.destinationError') : t('newCase.destinationEmpty')}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  style={[styles.retryButton, { backgroundColor: colors.elevatedBackground }]}
+                  onPress={() => fetchDestinations({ force: true })}
+                >
+                  <Text style={[styles.retryButtonText, { color: colors.primary }]}>
+                    {t('newCase.destinationRetry')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.destinationGrid}>
+                {destinations.map((destination) => {
+                  const isSelected = destinationId === destination.id;
+                  return (
+                    <Pressable
+                      key={destination.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      style={[
+                        styles.destinationCard,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.cardBorder,
+                          shadowColor: theme.dark ? '#000' : colors.primary,
+                        },
+                        isSelected && {
+                          borderColor: colors.primary,
+                          backgroundColor: colors.highlightBackground,
+                          shadowOpacity: theme.dark ? 0.35 : 0.12,
+                          shadowRadius: 18,
+                        },
+                      ]}
+                      onPress={() => setDestinationId(destination.id)}
+                    >
+                      <View
+                        style={[
+                          styles.destinationFlag,
+                          { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.destinationFlagText,
+                            { color: isSelected ? theme.colors.background : colors.primary },
+                          ]}
+                        >
+                          {destination.flagEmoji || '🌍'}
+                        </Text>
+                      </View>
+                      <View style={styles.destinationCopy}>
+                        <Text style={[styles.destinationTitle, { color: theme.colors.text }]}>
+                          {destination.name}
+                        </Text>
+                        <Text style={[styles.destinationSubtitle, { color: colors.mutedText }]}>
+                          {destination.description || t('newCase.destinationDefaultDescription', { code: destination.code })}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -137,10 +259,12 @@ export default function NewCaseScreen() {
                     ]}
                     onPress={() => setServiceType(type)}
                   >
-                    <View style={[
-                      styles.cardIconWrapper,
-                      { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
-                    ]}>
+                    <View
+                      style={[
+                        styles.cardIconWrapper,
+                        { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
+                      ]}
+                    >
                       <IconSymbol
                         name={SERVICE_ICONS[type]}
                         size={20}
@@ -151,7 +275,7 @@ export default function NewCaseScreen() {
                       <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
                         {t(`newCase.serviceTypes.${translationKey}.title`)}
                       </Text>
-                      <Text style={[styles.cardSubtitle, { color: colors.mutedText }]}>
+                      <Text style={[styles.cardSubtitle, { color: colors.mutedText }]}> 
                         {t(`newCase.serviceTypes.${translationKey}.description`)}
                       </Text>
                     </View>
@@ -187,10 +311,12 @@ export default function NewCaseScreen() {
                     ]}
                     onPress={() => setPriority(type)}
                   >
-                    <View style={[
-                      styles.priorityIconWrapper,
-                      { backgroundColor: isSelected ? PRIORITY_ACCENTS[type] : colors.elevatedBackground },
-                    ]}>
+                    <View
+                      style={[
+                        styles.priorityIconWrapper,
+                        { backgroundColor: isSelected ? PRIORITY_ACCENTS[type] : colors.elevatedBackground },
+                      ]}
+                    >
                       <IconSymbol
                         name={PRIORITY_ICONS[type]}
                         size={16}
@@ -212,9 +338,9 @@ export default function NewCaseScreen() {
           </View>
 
           <Pressable
-            style={[styles.submitButton, { backgroundColor: colors.primary }, ((!serviceType || !priority) || isLoading) && styles.submitButtonDisabled]}
+            style={[styles.submitButton, { backgroundColor: colors.primary }, ((!serviceType || !destinationId || !priority) || isLoading) && styles.submitButtonDisabled]}
             onPress={handleSubmit}
-            disabled={!serviceType || !priority || isLoading}
+            disabled={!serviceType || !destinationId || !priority || isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#ffffff" />
@@ -239,9 +365,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 8,
   },
   headerTitle: {
     fontSize: 18,
@@ -368,6 +491,66 @@ const styles = StyleSheet.create({
   prioritySubtitle: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  destinationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  destinationCard: {
+    flexGrow: 1,
+    minWidth: '48%',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    gap: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  destinationFlag: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  destinationFlagText: {
+    fontSize: 22,
+  },
+  destinationCopy: {
+    gap: 6,
+  },
+  destinationTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  destinationSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  slateCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  slateMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   submitButton: {
     borderRadius: 14,

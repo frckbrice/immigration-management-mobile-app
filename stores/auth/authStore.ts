@@ -10,6 +10,7 @@ import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser } 
 import { auth } from '../../lib/firebase/config';
 import { secureStorage } from '../../lib/storage/secureStorage';
 import { logger } from '../../lib/utils/logger';
+import type { PushNotificationToken } from '../../lib/services/pushNotifications';
 
 interface AuthState {
   // State
@@ -18,6 +19,8 @@ interface AuthState {
   isAuthenticated: boolean;
   error: string | null;
   pushToken: string | null;
+  pushTokenPlatform: PushNotificationToken['platform'] | null;
+  pushTokenDeviceId: string | null;
 
   // Actions
   setUser: (user: FirebaseUser | null) => void;
@@ -26,7 +29,8 @@ interface AuthState {
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
-  registerPushToken: () => Promise<void>;
+  registerPushToken: () => Promise<PushNotificationToken | null>;
+  unregisterPushToken: () => Promise<void>;
 }
 
 /**
@@ -43,6 +47,8 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       error: null,
       pushToken: null,
+      pushTokenPlatform: null,
+      pushTokenDeviceId: null,
 
       // Set user (called by auth state listener)
       setUser: (user: FirebaseUser | null) => {
@@ -120,13 +126,20 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         try {
           set({ isLoading: true });
-          
+
+          // Best-effort push token cleanup before logout
+          try {
+            await get().unregisterPushToken();
+          } catch (cleanupError) {
+            logger.warn('Failed to remove push token during logout', cleanupError);
+          }
+
           // Sign out from Firebase
           await firebaseSignOut(auth);
-          
+
           // Clear secure storage
           await secureStorage.clearAuthData();
-          
+
           // Reset state
           set({
             user: null,
@@ -134,8 +147,10 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
             pushToken: null,
+            pushTokenPlatform: null,
+            pushTokenDeviceId: null,
           });
-          
+
           logger.info('User logged out successfully');
         } catch (error: any) {
           logger.error('Error during logout', error);
@@ -152,15 +167,34 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { registerForPushNotifications, registerPushTokenWithBackend } = await import('../../lib/services/pushNotifications');
           const tokenData = await registerForPushNotifications();
-          
+
           if (tokenData) {
-            set({ pushToken: tokenData.token });
-            await registerPushTokenWithBackend(tokenData.token, tokenData.platform);
+            set({
+              pushToken: tokenData.token,
+              pushTokenPlatform: tokenData.platform,
+              pushTokenDeviceId: tokenData.deviceId || null,
+            });
+            await registerPushTokenWithBackend(tokenData.token, tokenData.platform, tokenData.deviceId);
             logger.info('Push token registered successfully');
+            return tokenData;
           }
+          return null;
         } catch (error: any) {
           logger.warn('Failed to register push token (non-blocking)', error);
           // Non-blocking - app continues normally
+          return null;
+        }
+      },
+
+      unregisterPushToken: async () => {
+        try {
+          const { unregisterPushTokenWithBackend } = await import('../../lib/services/pushNotifications');
+          const { pushTokenPlatform, pushTokenDeviceId } = get();
+          await unregisterPushTokenWithBackend(pushTokenPlatform || undefined, pushTokenDeviceId || undefined);
+        } catch (error: any) {
+          logger.warn('Failed to unregister push token (non-blocking)', error);
+        } finally {
+          set({ pushToken: null, pushTokenPlatform: null, pushTokenDeviceId: null });
         }
       },
     }),

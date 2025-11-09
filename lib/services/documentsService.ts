@@ -8,26 +8,81 @@ interface ApiResponse<T> {
     error?: string;
 }
 
-const mapDocument = (doc: any): Document => ({
-    id: doc.id,
-    originalName: doc.originalName ?? doc.fileName,
-    fileName: doc.fileName,
-    documentType: doc.documentType,
-    status: doc.status,
-    uploadDate: doc.uploadDate,
-    filePath: doc.filePath,
-    fileSize: doc.fileSize,
-    mimeType: doc.mimeType,
-    caseId: doc.caseId,
-    case: doc.case
-        ? {
-            id: doc.case.id,
-            referenceNumber: doc.case.referenceNumber,
-            serviceType: doc.case.serviceType,
-        }
-        : undefined,
-    uploadedById: doc.uploadedById,
-});
+const DOCUMENT_DOWNLOAD_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const documentDownloadCache = new Map<
+    string,
+    {
+        url: string | null;
+        fetchedAt: number;
+    }
+>();
+
+const isAbsoluteUrl = (url: string) => /^https?:\/\//i.test(url);
+
+const resolveApiRelativeUrl = (url: string | null | undefined): string | null => {
+    if (!url) {
+        return null;
+    }
+
+    if (isAbsoluteUrl(url)) {
+        return url;
+    }
+
+    const baseURL = apiClient.defaults.baseURL?.replace(/\/$/, '');
+    if (!baseURL) {
+        return url;
+    }
+
+    const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseURL}${normalizedPath}`;
+};
+
+const pickDocumentFilePath = (doc: any): string => {
+    const candidate =
+        doc?.filePath ??
+        doc?.file_path ??
+        doc?.fileUrl ??
+        doc?.file_url ??
+        doc?.downloadUrl ??
+        doc?.download_url ??
+        doc?.url ??
+        '';
+
+    return typeof candidate === 'string' ? candidate : '';
+};
+
+const mapDocument = (doc: any): Document => {
+    const resolvedCase = doc.case ?? doc.caseDetails ?? doc.case_details;
+    const resolvedFilePath = pickDocumentFilePath(doc);
+    const normalizedFilePath = resolveApiRelativeUrl(resolvedFilePath) ?? resolvedFilePath;
+
+    return {
+        id: doc.id ?? doc.documentId ?? doc.document_id,
+        originalName: doc.originalName ?? doc.original_name ?? doc.fileName ?? doc.file_name ?? '',
+        fileName: doc.fileName ?? doc.file_name ?? doc.originalName ?? doc.original_name ?? '',
+        documentType: doc.documentType ?? doc.document_type ?? doc.type ?? '',
+        status: doc.status ?? doc.documentStatus ?? doc.document_status ?? 'PENDING',
+        uploadDate: doc.uploadDate ?? doc.upload_date ?? doc.createdAt ?? doc.created_at ?? '',
+        filePath: normalizedFilePath,
+        fileSize:
+            typeof doc.fileSize === 'number'
+                ? doc.fileSize
+                : typeof doc.file_size === 'number'
+                    ? doc.file_size
+                    : undefined,
+        mimeType: doc.mimeType ?? doc.mime_type,
+        caseId: doc.caseId ?? doc.case_id ?? '',
+        case: resolvedCase
+            ? {
+                id: resolvedCase.id,
+                referenceNumber: resolvedCase.referenceNumber ?? resolvedCase.reference_number,
+                serviceType: resolvedCase.serviceType ?? resolvedCase.service_type,
+            }
+            : undefined,
+        uploadedById: doc.uploadedById ?? doc.uploaded_by_id,
+    };
+};
 
 export const documentsService = {
     /**
@@ -149,11 +204,25 @@ export const documentsService = {
      * Download a document
      */
     async downloadDocument(documentId: string): Promise<string | null> {
+        const cached = documentDownloadCache.get(documentId);
+        const now = Date.now();
+        if (cached && now - cached.fetchedAt < DOCUMENT_DOWNLOAD_CACHE_TTL) {
+            logger.debug('Document download cache hit', { documentId });
+            return cached.url;
+        }
+
         try {
-            const response = await apiClient.get(`/documents/${documentId}/download`);
-            const url = response.data.url || response.data;
-            logger.info('Document download URL fetched successfully', { documentId });
-            return url;
+            const document = await documentsService.getDocumentById(documentId);
+            const resolvedUrl = document.filePath ? resolveApiRelativeUrl(document.filePath) ?? document.filePath : null;
+
+            if (!resolvedUrl) {
+                logger.warn('Document metadata did not include a usable file path', { documentId });
+                throw new Error('Document download URL not available');
+            }
+
+            logger.info('Document download URL resolved from metadata', { documentId });
+            documentDownloadCache.set(documentId, { url: resolvedUrl, fetchedAt: now });
+            return resolvedUrl;
         } catch (error: any) {
             logger.error('Error downloading document', error);
             throw error;

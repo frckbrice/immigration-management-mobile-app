@@ -4,6 +4,7 @@ import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTheme } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
+import { BackButton } from '@/components/BackButton';
 import { useCasesStore } from '@/stores/cases/casesStore';
 import { useDocumentsStore } from '@/stores/documents/documentsStore';
 import { useTranslation } from '@/lib/hooks/useTranslation';
@@ -132,11 +133,9 @@ export default function CaseDetailsScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-          <Pressable style={styles.headerBtn} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('caseDetails.title')}</Text>
-          <View style={styles.headerBtn} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {isLoading && (
@@ -234,7 +233,7 @@ export default function CaseDetailsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  headerBtn: { padding: 8, width: 32 },
+  headerSpacer: { width: 40, height: 40 },
   headerTitle: { fontSize: 18, fontWeight: '700' },
   loadingContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },

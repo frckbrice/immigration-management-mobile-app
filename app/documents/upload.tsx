@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import * as DocumentPicker from "expo-document-picker";
@@ -49,7 +50,7 @@ export default function UploadDocumentScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
-
+  const insets = useSafeAreaInsets();
   const cases = useCasesStore((state) => state.cases);
   const casesLoading = useCasesStore((state) => state.isLoading);
   const fetchCases = useCasesStore((state) => state.fetchCases);
@@ -79,12 +80,20 @@ export default function UploadDocumentScreen() {
   }, [fetchCases, showAlert, t]);
 
   const activeCases = useMemo<Case[]>(
-    () => cases.filter((item) => item.status !== "CLOSED" && item.status !== "REJECTED"),
+    () =>
+      cases.filter(
+        (item) => item.status !== "CLOSED" && item.status !== "REJECTED" && item.status !== "APPROVED",
+      ),
     [cases],
   );
 
   useEffect(() => {
-    if (!selectedCaseId && activeCases.length > 0) {
+    if (selectedCaseId) {
+      const exists = activeCases.some((caseItem) => caseItem.id === selectedCaseId);
+      if (!exists) {
+        setSelectedCaseId(activeCases[0]?.id ?? "");
+      }
+    } else if (activeCases.length > 0) {
       setSelectedCaseId(activeCases[0].id);
     }
   }, [activeCases, selectedCaseId]);
@@ -98,6 +107,15 @@ export default function UploadDocumentScreen() {
     () => Boolean(selectedCaseId && documentType) && !uploading && !isPicking,
     [documentType, isPicking, selectedCaseId, uploading],
   );
+
+  const documentTypeRows = useMemo(() => {
+    const chunkSize = 3;
+    const rows: typeof DOCUMENT_TYPE_OPTIONS[] = [];
+    for (let i = 0; i < DOCUMENT_TYPE_OPTIONS.length; i += chunkSize) {
+      rows.push(DOCUMENT_TYPE_OPTIONS.slice(i, i + chunkSize));
+    }
+    return rows;
+  }, []);
 
   const handleCreateCaseNavigation = useCallback(() => {
     router.push("/cases/new");
@@ -205,14 +223,9 @@ export default function UploadDocumentScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background, paddingBottom: insets.bottom ?? 0 }]} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
             {t('uploadDocument.title')}
           </Text>
@@ -269,27 +282,39 @@ export default function UploadDocumentScreen() {
                   ) : null}
                 </View>
 
-                <View style={styles.caseList}>
-                  {activeCases.map((caseItem) => {
-                    const isActive = caseItem.id === selectedCaseId;
-                    return (
-                      <Pressable
-                        key={caseItem.id}
-                        style={[styles.caseCard, isActive && styles.caseCardActive, { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') }]}
-                        onPress={() => setSelectedCaseId(caseItem.id)}
+                    <View style={styles.caseListContainer}>
+                      <ScrollView
+                        style={styles.caseScroll}
+                        contentContainerStyle={styles.caseScrollContent}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
                       >
-                        <View>
-                          <Text style={[styles.caseTitle, { color: theme.colors.text }]} numberOfLines={1}>
-                            {caseItem.referenceNumber}
-                          </Text>
-                          <Text style={[styles.caseSubtitle, { color: theme.dark ? '#98989D' : '#666' }]} numberOfLines={1}>
-                            {formatServiceType(caseItem.serviceType)}
-                          </Text>
-                        </View>
-                        {isActive ? <IconSymbol name="checkmark.circle.fill" size={22} color="#2196F3" /> : null}
-                      </Pressable>
-                    );
-                  })}
+                        {activeCases.map((caseItem) => {
+                          const isActive = caseItem.id === selectedCaseId;
+                          return (
+                            <Pressable
+                              key={caseItem.id}
+                              style={[
+                                styles.caseCard,
+                                isActive && styles.caseCardActive,
+                                { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') },
+                              ]}
+                              onPress={() => setSelectedCaseId(caseItem.id)}
+                            >
+                              <View>
+                                <Text style={[styles.caseTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                                  {caseItem.referenceNumber}
+                                </Text>
+                                <Text style={[styles.caseSubtitle, { color: theme.dark ? '#98989D' : '#666' }]} numberOfLines={1}>
+                                  {formatServiceType(caseItem.serviceType)}
+                                </Text>
+                              </View>
+                              {isActive ? <IconSymbol name="checkmark.circle.fill" size={22} color="#2196F3" /> : null}
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
                 </View>
               </View>
 
@@ -298,21 +323,32 @@ export default function UploadDocumentScreen() {
                   {t('uploadDocument.documentTypeTitle')}
                 </Text>
                 <View style={styles.typeGrid}>
-                  {DOCUMENT_TYPE_OPTIONS.map((option) => {
-                    const isActive = option.value === documentType;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        style={[styles.typeChip, isActive && styles.typeChipActive, { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') }]}
-                        onPress={() => setDocumentType(option.value)}
-                      >
-                        <IconSymbol name={option.icon} size={18} color={isActive ? '#2196F3' : (theme.dark ? '#98989D' : '#666')} />
-                        <Text style={[styles.typeChipText, { color: isActive ? '#2196F3' : theme.colors.text }]}>
-                          {t(option.labelKey, { defaultValue: option.value.replace(/_/g, ' ') })}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                      {documentTypeRows.map((row, rowIndex) => (
+                        <View key={rowIndex} style={styles.typeRow}>
+                          {row.map((option) => {
+                            const isActive = option.value === documentType;
+                            return (
+                              <Pressable
+                                key={option.value}
+                                style={[
+                                  styles.typeChip,
+                                  isActive && styles.typeChipActive,
+                                  { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') },
+                                ]}
+                                onPress={() => setDocumentType(option.value)}
+                              >
+                                <IconSymbol name={option.icon} size={18} color={isActive ? '#2196F3' : (theme.dark ? '#98989D' : '#666')} />
+                                <Text style={[styles.typeChipText, { color: isActive ? '#2196F3' : theme.colors.text }]}>
+                                  {t(option.labelKey, { defaultValue: option.value.replace(/_/g, ' ') })}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                          {row.length < 3
+                            ? Array.from({ length: 3 - row.length }).map((_, idx) => <View key={`spacer-${idx}`} style={styles.typeSpacer} />)
+                            : null}
+                        </View>
+                      ))}
                 </View>
 
                 {selectedFileName ? (
@@ -384,9 +420,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  backButton: {
-    padding: 8,
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -438,8 +471,16 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
   },
-  caseList: {
+  caseListContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  caseScroll: {
+    maxHeight: 260,
+  },
+  caseScrollContent: {
     gap: 12,
+    paddingVertical: 4,
   },
   caseCard: {
     borderWidth: 1,
@@ -461,11 +502,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   typeGrid: {
+    gap: 12,
+  },
+  typeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
+  typeSpacer: {
+    flex: 1,
+  },
   typeChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

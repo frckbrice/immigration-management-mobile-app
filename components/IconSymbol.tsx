@@ -48,6 +48,7 @@ const MAPPING = {
   "minus": "remove",
   "xmark": "close",
   "checkmark": "check",
+  "arrow.down.circle.fill": "download",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
   "checkmark.square.fill": "check-box",
@@ -91,6 +92,8 @@ const MAPPING = {
   "exclamationmark.triangle": "warning-amber",
   "questionmark.circle.fill": "help",
   "questionmark.circle": "help-outline",
+  "globe": "language",
+  "circle.lefthalf.fill": "brightness-6",
 
   // Shapes & Symbols
   "square": "square",

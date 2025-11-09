@@ -5,6 +5,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useTheme } from '@react-navigation/native';
 import { useTranslation } from '@/lib/hooks/useTranslation';
 import { IconSymbol } from '@/components/IconSymbol';
+import { BackButton } from '@/components/BackButton';
 import { useProfileStore } from '@/stores/profile/profileStore';
 import type { UserProfile } from '@/lib/types';
 
@@ -33,16 +34,14 @@ export default function PersonalInfoScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
-            <Pressable style={styles.headerIcon} hitSlop={8} onPress={() => router.back()}>
-              <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-            </Pressable>
+            <BackButton onPress={() => router.back()} />
             <View style={styles.headerCopy}>
               <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile.personalInfo')}</Text>
               <Text style={[styles.subtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
                 {t('profile.personalInfoSubtitle', { defaultValue: 'Everything we know about you in one place.' })}
               </Text>
             </View>
-            <View style={styles.headerIcon} />
+            <View style={styles.headerSpacer} />
           </View>
 
           {isLoading ? (
@@ -174,13 +173,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  headerSpacer: { width: 40, height: 40 },
   headerCopy: { flex: 1, gap: 4 },
   title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.2 },
   subtitle: { fontSize: 14 },

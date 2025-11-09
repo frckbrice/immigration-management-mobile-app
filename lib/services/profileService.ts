@@ -6,9 +6,12 @@ import type { UserProfile } from '../types';
 
 interface ApiResponse<T> {
   success: boolean;
+  message?: string;
   data?: T;
   error?: string;
 }
+
+export type ExportDataResponse = ApiResponse<any>;
 
 export const profileService = {
   /**
@@ -118,11 +121,11 @@ export const profileService = {
   /**
    * Export user data
    */
-  async exportData(): Promise<any> {
+  async exportData(): Promise<ExportDataResponse> {
     try {
       const response = await apiClient.get<ApiResponse<any>>('/users/data-export');
       logger.info('User data exported successfully');
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
       logger.error('Error exporting data', error);
       throw error;

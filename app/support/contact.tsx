@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -10,16 +10,13 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useToast } from '@/components/Toast';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
 import { withOpacity } from '@/styles/theme';
+import { BackButton } from '@/components/BackButton';
 
 export default function ContactSupportScreen() {
   const theme = useAppTheme();
   const colors = theme.colors;
   const cardBackground = theme.dark ? colors.surfaceElevated : colors.surface;
   const subtleBackground = theme.dark ? colors.surfaceAlt : colors.surfaceAlt;
-  const headerBackground = useMemo(
-    () => withOpacity(colors.primary, theme.dark ? 0.22 : 0.12),
-    [colors.primary, theme.dark]
-  );
   const { t } = useTranslation();
   const router = useRouter();
   const { showAlert } = useBottomSheetAlert();
@@ -68,16 +65,14 @@ export default function ContactSupportScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { backgroundColor: headerBackground }]} hitSlop={10} onPress={() => router.back()}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
               <View style={styles.headerCopy}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile.contactUs')}</Text>
                 <Text style={[styles.subtitle, { color: colors.muted }]}>
                   {t('support.contactSubtitle', { defaultValue: 'We usually respond within one business day.' })}
                 </Text>
               </View>
-              <View style={[styles.headerIcon, { backgroundColor: 'transparent' }]} />
+              <View style={styles.headerSpacer} />
             </View>
 
             <View style={[styles.card, { backgroundColor: cardBackground, borderColor: colors.border, shadowColor: colors.backdrop }]}
@@ -147,7 +142,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerSpacer: { width: 40, height: 40 },
   headerCopy: { flex: 1, gap: 4 },
   title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.2 },
   subtitle: { fontSize: 14 },

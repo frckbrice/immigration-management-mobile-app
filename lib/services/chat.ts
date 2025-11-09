@@ -78,6 +78,57 @@ function getChatRoomId(clientId: string, agentId: string): string {
 }
 
 class ChatService {
+
+    private mapConversationFromMetadata(
+        roomId: string,
+        metadata: ChatMetadata | null,
+        unreadCount: number
+    ): Conversation | null {
+        if (!metadata) {
+            return null;
+        }
+
+        const primaryCase = metadata.caseReferences && metadata.caseReferences.length > 0
+            ? metadata.caseReferences[0]
+            : undefined;
+
+        const caseId = primaryCase?.caseId ?? roomId;
+        const caseReference = primaryCase?.caseReference ?? primaryCase?.caseId ?? roomId;
+
+        return {
+            id: roomId,
+            caseId,
+            caseReference,
+            lastMessage: metadata.lastMessage,
+            lastMessageTime: metadata.lastMessageTime,
+            unreadCount,
+            participants: metadata.participants,
+        };
+    }
+
+    private async computeUnreadCount(roomId: string, userId: string): Promise<number> {
+        try {
+            const messagesRef = ref(database, `chats/${roomId}/messages`);
+            const snapshot = await get(messagesRef);
+
+            if (!snapshot.exists()) {
+                return 0;
+            }
+
+            let count = 0;
+            snapshot.forEach((childSnap) => {
+                const message = childSnap.val();
+                if (message && !message.isRead && message.senderId !== userId) {
+                    count += 1;
+                }
+            });
+            return count;
+        } catch (error) {
+            logger.error('Failed to compute unread count for conversation', { roomId, error });
+            return 0;
+        }
+    }
+
     // Fetch chat metadata
     async getChatMetadata(roomId: string): Promise<ChatMetadata | null> {
         try {
@@ -108,6 +159,75 @@ class ChatService {
     // Helper method to get chat room ID from client-agent pair
     getChatRoomIdFromPair(clientId: string, agentId: string): string {
         return getChatRoomId(clientId, agentId);
+    }
+
+    async loadConversations(userId: string): Promise<Conversation[]> {
+        try {
+            if (!userId) {
+                return [];
+            }
+
+            const userChatsRef = ref(database, `userChats/${userId}`);
+            const snapshot = await get(userChatsRef);
+
+            if (!snapshot.exists()) {
+                return [];
+            }
+
+            const chatIds = Object.keys(snapshot.val() || {});
+            if (chatIds.length === 0) {
+                return [];
+            }
+
+            const conversations = await Promise.all(
+                chatIds.map(async (chatId) => {
+                    const [metadata, unreadCount] = await Promise.all([
+                        this.getChatMetadata(chatId),
+                        this.computeUnreadCount(chatId, userId),
+                    ]);
+                    return this.mapConversationFromMetadata(chatId, metadata, unreadCount);
+                })
+            );
+
+            const filtered = conversations.filter((conv): conv is Conversation => conv !== null);
+            filtered.sort((a, b) => {
+                const timeA = a.lastMessageTime ?? 0;
+                const timeB = b.lastMessageTime ?? 0;
+                return timeB - timeA;
+            });
+
+            return filtered;
+        } catch (error) {
+            logger.error('Failed to load conversations for user', { userId, error });
+            return [];
+        }
+    }
+
+    subscribeToConversationSummaries(
+        userId: string,
+        callback: (conversations: Conversation[]) => void
+    ): () => void {
+        if (!userId) {
+            callback([]);
+            return () => { };
+        }
+
+        const userChatsRef = ref(database, `userChats/${userId}`);
+
+        const listener = onValue(
+            userChatsRef,
+            async () => {
+                const conversations = await this.loadConversations(userId);
+                callback(conversations);
+            },
+            (error) => {
+                logger.error('Conversation subscription error', { userId, error });
+            }
+        );
+
+        return () => {
+            off(userChatsRef, 'value', listener);
+        };
     }
 
     // Helper method to resolve chat room ID from caseId

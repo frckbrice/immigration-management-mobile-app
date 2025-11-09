@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, Image, ActivityIndicator, KeyboardAvoidingView } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import FormInput from "@/components/FormInput";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -102,12 +103,7 @@ export default function ForgotPasswordScreen() {
             keyboardDismissMode="on-drag"
           >
             {/* Back Button */}
-            <Pressable 
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-            </Pressable>
+            <BackButton onPress={() => router.back()} iconSize={24} style={styles.backButtonWrapper} />
 
             {/* Logo - Matching onboarding design */}
             <View style={styles.logoContainer}>
@@ -195,7 +191,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     flexGrow: 1,
   },
-  backButton: {
+  backButtonWrapper: {
     padding: 8,
     marginBottom: 20,
     alignSelf: 'flex-start',

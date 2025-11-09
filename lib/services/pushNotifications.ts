@@ -5,11 +5,11 @@
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform, AppState } from 'react-native';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { logger } from '../utils/logger';
 import { router } from 'expo-router';
-import { profileService } from './profileService';
+import { apiClient } from '../api/axios';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -152,17 +152,30 @@ export const registerForPushNotifications = async (): Promise<PushNotificationTo
 /**
  * Register push token with backend
  */
-export const registerPushTokenWithBackend = async (token: string, platform: string): Promise<void> => {
+export const registerPushTokenWithBackend = async (token: string, platform: string, deviceId?: string): Promise<void> => {
   try {
-    // Update profile with push token
-    await profileService.updateProfile({
-      pushToken: token,
-      pushTokenPlatform: platform,
-    } as any);
+    await apiClient.post('/users/push-token', {
+      token,
+      platform,
+      deviceId,
+    });
     logger.info('Push token registered with backend');
   } catch (error: any) {
     logger.error('Failed to register push token with backend', error);
     // Non-blocking - app continues normally
+  }
+};
+
+export const unregisterPushTokenWithBackend = async (platform?: string, deviceId?: string): Promise<void> => {
+  try {
+    const params = new URLSearchParams();
+    if (platform) params.append('platform', platform);
+    if (deviceId) params.append('deviceId', deviceId);
+    const query = params.toString();
+    await apiClient.delete(`/users/push-token${query ? `?${query}` : ''}`);
+    logger.info('Push token removed from backend');
+  } catch (error: any) {
+    logger.error('Failed to remove push token from backend', error);
   }
 };
 

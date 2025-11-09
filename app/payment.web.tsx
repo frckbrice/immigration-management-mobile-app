@@ -2,6 +2,7 @@
 import React from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -29,14 +30,9 @@ export default function PaymentScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Pressable 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-        </Pressable>
+        <BackButton onPress={() => router.back()} iconSize={24} />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Payment</Text>
-        <View style={styles.backButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView 
@@ -165,16 +161,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backButton: {
-    padding: 4,
-    width: 32,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
   },
+  headerSpacer: { width: 40, height: 40 },
   scrollView: {
     flex: 1,
   },

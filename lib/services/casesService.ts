@@ -8,6 +8,16 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CASE_REFERENCE_REGEX = /^[A-Z]{2,}-[A-Z0-9-]+$/i;
+
+const caseIdCache = new Map<string, string>();
+const pendingCaseIdResolutions = new Map<string, Promise<string>>();
+
+const sanitizeCaseIdentifier = (identifier?: string | null) => (identifier ?? '').trim();
+const isUuid = (identifier: string) => UUID_REGEX.test(identifier);
+const isLikelyCaseReference = (identifier: string) => CASE_REFERENCE_REGEX.test(identifier);
+
 const CASE_STATUS_PROGRESS_MAP: Record<CaseStatus, number> = {
   SUBMITTED: 10,
   UNDER_REVIEW: 30,
@@ -64,7 +74,80 @@ const mapCase = (apiCase: any): Case => {
   };
 };
 
+const resolveCaseIdInternal = async (caseIdentifier: string): Promise<string> => {
+  const normalized = sanitizeCaseIdentifier(caseIdentifier);
+
+  if (!normalized) {
+    throw new Error('Case identifier is required');
+  }
+
+  const cached = caseIdCache.get(normalized);
+  if (cached) {
+    return cached;
+  }
+
+  if (isUuid(normalized)) {
+    caseIdCache.set(normalized, normalized);
+    return normalized;
+  }
+
+  if (!isLikelyCaseReference(normalized)) {
+    throw new Error('Invalid case identifier format');
+  }
+
+  const pending = pendingCaseIdResolutions.get(normalized);
+  if (pending) {
+    return pending;
+  }
+
+  const resolutionPromise = (async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set('search', normalized);
+      params.set('limit', '5');
+      params.set('page', '1');
+
+      const response = await apiClient.get<ApiResponse<{ cases: any[]; pagination: any }>>(
+        `/cases?${params.toString()}`
+      );
+      const apiCases = response.data.data?.cases || [];
+      const mappedCases = apiCases.map(mapCase);
+      const matchedCase = mappedCases.find(
+        (caseItem) => caseItem.referenceNumber === normalized || caseItem.id === normalized
+      );
+
+      if (matchedCase && isUuid(matchedCase.id)) {
+        caseIdCache.set(normalized, matchedCase.id);
+        caseIdCache.set(matchedCase.id, matchedCase.id);
+        return matchedCase.id;
+      }
+
+      throw new Error('Unable to resolve case identifier');
+    } catch (error: any) {
+      logger.error('Failed to resolve case identifier', {
+        caseIdentifier: normalized,
+        error: error?.response?.data?.error || error.message || error,
+      });
+      throw error;
+    } finally {
+      pendingCaseIdResolutions.delete(normalized);
+    }
+  })();
+
+  pendingCaseIdResolutions.set(normalized, resolutionPromise);
+  try {
+    return await resolutionPromise;
+  } catch (error) {
+    caseIdCache.delete(normalized);
+    throw error;
+  }
+};
+
 export const casesService = {
+  async resolveCaseId(caseIdentifier: string): Promise<string> {
+    return resolveCaseIdInternal(caseIdentifier);
+  },
+
   /**
    * Get all cases for the current user
    */
@@ -118,7 +201,8 @@ export const casesService = {
   /**
    * Get a single case by ID
    */
-  async getCaseById(caseId: string): Promise<Case> {
+  async getCaseById(caseIdentifier: string): Promise<Case> {
+    const caseId = await resolveCaseIdInternal(caseIdentifier);
     try {
       const response = await apiClient.get<ApiResponse<any>>(`/cases/${caseId}`);
 
@@ -141,7 +225,7 @@ export const casesService = {
       logger.info('Case fetched successfully', { caseId });
       return mapped;
     } catch (error: any) {
-      logger.error('Error fetching case', error);
+      logger.error('Error fetching case', { caseIdentifier, error });
       throw error;
     }
   },
@@ -170,7 +254,8 @@ export const casesService = {
   /**
    * Update an existing case
    */
-  async updateCase(caseId: string, data: Partial<Case>): Promise<Case> {
+  async updateCase(caseIdentifier: string, data: Partial<Case>): Promise<Case> {
+    const caseId = await resolveCaseIdInternal(caseIdentifier);
     try {
       const response = await apiClient.put<ApiResponse<any>>(`/cases/${caseId}`, data);
 
@@ -183,7 +268,7 @@ export const casesService = {
       logger.info('Case updated successfully', { caseId });
       return mapped;
     } catch (error: any) {
-      logger.error('Error updating case', error);
+      logger.error('Error updating case', { caseIdentifier, error });
       throw error;
     }
   },
@@ -191,12 +276,13 @@ export const casesService = {
   /**
    * Delete a case
    */
-  async deleteCase(caseId: string): Promise<void> {
+  async deleteCase(caseIdentifier: string): Promise<void> {
+    const caseId = await resolveCaseIdInternal(caseIdentifier);
     try {
       await apiClient.delete(`/cases/${caseId}`);
       logger.info('Case deleted successfully', { caseId });
     } catch (error: any) {
-      logger.error('Error deleting case', error);
+      logger.error('Error deleting case', { caseIdentifier, error });
       throw error;
     }
   },

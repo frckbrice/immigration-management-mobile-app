@@ -18,12 +18,18 @@ const envSelectedApi = isProduction
     ? (PROD_API || DEV_API)
     : (DEV_API || PROD_API);
 
-// const API_BASE_URL =
-//     Constants.expoConfig?.extra?.apiUrl ||
-//     envSelectedApi ||
-//     'http://localhost:3000/api';
+const candidateApiUrls = [
+    // Constants.expoConfig?.extra?.apiUrl,
+    // envSelectedApi,
+    // process.env.EXPO_PUBLIC_API_FALLBACK_URL,
+    // 'http://192.168.43.4:3000/api',
+    'http://172.20.10.10:3000/api',
+    'http://localhost:3000/api',
+];
 
-const API_BASE_URL = 'http://172.20.10.10:3000/api';
+const API_BASE_URL =
+    candidateApiUrls.find((url) => typeof url === 'string' && url.length > 0) ||
+    'http://localhost:3000/api';
 
 logger.info('API Client initialized', { baseURL: API_BASE_URL });
 
@@ -43,7 +49,7 @@ apiClient.interceptors.request.use(
             const user = auth.currentUser;
             if (user) {
                 try {
-                    const token = await user.getIdToken();
+                    const token = await user.getIdToken(true);
                     config.headers.Authorization = `Bearer ${token}`;
                     return config;
                 } catch (firebaseError) {
@@ -56,7 +62,7 @@ apiClient.interceptors.request.use(
             const authStore = getAuthStore().getState();
             if (authStore.user) {
                 try {
-                    const token = await authStore.user.getIdToken();
+                    const token = await authStore.user.getIdToken(true);
                     config.headers.Authorization = `Bearer ${token}`;
                 } catch (error) {
                     logger.warn('Failed to get token from auth store user', error);

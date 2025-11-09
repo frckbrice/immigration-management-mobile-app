@@ -9,6 +9,7 @@ import { profileService } from '@/lib/services/profileService';
 import FormInput from '@/components/FormInput';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useToast } from '@/components/Toast';
+import { BackButton } from '@/components/BackButton';
 
 export default function ChangePasswordScreen() {
   const theme = useTheme();
@@ -72,16 +73,14 @@ export default function ChangePasswordScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { marginRight: 12 }]} hitSlop={12} onPress={() => router.back()}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.changePassword')}</Text>
                 <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
                   {t('profile.changePasswordSubtitle', { defaultValue: 'Use a strong password that you have not used elsewhere.' })}
                 </Text>
               </View>
-              <View style={styles.headerIcon} />
+              <View style={styles.headerSpacer} />
             </View>
 
             <View
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 12 : 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  headerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
+  headerSpacer: { width: 40, height: 40 },
   headerTextGroup: { flex: 1, gap: 4 },
   screenTitle: { fontSize: 24, fontWeight: '700', letterSpacing: -0.2 },
   screenSubtitle: { fontSize: 14 },

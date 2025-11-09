@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/hooks/useTranslation';
 import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
 import type { UserProfile } from '@/lib/types';
 import { IconSymbol } from '@/components/IconSymbol';
+import { BackButton } from '@/components/BackButton';
 import FormInput from '@/components/FormInput';
 import { useToast } from '@/components/Toast';
 import { useProfileStore } from '@/stores/profile/profileStore';
@@ -135,16 +136,14 @@ export default function EditProfileScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { marginRight: 12 }]} onPress={() => router.back()} hitSlop={12}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.editProfile')}</Text>
                 <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
                   {t('profile.editProfileSubtitle', { defaultValue: 'Update your personal details so we can stay in touch.' })}
                 </Text>
               </View>
-              <View style={styles.headerIcon} />
+              <View style={styles.headerSpacer} />
             </View>
 
             {loading ? (
@@ -266,13 +265,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  headerIcon: {
+  headerSpacer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   headerTextGroup: {
     flex: 1,

@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, FlatList } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
@@ -24,108 +26,262 @@ const formatServiceTypeLabel = (serviceType?: string) =>
 
 const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
 
+const CASE_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const normalizeParamValue = (value: string | string[] | undefined) => {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+  return value ?? '';
+};
+
 export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
   const params = useLocalSearchParams();
-  const caseId = (params.id || params.caseId) as string;
+
+  const paramId = useMemo(() => normalizeParamValue(params.id).trim(), [params.id]);
+  const caseIdParam = useMemo(() => normalizeParamValue(params.caseId).trim(), [params.caseId]);
+  const roomIdParam = useMemo(() => normalizeParamValue(params.roomId).trim(), [params.roomId]);
+
+  const initialCaseId = useMemo(() => {
+    if (caseIdParam) {
+      return caseIdParam;
+    }
+    if (paramId && CASE_UUID_REGEX.test(paramId)) {
+      return paramId;
+    }
+    return '';
+  }, [caseIdParam, paramId]);
+
+  const initialRoomId = useMemo(() => {
+    if (roomIdParam) {
+      return roomIdParam;
+    }
+    if (paramId && !CASE_UUID_REGEX.test(paramId)) {
+      return paramId;
+    }
+    return '';
+  }, [roomIdParam, paramId]);
+
   const [message, setMessage] = useState('');
   const [selectedAttachments, setSelectedAttachments] = useState<ChatMessage['attachments']>([]);
   const flatListRef = useRef<FlatList>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(null);
-  const [agentInfo, setAgentInfo] = useState<{ id?: string; name?: string; profilePicture?: string; isOnline?: boolean } | null>(null);
+  const [resolvedCaseId, setResolvedCaseId] = useState<string | null>(initialCaseId || null);
+  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(initialRoomId || null);
+  const [agentInfo, setAgentInfo] = useState<{ id?: string; firebaseId?: string; name?: string; profilePicture?: string; isOnline?: boolean } | null>(null);
   const lastMessageTimestampRef = useRef<number>(0);
   const chatInitializedRef = useRef(false);
+  const lastInitializedCaseRef = useRef<string | null>(null);
 
-  const { chatMessages, isLoading, error: chatError, clearError: clearChatError, sendChatMessage, loadChatMessages, loadOlderChatMessages, subscribeToChatMessages, markChatAsRead, setCurrentConversation, currentRoomId } = useMessagesStore();
+  const {
+    chatMessages,
+    conversations,
+    isLoading,
+    error: chatError,
+    clearError: clearChatError,
+    sendChatMessage,
+    loadChatMessages,
+    loadOlderChatMessages,
+    subscribeToChatMessages,
+    markChatAsRead,
+    setCurrentConversation,
+    currentRoomId,
+    fetchConversations,
+    addChatMessage,
+  } = useMessagesStore();
   const { user } = useAuthStore();
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    if (initialCaseId && initialCaseId !== resolvedCaseId) {
+      setResolvedCaseId(initialCaseId);
+    }
+  }, [initialCaseId, resolvedCaseId]);
+
+  useEffect(() => {
+    if (initialRoomId && initialRoomId !== resolvedRoomId) {
+      setResolvedRoomId(initialRoomId);
+    }
+  }, [initialRoomId, resolvedRoomId]);
+
+  useEffect(() => {
+    return () => {
+      chatInitializedRef.current = false;
+      lastInitializedCaseRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const userId = auth.currentUser?.uid || user?.uid;
+    if (!userId) {
+      return;
+    }
+    fetchConversations(userId);
+  }, [user, fetchConversations]);
+
   // Resolve chat room ID and set up Firebase subscription
   useEffect(() => {
-    if (!caseId) {
+    if (!resolvedCaseId) {
+      lastInitializedCaseRef.current = null;
+      chatInitializedRef.current = false;
       setCurrentConversation(null, null);
       setResolvedRoomId(null);
       return;
     }
 
-    logger.info('Chat screen mounted - initializing Firebase subscription', { caseId });
+    const clientFirebaseId = auth.currentUser?.uid || user?.uid;
+    if (!clientFirebaseId) {
+      showAlert({
+        title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+        message: t('chat.unavailableMessage', { defaultValue: 'You need an active session to continue the conversation.' }),
+        actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+      });
+      return;
+    }
 
-    setCurrentConversation(null, caseId);
+    if (lastInitializedCaseRef.current !== resolvedCaseId) {
+      chatInitializedRef.current = false;
+    }
+
+    if (chatInitializedRef.current && lastInitializedCaseRef.current === resolvedCaseId) {
+      return;
+    }
+
+    chatInitializedRef.current = true;
+    lastInitializedCaseRef.current = resolvedCaseId;
+
+    logger.info('Chat screen mounted - initializing Firebase subscription', { caseId: resolvedCaseId });
+
+    let matchedConversation = conversationList?.find((conversation) =>
+      conversation.id === resolvedCaseId ||
+      conversation.caseId === resolvedCaseId ||
+      conversation.caseReference === resolvedCaseId
+    );
+
+    const initialConversationRoomId = matchedConversation?.id || initialRoomId || null;
+    setCurrentConversation(initialConversationRoomId, resolvedCaseId);
+    setResolvedRoomId(initialConversationRoomId);
     setIsLoadingMessages(true);
 
     let unsubscribe: (() => void) | null = null;
+    let isActive = true;
 
     const initializeChat = async () => {
       try {
-        const clientFirebaseId = auth.currentUser?.uid || user?.uid;
-        let agentFirebaseId: string | undefined = agentInfo?.id;
-
-        if (!clientFirebaseId) {
-          showAlert({
-            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
-            message: t('chat.unavailableMessage', { defaultValue: 'You need an active session to continue the conversation.' }),
-            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
-          });
-          setIsLoadingMessages(false);
-          return;
+        let conversationList = conversationsRef.current;
+        if (!conversationList || conversationList.length === 0) {
+          conversationList = useMessagesStore.getState().conversations;
         }
+
+        let matchedConversation = conversationList?.find((conversation) =>
+          conversation.id === resolvedCaseId ||
+          conversation.caseId === resolvedCaseId ||
+          conversation.caseReference === resolvedCaseId
+        );
+
+        let effectiveCaseId = matchedConversation?.caseId || resolvedCaseId;
+        let inferredRoomId = matchedConversation?.id || null;
+        let agentFirebaseId = matchedConversation?.participants?.agentId || agentInfo?.firebaseId || agentInfo?.id;
+        let agentDisplayName = matchedConversation?.participants?.agentName || agentInfo?.name;
+        let agentProfilePicture = agentInfo?.profilePicture;
+        let agentRawId = matchedConversation?.participants?.agentId || agentInfo?.id;
 
         let caseData: any = null;
-        try {
-          caseData = await casesService.getCaseById(caseId);
-        } catch (error) {
-          logger.error('Unable to load case details for chat', error);
+        if (!matchedConversation && CASE_UUID_REGEX.test(effectiveCaseId)) {
+          try {
+            caseData = await casesService.getCaseById(effectiveCaseId);
+          } catch (error) {
+            logger.warn('Unable to load case details for chat', { caseId: effectiveCaseId, error });
+          }
         }
 
-        if (!caseData) {
-          showAlert({
-            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
-            message: t('chat.caseNotFound', { defaultValue: 'We could not locate this case. Please try again later.' }),
-            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
-          });
+        if (caseData?.id && caseData.id !== effectiveCaseId) {
+          if (isActive) {
+            setResolvedCaseId(caseData.id);
+          }
           setIsLoadingMessages(false);
           return;
         }
 
-        const statusKey = normalizeStatus(caseData.status);
-        if (statusKey !== 'under_review') {
-          showAlert({
-            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
-            message: t('chat.pendingReview', { defaultValue: 'Your advisor will reach out once the case is under review.' }),
-            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+        const hasConversationAgent = Boolean(matchedConversation?.participants?.agentId);
+
+        if (caseData?.assignedAgent && !hasConversationAgent) {
+          const resolvedFirebaseId = await chatService.resolveFirebaseUserId(caseData.assignedAgent.id);
+
+          agentFirebaseId = resolvedFirebaseId || caseData.assignedAgent.id || agentFirebaseId;
+          agentDisplayName =
+            `${caseData.assignedAgent.firstName || ''} ${caseData.assignedAgent.lastName || ''}`.trim() ||
+            agentDisplayName ||
+            'Agent';
+          agentProfilePicture = (caseData.assignedAgent as any)?.profilePicture || agentProfilePicture;
+          agentRawId = caseData.assignedAgent.id;
+        }
+
+        if (!inferredRoomId && agentFirebaseId && clientFirebaseId) {
+          try {
+            const resolvedRoomId = await chatService.resolveChatRoomIdFromCase(effectiveCaseId, clientFirebaseId, agentFirebaseId);
+            inferredRoomId = resolvedRoomId || chatService.getChatRoomIdFromPair(clientFirebaseId, agentFirebaseId);
+          } catch (resolutionError) {
+            logger.warn('Unable to resolve chat room from case', {
+              caseId: effectiveCaseId,
+              error: resolutionError,
+            });
+          }
+        }
+
+        if (isActive) {
+          setAgentInfo((prev) => {
+            const next = {
+              id: agentRawId || prev?.id,
+              firebaseId: agentFirebaseId || prev?.firebaseId,
+              name: agentDisplayName || prev?.name || 'Agent',
+              profilePicture: agentProfilePicture ?? prev?.profilePicture,
+              isOnline: prev?.isOnline ?? false,
+            };
+            if (
+              prev &&
+              prev.id === next.id &&
+              prev.firebaseId === next.firebaseId &&
+              prev.name === next.name &&
+              prev.profilePicture === next.profilePicture &&
+              prev.isOnline === next.isOnline
+            ) {
+              return prev;
+            }
+            return next;
           });
-          setIsLoadingMessages(false);
+        }
+
+        if (caseData) {
+          const statusKey = normalizeStatus(caseData.status);
+          if (statusKey && statusKey !== 'under_review') {
+            showAlert({
+              title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+              message: t('chat.pendingReview', { defaultValue: 'Your advisor will reach out once the case is under review.' }),
+              actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+            });
+            setIsLoadingMessages(false);
+            return;
+          }
+        }
+
+        const loadResult = await loadChatMessages(effectiveCaseId, clientFirebaseId, agentFirebaseId);
+
+        if (!isActive) {
           return;
         }
 
-        if (!agentFirebaseId && caseData.assignedAgent) {
-          agentFirebaseId = caseData.assignedAgent.id || undefined;
-          setAgentInfo({
-            id: agentFirebaseId,
-            name: `${caseData.assignedAgent.firstName || ''} ${caseData.assignedAgent.lastName || ''}`.trim() || 'Agent',
-            profilePicture: (caseData.assignedAgent as any)?.profilePicture,
-            isOnline: false,
-          });
-        }
-
-        if (!agentFirebaseId) {
-          showAlert({
-            title: t('chat.noAgentTitle', { defaultValue: 'Advisor Pending' }),
-            message: t('chat.noAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
-            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
-          });
-          setIsLoadingMessages(false);
-          return;
-        }
-
-        const result = await loadChatMessages(caseId, clientFirebaseId, agentFirebaseId);
-
-        if (!result.roomId) {
+        if (!loadResult.roomId) {
           showAlert({
             title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
             message: t('chat.awaitAgentInitiation', { defaultValue: 'Your advisor will open the conversation soon. You can reply once it is available.' }),
@@ -137,26 +293,30 @@ export default function ChatScreen() {
           return;
         }
 
-        setResolvedRoomId(result.roomId);
-        setHasMore(result.hasMore);
+        setResolvedRoomId(loadResult.roomId);
+        setHasMore(loadResult.hasMore);
         setIsLoadingMessages(false);
-        setCurrentConversation(result.roomId, caseId);
+        setCurrentConversation(loadResult.roomId, effectiveCaseId);
 
         const store = useMessagesStore.getState();
-        if (store.chatMessages.length > 0) {
-          lastMessageTimestampRef.current = Math.max(...store.chatMessages.map((m: ChatMessage) => m.timestamp));
-        } else {
-          lastMessageTimestampRef.current = 0;
-        }
+        const lastTimestamp =
+          Object.values(store.chatMessages).flat().length > 0
+            ? Math.max(
+              ...Object.values(store.chatMessages)
+                .flat()
+                .map((m: ChatMessage) => m.timestamp)
+            )
+            : 0;
+        lastMessageTimestampRef.current = lastTimestamp;
 
         unsubscribe = subscribeToChatMessages(
-          result.roomId,
-          (newMessage) => {
+          loadResult.roomId,
+          () => {
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
           },
-          lastMessageTimestampRef.current
+          lastTimestamp
         );
 
         setTimeout(() => {
@@ -166,30 +326,33 @@ export default function ChatScreen() {
         if (user) {
           const userId = (user as any).uid || (user as any).id || '';
           if (userId) {
-            markChatAsRead(caseId, userId).catch((error) => {
+            markChatAsRead(loadResult.roomId, userId).catch((error) => {
               logger.warn('Failed to mark messages as read', error);
             });
           }
         }
       } catch (error) {
         logger.error('Failed to initialize chat', error);
-        setIsLoadingMessages(false);
-        showAlert({
-          title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
-          message: t('chat.genericError', { defaultValue: 'We were unable to open this conversation. Please try again later.' }),
-          actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
-        });
+        if (isActive) {
+          setIsLoadingMessages(false);
+          showAlert({
+            title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+            message: t('chat.genericError', { defaultValue: 'We were unable to open this conversation. Please try again later.' }),
+            actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+          });
+        }
       }
     };
 
     initializeChat();
 
     return () => {
+      isActive = false;
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [caseId, user, agentInfo?.id]);
+  }, [resolvedCaseId, user, loadChatMessages, markChatAsRead, router, showAlert, subscribeToChatMessages, t]);
 
   useEffect(() => {
     if (chatError) {
@@ -204,33 +367,40 @@ export default function ChatScreen() {
 
   // Load more messages when scrolling up
   const handleLoadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore || !caseId || chatMessages.length === 0) return;
+    const currentKey = resolvedRoomId ?? resolvedCaseId;
+    const currentBucket = (chatMessages && currentKey ? chatMessages[currentKey] : []) ?? [];
+    if (isLoadingMore || !hasMore || !resolvedCaseId || currentBucket.length === 0) return;
 
     setIsLoadingMore(true);
     try {
-      const oldestTimestamp = Math.min(...chatMessages.map(m => m.timestamp));
+      const oldestTimestamp = Math.min(...currentBucket.map((m) => m.timestamp));
       const clientFirebaseId = auth.currentUser?.uid || user?.uid;
-      const agentFirebaseId = agentInfo?.id;
+      const agentFirebaseId = agentInfo?.firebaseId || agentInfo?.id;
 
-      await loadOlderChatMessages(caseId, oldestTimestamp, clientFirebaseId, agentFirebaseId);
+      const key = resolvedRoomId ?? resolvedCaseId;
+      if (!key) return;
+      await loadOlderChatMessages(key, oldestTimestamp, clientFirebaseId, agentFirebaseId);
 
       // Check if there are more (simplified - you can improve this)
-      setHasMore(chatMessages.length >= 20);
+      setHasMore(currentBucket.length >= 20);
     } catch (error) {
       logger.error('Failed to load older messages', error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [caseId, chatMessages, isLoadingMore, hasMore, user, agentInfo?.id]);
+  }, [resolvedCaseId, resolvedRoomId, chatMessages, isLoadingMore, hasMore, user, agentInfo?.firebaseId, agentInfo?.id]);
 
   // Sort messages chronologically
   const sortedMessages = useMemo(() => {
-    if (!chatMessages || chatMessages.length === 0) return [];
-    return [...chatMessages].sort((a, b) => a.timestamp - b.timestamp);
-  }, [chatMessages]);
+    const currentKey = resolvedRoomId ?? resolvedCaseId ?? '';
+    if (!currentKey) return [];
+    const bucket = (chatMessages && chatMessages[currentKey]) ?? [];
+    if (bucket.length === 0) return [];
+    return [...bucket].sort((a, b) => a.timestamp - b.timestamp);
+  }, [chatMessages, resolvedRoomId, resolvedCaseId]);
 
   const handleSend = async () => {
-    if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !caseId) return;
+    if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !resolvedCaseId) return;
 
     const activeRoomId = currentRoomId || resolvedRoomId;
     if (!activeRoomId) {
@@ -250,7 +420,7 @@ export default function ChatScreen() {
     const optimisticMessage: ChatMessage = {
       id: tempId,
       tempId,
-      caseId,
+      caseId: resolvedCaseId,
       senderId: auth.currentUser?.uid || user.uid || '',
       senderName: user.displayName || user.email || 'User',
       senderRole: 'CLIENT',
@@ -262,8 +432,7 @@ export default function ChatScreen() {
     };
 
     // Add message to UI immediately
-    setCurrentConversation(activeRoomId, caseId);
-    // The store will handle adding the message via the subscription
+    addChatMessage(optimisticMessage);
 
     // Clear input immediately
     setMessage('');
@@ -272,10 +441,10 @@ export default function ChatScreen() {
     try {
       // Send to Firebase
       const clientFirebaseId = auth.currentUser?.uid || user.uid;
-      const agentFirebaseId = agentInfo?.id;
+      const agentFirebaseId = agentInfo?.firebaseId || agentInfo?.id;
 
       const success = await sendChatMessage(
-        caseId,
+        resolvedCaseId,
         clientFirebaseId || '',
         user.displayName || user.email || 'User',
         'CLIENT',
@@ -339,26 +508,26 @@ export default function ChatScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} style={{ marginRight: 16 }} />
 
           <View style={styles.headerCenter}>
             <View style={styles.agentAvatar}>
               <IconSymbol name="person.fill" size={20} color="#fff" />
-              <View style={styles.onlineIndicator} />
+              <View
+                style={[
+                  styles.onlineIndicator,
+                  { backgroundColor: agentInfo?.isOnline ? '#4CAF50' : '#FF3B30' },
+                ]}
+              />
             </View>
             <View>
               <Text style={[styles.agentName, { color: theme.colors.text }]}>
                 {agentInfo?.name || 'Agent'}
               </Text>
-              <Text style={[styles.agentStatus, { color: agentInfo?.isOnline ? '#4CAF50' : '#999' }]}>
+              <Text style={[styles.agentStatus, { color: agentInfo?.isOnline ? '#4CAF50' : '#FF3B30' }]}>
                 {agentInfo?.isOnline ? t('chat.online') : t('chat.offline')}
               </Text>
             </View>
@@ -382,7 +551,7 @@ export default function ChatScreen() {
 
         <KeyboardAvoidingView
           style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
           {/* Messages */}
@@ -418,63 +587,72 @@ export default function ChatScreen() {
             windowSize={10}
             renderItem={({ item: msg }) => {
               const isUser = msg.senderId === (auth.currentUser?.uid || (user as any)?.uid || '');
+              const outgoingBubbleColor = '#0B93F6';
+              const incomingBubbleColor = theme.dark ? '#2A2A36' : '#FEE1FF';
+              const incomingTextColor = theme.dark ? '#F7F7FA' : '#0F172A';
+              const statusIcon =
+                msg.status === 'failed'
+                  ? 'alert-circle-outline'
+                  : msg.status === 'pending'
+                    ? 'clock-outline'
+                    : msg.status === 'sent'
+                      ? 'check-all'
+                      : 'check';
+              const statusColor = msg.status === 'failed' ? '#FF3B30' : '#D0E8FF';
+
               return (
                 <View
                   key={msg.id || msg.tempId}
-                  style={[
-                    styles.messageRow,
-                    isUser && styles.messageRowUser,
-                  ]}
+                  style={[styles.messageRow, isUser && styles.messageRowUser]}
                 >
                   {!isUser && (
                     <View style={styles.messageAvatar}>
-                      <IconSymbol name="person.fill" size={16} color="#fff" />
+                      <MaterialCommunityIcons name="account" size={16} color="#fff" />
                     </View>
                   )}
 
-                  <View style={styles.messageContainer}>
-                    {!isUser && (
+                  <View style={[styles.messageContainer, isUser && styles.messageContainerUser]}>
+                    {/* {!isUser && (
                       <Text style={[styles.messageSender, { color: theme.colors.text }]}>
                         {msg.senderName || 'Agent'}
                       </Text>
-                    )}
+                    )} */}
 
-                    <View
-                      style={[
-                        styles.messageBubble,
-                        isUser
-                          ? styles.messageBubbleUser
-                          : [styles.messageBubbleAgent, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }],
-                      ]}
-                    >
-                      <Text
+                    <View style={styles.messageBubbleWrapper}>
+                      <View
                         style={[
-                          styles.messageText,
+                          styles.messageBubble,
                           isUser
-                            ? styles.messageTextUser
-                            : { color: theme.colors.text },
+                            ? [styles.messageBubbleUser, { backgroundColor: outgoingBubbleColor }]
+                            : [
+                              styles.messageBubbleAgent,
+                              {
+                                backgroundColor: incomingBubbleColor,
+                                borderColor: theme.dark ? '#3C3C49' : '#C5DBFF',
+                              },
+                            ],
                         ]}
                       >
-                        {msg.message}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.messageText,
+                            isUser
+                              ? styles.messageTextUser
+                              : { color: incomingTextColor },
+                          ]}
+                        >
+                          {msg.message}
+                        </Text>
+                      </View>
                     </View>
 
                     <View style={[styles.messageFooter, isUser && styles.messageFooterUser]}>
-                      <Text style={[styles.messageTime, { color: theme.dark ? '#98989D' : '#666' }]}>
+                      <Text style={[styles.messageTime, { color: theme.dark ? '#9A9AA0' : '#6C6C6F' }]}>
                         {formatMessageTime(msg.timestamp)}
                       </Text>
                       {isUser && msg.status && (
                         <View style={styles.messageStatus}>
-                          <IconSymbol
-                            name={msg.status === 'sent' ? 'checkmark.circle.fill' : msg.status === 'pending' ? 'clock' : 'checkmark'}
-                            size={14}
-                            color={msg.status === 'failed' ? '#FF3B30' : '#2196F3'}
-                          />
-                          {msg.status === 'sent' && (
-                            <Text style={[styles.messageStatusText, { color: theme.dark ? '#98989D' : '#666' }]}>
-                              {t('chat.send')}
-                            </Text>
-                          )}
+                          <MaterialCommunityIcons name={statusIcon} size={16} color={statusColor} />
                         </View>
                       )}
                     </View>
@@ -485,7 +663,16 @@ export default function ChatScreen() {
           />
 
           {/* Input */}
-          <View style={[styles.inputContainer, { backgroundColor: theme.colors.background, borderTopColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                backgroundColor: theme.dark ? '#161618' : '#FFFFFF',
+                borderTopColor: theme.dark ? '#2C2C2E' : '#E0E0E0',
+                shadowColor: theme.dark ? '#000000' : '#00000020',
+              },
+            ]}
+          >
             <Pressable
               style={styles.attachButton}
               onPress={() => {
@@ -496,14 +683,26 @@ export default function ChatScreen() {
                 });
               }}
             >
-              <IconSymbol name="paperclip" size={24} color={theme.dark ? '#98989D' : '#666'} />
+              <MaterialCommunityIcons
+                name="paperclip"
+                size={22}
+                color={theme.dark ? '#A5A5AA' : '#6C6C6F'}
+              />
             </Pressable>
 
-            <View style={[styles.inputWrapper, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
+            <View
+              style={[
+                styles.inputWrapper,
+                {
+                  backgroundColor: theme.dark ? '#1F1F23' : '#F1F2F4',
+                  borderColor: theme.dark ? '#2D2D32' : '#E0E0E5',
+                },
+              ]}
+            >
               <TextInput
                 style={[styles.input, { color: theme.colors.text }]}
                 placeholder={t('chat.typeMessage')}
-                placeholderTextColor={theme.dark ? '#98989D' : '#666'}
+                placeholderTextColor={theme.dark ? '#8E8E94' : '#9A9AA0'}
                 value={message}
                 onChangeText={setMessage}
                 multiline
@@ -516,7 +715,11 @@ export default function ChatScreen() {
               onPress={handleSend}
               disabled={!message.trim()}
             >
-              <IconSymbol name="arrow.up" size={24} color="#fff" />
+              <MaterialCommunityIcons
+                name="send"
+                size={22}
+                color="#FFFFFF"
+              />
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -535,10 +738,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
   },
   headerCenter: {
     flex: 1,
@@ -584,7 +783,8 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    paddingBottom: 110,
   },
   dateSeparator: {
     flexDirection: 'row',
@@ -601,8 +801,8 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-start',
+    marginBottom: 18,
+    alignItems: 'flex-end',
   },
   messageRowUser: {
     justifyContent: 'flex-end',
@@ -617,7 +817,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   messageContainer: {
-    maxWidth: '75%',
+    maxWidth: '78%',
+  },
+  messageContainerUser: {
+    alignItems: 'flex-end',
+    alignSelf: 'flex-end',
   },
   messageSender: {
     fontSize: 12,
@@ -625,17 +829,31 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginLeft: 12,
   },
+  messageBubbleWrapper: {
+    position: 'relative',
+    maxWidth: '100%',
+  },
   messageBubble: {
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    shadowColor: '#00000010',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 1.5,
+    elevation: 1,
   },
   messageBubbleAgent: {
-    borderTopLeftRadius: 4,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    borderBottomLeftRadius: 18,
   },
   messageBubbleUser: {
-    backgroundColor: '#2196F3',
-    borderTopRightRadius: 4,
+    borderTopRightRadius: 6,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
   },
   messageText: {
     fontSize: 16,
@@ -673,31 +891,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    gap: 8,
+    gap: 10,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 8,
   },
   attachButton: {
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     marginBottom: 4,
   },
   inputWrapper: {
     flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    maxHeight: 100,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 10,
+    maxHeight: 120,
   },
   input: {
     fontSize: 16,
-    maxHeight: 80,
+    lineHeight: 20,
+    maxHeight: 100,
+    padding: 0,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2196F3',
+    borderRadius: 24,
+    backgroundColor: '#0B93F6',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   sendButtonDisabled: {
     opacity: 0.5,

@@ -18,6 +18,7 @@ import { ToastProvider } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
 import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
+import { useSettingsStore } from "@/stores/settings/settingsStore";
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -78,6 +79,8 @@ function AppContent() {
 
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const registerPushToken = useAuthStore((state) => state.registerPushToken);
+    const settings = useSettingsStore((state) => state.settings);
+    const fetchSettings = useSettingsStore((state) => state.fetchSettings);
 
     console.log('[App] AppContent state:', { loaded, isAuthenticated });
 
@@ -99,6 +102,12 @@ function AppContent() {
         initializeAuthListener();
         logger.info('App layout initialized');
     }, []);
+
+    useEffect(() => {
+        if (!settings) {
+            fetchSettings();
+        }
+    }, [settings, fetchSettings]);
 
     // Setup push notifications
     useEffect(() => {
@@ -134,9 +143,14 @@ function AppContent() {
     }, [isAuthenticated, registerPushToken]);
 
     // Render app even if fonts haven't loaded yet (they'll load asynchronously)
+    const themePreference = settings?.themePreference ?? 'system';
+    const resolvedTheme = themePreference === 'system' ? colorScheme ?? 'light' : themePreference;
+    const isDarkTheme = resolvedTheme === 'dark';
+    const activeTheme = isDarkTheme ? themes.dark : themes.light;
+
     return (
-        <ThemeProvider value={colorScheme === "dark" ? themes.dark : themes.light}>
-            <SystemBars style={colorScheme === "dark" ? "light" : "dark"} />
+        <ThemeProvider value={activeTheme}>
+            <SystemBars style={isDarkTheme ? "light" : "dark"} />
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="onboarding" />
