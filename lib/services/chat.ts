@@ -1,4 +1,5 @@
 import { database } from '../firebase/config';
+import { apiClient } from '../api/axios';
 import {
     ref,
     push,
@@ -78,6 +79,35 @@ function getChatRoomId(clientId: string, agentId: string): string {
 }
 
 class ChatService {
+
+    /**
+     * Resolve the Firebase UID associated with a backend (PostgreSQL) user ID.
+     * If the identifier already looks like a Firebase UID, it is returned as-is.
+     */
+    async resolveFirebaseUserId(userId: string): Promise<string | null> {
+        try {
+            if (!userId) {
+                return null;
+            }
+
+            const looksLikeFirebaseUid = userId.length > 0 && userId.length < 40 && !userId.includes('-');
+            if (looksLikeFirebaseUid) {
+                return userId;
+            }
+
+            const response = await apiClient.get<{ data?: { firebaseId?: string } }>(`/users/${userId}/firebase-uid`);
+            const firebaseId = response.data?.data?.firebaseId;
+            if (firebaseId) {
+                return firebaseId;
+            }
+
+            logger.warn('Unable to resolve Firebase UID from backend identifier', { userId });
+            return null;
+        } catch (error: any) {
+            logger.error('Failed to resolve Firebase UID', { userId, error: error?.message });
+            return null;
+        }
+    }
 
     private mapConversationFromMetadata(
         roomId: string,

@@ -229,10 +229,6 @@ export default function HomeScreen() {
     refreshStats();
   }, [refreshStats]);
 
-  useEffect(() => {
-    fetchUpcomingAppointment();
-  }, [fetchUpcomingAppointment]);
-
   useFocusEffect(
     useCallback(() => {
       fetchUpcomingAppointment({ silent: true });
@@ -287,7 +283,7 @@ export default function HomeScreen() {
           fetchUnreadCount(),
           fetchMessages(),
           fetchDocuments(),
-          fetchUpcomingAppointment({ silent: true }),
+          fetchUpcomingAppointment(),
         ]);
       } finally {
         if (isActive) {

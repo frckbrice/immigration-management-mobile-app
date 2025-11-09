@@ -211,10 +211,17 @@ export default function MessagesScreen() {
     }
   }, [markAsRead, markAsUnread]);
 
-  const handleConversationPress = useCallback((caseId: string) => {
+  const handleConversationPress = useCallback((conversation: Conversation) => {
+    const roomId = conversation.id;
+    const caseId = conversation.caseId;
     router.push({
       pathname: "/chat",
-      params: { id: caseId, caseId },
+      params: {
+        id: roomId || caseId,
+        roomId: roomId || undefined,
+        caseId: caseId || undefined,
+        caseReference: conversation.caseReference || undefined,
+      },
     });
   }, [router]);
 
@@ -230,7 +237,7 @@ export default function MessagesScreen() {
             shadowColor: colors.backdrop,
           },
         ]}
-        onPress={() => handleConversationPress(item.caseId)}
+        onPress={() => handleConversationPress(item)}
       >
         <View style={styles.avatarContainer}>
           <View style={[styles.avatar, { backgroundColor: colors.primary }]}>

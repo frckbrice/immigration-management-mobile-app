@@ -9,7 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useMessagesStore } from "@/stores/messages/messagesStore";
 import { useAuthStore } from "@/stores/auth/authStore";
-import { chatService, ChatMessage } from "@/lib/services/chat";
+import { chatService, ChatMessage, Conversation } from "@/lib/services/chat";
 import { auth } from "@/lib/firebase/config";
 import { casesService } from "@/lib/services/casesService";
 import { logger } from "@/lib/utils/logger";
@@ -33,6 +33,52 @@ const normalizeParamValue = (value: string | string[] | undefined) => {
     return value[0] ?? '';
   }
   return value ?? '';
+};
+
+const isValidCaseId = (value?: string | null) => Boolean(value && CASE_UUID_REGEX.test(value));
+
+const findConversationMatch = (
+  conversations: Conversation[],
+  {
+    roomId,
+    caseId,
+    caseReference,
+  }: {
+    roomId?: string | null;
+    caseId?: string | null;
+    caseReference?: string | null;
+  }
+) => {
+  const trimmedRoomId = roomId?.trim();
+  if (trimmedRoomId) {
+    const byRoom = conversations.find((conversation) => conversation.id === trimmedRoomId);
+    if (byRoom) {
+      return byRoom;
+    }
+  }
+
+  const normalizedCaseId = caseId && isValidCaseId(caseId) ? caseId : null;
+  if (normalizedCaseId) {
+    const byCaseId = conversations.find(
+      (conversation) => isValidCaseId(conversation.caseId) && conversation.caseId === normalizedCaseId
+    );
+    if (byCaseId) {
+      return byCaseId;
+    }
+  }
+
+  const trimmedReference = caseReference?.trim();
+  if (trimmedReference) {
+    const byReference = conversations.find(
+      (conversation) =>
+        conversation.caseReference === trimmedReference && isValidCaseId(conversation.caseId)
+    );
+    if (byReference) {
+      return byReference;
+    }
+  }
+
+  return undefined;
 };
 
 export default function ChatScreen() {
@@ -77,6 +123,7 @@ export default function ChatScreen() {
   const lastMessageTimestampRef = useRef<number>(0);
   const chatInitializedRef = useRef(false);
   const lastInitializedCaseRef = useRef<string | null>(null);
+  const initializationKeyRef = useRef<string | null>(null);
 
   const {
     chatMessages,
@@ -90,6 +137,8 @@ export default function ChatScreen() {
     subscribeToChatMessages,
     markChatAsRead,
     setCurrentConversation,
+    currentConversationId,
+    currentCaseId,
     currentRoomId,
     fetchConversations,
     addChatMessage,
@@ -103,13 +152,13 @@ export default function ChatScreen() {
   }, [conversations]);
 
   useEffect(() => {
-    if (initialCaseId && initialCaseId !== resolvedCaseId) {
+    if (initialCaseId && !resolvedCaseId) {
       setResolvedCaseId(initialCaseId);
     }
   }, [initialCaseId, resolvedCaseId]);
 
   useEffect(() => {
-    if (initialRoomId && initialRoomId !== resolvedRoomId) {
+    if (initialRoomId && !resolvedRoomId) {
       setResolvedRoomId(initialRoomId);
     }
   }, [initialRoomId, resolvedRoomId]);
@@ -118,6 +167,7 @@ export default function ChatScreen() {
     return () => {
       chatInitializedRef.current = false;
       lastInitializedCaseRef.current = null;
+      initializationKeyRef.current = null;
     };
   }, []);
 
@@ -134,13 +184,17 @@ export default function ChatScreen() {
     if (!resolvedCaseId) {
       lastInitializedCaseRef.current = null;
       chatInitializedRef.current = false;
+      initializationKeyRef.current = null;
       setCurrentConversation(null, null);
-      setResolvedRoomId(null);
+      if (resolvedRoomId !== null) {
+        setResolvedRoomId(null);
+      }
       return;
     }
 
     const clientFirebaseId = auth.currentUser?.uid || user?.uid;
     if (!clientFirebaseId) {
+      initializationKeyRef.current = null;
       showAlert({
         title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
         message: t('chat.unavailableMessage', { defaultValue: 'You need an active session to continue the conversation.' }),
@@ -151,26 +205,60 @@ export default function ChatScreen() {
 
     if (lastInitializedCaseRef.current !== resolvedCaseId) {
       chatInitializedRef.current = false;
+      const pendingKey = initializationKeyRef.current;
+      if (!pendingKey || !pendingKey.startsWith(`${resolvedCaseId}::`)) {
+        initializationKeyRef.current = null;
+      }
     }
 
     if (chatInitializedRef.current && lastInitializedCaseRef.current === resolvedCaseId) {
       return;
     }
 
-    chatInitializedRef.current = true;
-    lastInitializedCaseRef.current = resolvedCaseId;
+    const initKey = `${resolvedCaseId}::${clientFirebaseId}`;
+    if (initializationKeyRef.current === initKey) {
+      return;
+    }
 
-    logger.info('Chat screen mounted - initializing Firebase subscription', { caseId: resolvedCaseId });
+    const conversationListSnapshot = conversationsRef.current ?? [];
+    const candidateReference =
+      !isValidCaseId(caseIdParam) && caseIdParam ? caseIdParam : !isValidCaseId(paramId) && paramId ? paramId : null;
+    const matchedConversation = findConversationMatch(conversationListSnapshot, {
+      roomId: resolvedRoomId ?? initialRoomId,
+      caseId: resolvedCaseId,
+      caseReference: candidateReference,
+    });
 
-    let matchedConversation = conversationList?.find((conversation) =>
-      conversation.id === resolvedCaseId ||
-      conversation.caseId === resolvedCaseId ||
-      conversation.caseReference === resolvedCaseId
-    );
+    const canonicalCaseId = matchedConversation?.caseId && isValidCaseId(matchedConversation.caseId)
+      ? matchedConversation.caseId
+      : (resolvedCaseId && isValidCaseId(resolvedCaseId) ? resolvedCaseId : null);
 
-    const initialConversationRoomId = matchedConversation?.id || initialRoomId || null;
-    setCurrentConversation(initialConversationRoomId, resolvedCaseId);
-    setResolvedRoomId(initialConversationRoomId);
+    if (canonicalCaseId && canonicalCaseId !== resolvedCaseId) {
+      initializationKeyRef.current = null;
+      setResolvedCaseId(canonicalCaseId);
+      return;
+    }
+
+    const initialConversationRoomId = matchedConversation?.id || resolvedRoomId || initialRoomId || null;
+    const desiredCaseId = canonicalCaseId || resolvedCaseId;
+
+    const syncConversationState = (roomId: string | null, caseId: string | null) => {
+      const normalizedCase = caseId ?? null;
+      if (currentConversationId !== roomId || currentCaseId !== normalizedCase) {
+        setCurrentConversation(roomId, normalizedCase);
+      }
+    };
+
+    const ensureResolvedRoomState = (roomId: string | null) => {
+      if (resolvedRoomId !== roomId) {
+        setResolvedRoomId(roomId);
+      }
+    };
+
+    syncConversationState(initialConversationRoomId, desiredCaseId);
+    ensureResolvedRoomState(initialConversationRoomId);
+
+    initializationKeyRef.current = initKey;
     setIsLoadingMessages(true);
 
     let unsubscribe: (() => void) | null = null;
@@ -183,21 +271,24 @@ export default function ChatScreen() {
           conversationList = useMessagesStore.getState().conversations;
         }
 
-        let matchedConversation = conversationList?.find((conversation) =>
-          conversation.id === resolvedCaseId ||
-          conversation.caseId === resolvedCaseId ||
-          conversation.caseReference === resolvedCaseId
-        );
+        const matchedConversation = findConversationMatch(conversationList, {
+          roomId: resolvedRoomId ?? initialConversationRoomId ?? initialRoomId,
+          caseId: resolvedCaseId,
+          caseReference: candidateReference,
+        });
 
-        let effectiveCaseId = matchedConversation?.caseId || resolvedCaseId;
-        let inferredRoomId = matchedConversation?.id || null;
+        let effectiveCaseId = matchedConversation?.caseId && isValidCaseId(matchedConversation.caseId)
+          ? matchedConversation.caseId
+          : (resolvedCaseId && isValidCaseId(resolvedCaseId) ? resolvedCaseId : null);
+
+        let inferredRoomId = matchedConversation?.id || initialConversationRoomId || null;
         let agentFirebaseId = matchedConversation?.participants?.agentId || agentInfo?.firebaseId || agentInfo?.id;
         let agentDisplayName = matchedConversation?.participants?.agentName || agentInfo?.name;
         let agentProfilePicture = agentInfo?.profilePicture;
         let agentRawId = matchedConversation?.participants?.agentId || agentInfo?.id;
 
         let caseData: any = null;
-        if (!matchedConversation && CASE_UUID_REGEX.test(effectiveCaseId)) {
+        if (!matchedConversation && effectiveCaseId && isValidCaseId(effectiveCaseId)) {
           try {
             caseData = await casesService.getCaseById(effectiveCaseId);
           } catch (error) {
@@ -205,11 +296,34 @@ export default function ChatScreen() {
           }
         }
 
-        if (caseData?.id && caseData.id !== effectiveCaseId) {
-          if (isActive) {
-            setResolvedCaseId(caseData.id);
+        if (!effectiveCaseId) {
+          const resolvedFromCaseData = caseData?.id && isValidCaseId(caseData.id) ? caseData.id : null;
+          if (resolvedFromCaseData) {
+            effectiveCaseId = resolvedFromCaseData;
           }
-          setIsLoadingMessages(false);
+        }
+
+        if (!effectiveCaseId && inferredRoomId) {
+          effectiveCaseId = inferredRoomId;
+        }
+
+        if (!effectiveCaseId) {
+          logger.error('Unable to determine a valid caseId for chat initialization', {
+            resolvedCaseId,
+            candidateReference,
+            inferredRoomId,
+          });
+          if (isActive) {
+            setIsLoadingMessages(false);
+            chatInitializedRef.current = false;
+            showAlert({
+              title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
+              message: t('chat.genericError', {
+                defaultValue: 'We were unable to open this conversation. Please try again later.',
+              }),
+              actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
+            });
+          }
           return;
         }
 
@@ -229,8 +343,8 @@ export default function ChatScreen() {
 
         if (!inferredRoomId && agentFirebaseId && clientFirebaseId) {
           try {
-            const resolvedRoomId = await chatService.resolveChatRoomIdFromCase(effectiveCaseId, clientFirebaseId, agentFirebaseId);
-            inferredRoomId = resolvedRoomId || chatService.getChatRoomIdFromPair(clientFirebaseId, agentFirebaseId);
+            const resolvedRoom = await chatService.resolveChatRoomIdFromCase(effectiveCaseId, clientFirebaseId, agentFirebaseId);
+            inferredRoomId = resolvedRoom || chatService.getChatRoomIdFromPair(clientFirebaseId, agentFirebaseId);
           } catch (resolutionError) {
             logger.warn('Unable to resolve chat room from case', {
               caseId: effectiveCaseId,
@@ -271,6 +385,7 @@ export default function ChatScreen() {
               actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
             });
             setIsLoadingMessages(false);
+            chatInitializedRef.current = false;
             return;
           }
         }
@@ -287,25 +402,26 @@ export default function ChatScreen() {
             message: t('chat.awaitAgentInitiation', { defaultValue: 'Your advisor will open the conversation soon. You can reply once it is available.' }),
             actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
           });
-          setResolvedRoomId(null);
+          ensureResolvedRoomState(null);
+          syncConversationState(null, null);
           setHasMore(false);
           setIsLoadingMessages(false);
+          chatInitializedRef.current = false;
           return;
         }
 
-        setResolvedRoomId(loadResult.roomId);
+        ensureResolvedRoomState(loadResult.roomId);
+        syncConversationState(loadResult.roomId, effectiveCaseId);
         setHasMore(loadResult.hasMore);
         setIsLoadingMessages(false);
-        setCurrentConversation(loadResult.roomId, effectiveCaseId);
+
+        chatInitializedRef.current = true;
+        lastInitializedCaseRef.current = resolvedCaseId;
 
         const store = useMessagesStore.getState();
         const lastTimestamp =
-          Object.values(store.chatMessages).flat().length > 0
-            ? Math.max(
-              ...Object.values(store.chatMessages)
-                .flat()
-                .map((m: ChatMessage) => m.timestamp)
-            )
+          Array.isArray(store.chatMessages) && store.chatMessages.length > 0
+            ? Math.max(...store.chatMessages.map((m: ChatMessage) => m.timestamp))
             : 0;
         lastMessageTimestampRef.current = lastTimestamp;
 
@@ -335,6 +451,7 @@ export default function ChatScreen() {
         logger.error('Failed to initialize chat', error);
         if (isActive) {
           setIsLoadingMessages(false);
+          chatInitializedRef.current = false;
           showAlert({
             title: t('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
             message: t('chat.genericError', { defaultValue: 'We were unable to open this conversation. Please try again later.' }),
@@ -352,7 +469,7 @@ export default function ChatScreen() {
         unsubscribe();
       }
     };
-  }, [resolvedCaseId, user, loadChatMessages, markChatAsRead, router, showAlert, subscribeToChatMessages, t]);
+  }, [resolvedCaseId, user, loadChatMessages, markChatAsRead, router, showAlert, subscribeToChatMessages, t, caseIdParam, paramId, initialRoomId, resolvedRoomId, currentConversationId, currentCaseId]);
 
   useEffect(() => {
     if (chatError) {
@@ -367,9 +484,10 @@ export default function ChatScreen() {
 
   // Load more messages when scrolling up
   const handleLoadMore = useCallback(async () => {
-    const currentKey = resolvedRoomId ?? resolvedCaseId;
-    const currentBucket = (chatMessages && currentKey ? chatMessages[currentKey] : []) ?? [];
-    if (isLoadingMore || !hasMore || !resolvedCaseId || currentBucket.length === 0) return;
+    const currentBucket = chatMessages ?? [];
+    if (isLoadingMore || !hasMore || currentBucket.length === 0) {
+      return;
+    }
 
     setIsLoadingMore(true);
     try {
@@ -392,12 +510,11 @@ export default function ChatScreen() {
 
   // Sort messages chronologically
   const sortedMessages = useMemo(() => {
-    const currentKey = resolvedRoomId ?? resolvedCaseId ?? '';
-    if (!currentKey) return [];
-    const bucket = (chatMessages && chatMessages[currentKey]) ?? [];
-    if (bucket.length === 0) return [];
-    return [...bucket].sort((a, b) => a.timestamp - b.timestamp);
-  }, [chatMessages, resolvedRoomId, resolvedCaseId]);
+    if (!chatMessages || chatMessages.length === 0) {
+      return [];
+    }
+    return [...chatMessages].sort((a, b) => a.timestamp - b.timestamp);
+  }, [chatMessages]);
 
   const handleSend = async () => {
     if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !resolvedCaseId) return;

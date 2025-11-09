@@ -220,6 +220,7 @@ export const documentsService = {
                 throw new Error('Document download URL not available');
             }
 
+
             logger.info('Document download URL resolved from metadata', { documentId });
             documentDownloadCache.set(documentId, { url: resolvedUrl, fetchedAt: now });
             return resolvedUrl;
