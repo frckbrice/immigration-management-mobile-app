@@ -81,6 +81,39 @@ const findConversationMatch = (
   return undefined;
 };
 
+const sortMessagesAsc = (messages: ChatMessage[]) =>
+  [...messages].sort((a, b) => a.timestamp - b.timestamp);
+
+const mergeMessageIntoList = (messages: ChatMessage[], newMessage: ChatMessage) => {
+  const byIdIndex = messages.findIndex(
+    (m) => m.id === newMessage.id || (newMessage.id && m.tempId === newMessage.id)
+  );
+
+  if (byIdIndex !== -1) {
+    const updated = [...messages];
+    updated[byIdIndex] = newMessage;
+    return sortMessagesAsc(updated);
+  }
+
+  const filtered = messages.filter(
+    (m) =>
+      !(
+        m.tempId &&
+        m.message === newMessage.message &&
+        Math.abs(m.timestamp - newMessage.timestamp) < 5000
+      )
+  );
+
+  return sortMessagesAsc([...filtered, newMessage]);
+};
+
+const mergeMessagesBatch = (messages: ChatMessage[], incoming: ChatMessage[]) => {
+  if (!incoming || incoming.length === 0) {
+    return messages;
+  }
+  return incoming.reduce((acc, message) => mergeMessageIntoList(acc, message), messages);
+};
+
 export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -124,6 +157,7 @@ export default function ChatScreen() {
   const chatInitializedRef = useRef(false);
   const lastInitializedCaseRef = useRef<string | null>(null);
   const initializationKeyRef = useRef<string | null>(null);
+  const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([]);
 
   const {
     chatMessages,
@@ -150,6 +184,31 @@ export default function ChatScreen() {
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  useEffect(() => {
+    if (!chatMessages || chatMessages.length === 0) {
+      return;
+    }
+
+    setDisplayMessages((prev) => {
+      if (prev.length === 0) {
+        return sortMessagesAsc(chatMessages);
+      }
+
+      const existingIds = new Set(
+        prev.map((message) => message.id || message.tempId || '')
+      );
+      const unseen = chatMessages.filter(
+        (message) => !existingIds.has(message.id || '')
+      );
+
+      if (unseen.length === 0) {
+        return prev;
+      }
+
+      return mergeMessagesBatch(prev, unseen);
+    });
+  }, [chatMessages]);
 
   useEffect(() => {
     if (initialCaseId && !resolvedCaseId) {
@@ -181,6 +240,7 @@ export default function ChatScreen() {
 
   // Resolve chat room ID and set up Firebase subscription
   useEffect(() => {
+    let metadataUnsubscribe: (() => void) | null = null;
     if (!resolvedCaseId) {
       lastInitializedCaseRef.current = null;
       chatInitializedRef.current = false;
@@ -189,6 +249,7 @@ export default function ChatScreen() {
       if (resolvedRoomId !== null) {
         setResolvedRoomId(null);
       }
+      setDisplayMessages([]);
       return;
     }
 
@@ -259,13 +320,15 @@ export default function ChatScreen() {
     ensureResolvedRoomState(initialConversationRoomId);
 
     initializationKeyRef.current = initKey;
-    setIsLoadingMessages(true);
 
     let unsubscribe: (() => void) | null = null;
     let isActive = true;
 
     const initializeChat = async () => {
       try {
+        if (isActive) {
+          setIsLoadingMessages(true);
+        }
         let conversationList = conversationsRef.current;
         if (!conversationList || conversationList.length === 0) {
           conversationList = useMessagesStore.getState().conversations;
@@ -390,7 +453,11 @@ export default function ChatScreen() {
           }
         }
 
-        const loadResult = await loadChatMessages(effectiveCaseId, clientFirebaseId, agentFirebaseId);
+        const loadResult = await chatService.loadInitialMessages(
+          effectiveCaseId,
+          clientFirebaseId,
+          agentFirebaseId
+        );
 
         if (!isActive) {
           return;
@@ -406,6 +473,7 @@ export default function ChatScreen() {
           syncConversationState(null, null);
           setHasMore(false);
           setIsLoadingMessages(false);
+          setDisplayMessages([]);
           chatInitializedRef.current = false;
           return;
         }
@@ -418,21 +486,95 @@ export default function ChatScreen() {
         chatInitializedRef.current = true;
         lastInitializedCaseRef.current = resolvedCaseId;
 
-        const store = useMessagesStore.getState();
+        const storeMessagesSnapshot = useMessagesStore.getState().chatMessages ?? [];
+        const initialMessages =
+          Array.isArray(loadResult.messages) && loadResult.messages.length > 0
+            ? loadResult.messages
+            : storeMessagesSnapshot;
+        setDisplayMessages(sortMessagesAsc(initialMessages));
+
         const lastTimestamp =
-          Array.isArray(store.chatMessages) && store.chatMessages.length > 0
-            ? Math.max(...store.chatMessages.map((m: ChatMessage) => m.timestamp))
+          initialMessages.length > 0
+            ? Math.max(...initialMessages.map((m: ChatMessage) => m.timestamp))
             : 0;
         lastMessageTimestampRef.current = lastTimestamp;
 
+        loadChatMessages(effectiveCaseId, clientFirebaseId, agentFirebaseId).catch((error) => {
+          logger.warn('Background store sync failed', { error });
+        });
+
+        if (metadataUnsubscribe) {
+          metadataUnsubscribe();
+        }
+        metadataUnsubscribe = chatService.subscribeToChatMetadata(loadResult.roomId, (metadata) => {
+          if (!metadata) {
+            return;
+          }
+          if (metadata.participants) {
+            setAgentInfo((prev) => {
+              const next = {
+                id: metadata.participants.agentId || prev?.id,
+                firebaseId: metadata.participants.agentId || prev?.firebaseId,
+                name: metadata.participants.agentName || prev?.name || 'Agent',
+                profilePicture: prev?.profilePicture,
+                isOnline: prev?.isOnline ?? false,
+              };
+              if (
+                prev &&
+                prev.id === next.id &&
+                prev.firebaseId === next.firebaseId &&
+                prev.name === next.name &&
+                prev.profilePicture === next.profilePicture &&
+                prev.isOnline === next.isOnline
+              ) {
+                return prev;
+              }
+              return next;
+            });
+          }
+        });
+
+        const fallbackRoomIds: string[] = [];
+        if (effectiveCaseId && effectiveCaseId !== loadResult.roomId) {
+          fallbackRoomIds.push(effectiveCaseId);
+        }
+        if (initialConversationRoomId && initialConversationRoomId !== loadResult.roomId) {
+          fallbackRoomIds.push(initialConversationRoomId);
+        }
+        if (resolvedRoomId && resolvedRoomId !== loadResult.roomId) {
+          fallbackRoomIds.push(resolvedRoomId);
+        }
+        if (clientFirebaseId && agentFirebaseId) {
+          try {
+            const derivedRoomId = chatService.getChatRoomIdFromPair(clientFirebaseId, agentFirebaseId);
+            if (derivedRoomId && derivedRoomId !== loadResult.roomId) {
+              fallbackRoomIds.push(derivedRoomId);
+            }
+          } catch (pairError) {
+            logger.warn('Failed to derive fallback chat room id', { pairError });
+          }
+        }
+
         unsubscribe = subscribeToChatMessages(
           loadResult.roomId,
-          () => {
+          (incomingMessage, incomingRoomId) => {
+            setDisplayMessages((prev) => mergeMessageIntoList(prev, incomingMessage));
+
+            if (incomingMessage?.timestamp && incomingMessage.timestamp > lastMessageTimestampRef.current) {
+              lastMessageTimestampRef.current = incomingMessage.timestamp;
+            }
+
+            if (incomingRoomId && incomingRoomId !== resolvedRoomId) {
+              ensureResolvedRoomState(incomingRoomId);
+              syncConversationState(incomingRoomId, effectiveCaseId);
+            }
+
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
           },
-          lastTimestamp
+          lastTimestamp,
+          fallbackRoomIds
         );
 
         setTimeout(() => {
@@ -458,6 +600,10 @@ export default function ChatScreen() {
             actions: [{ text: t('common.close'), variant: 'primary', onPress: () => router.back() }],
           });
         }
+      } finally {
+        if (isActive) {
+          setIsLoadingMessages(false);
+        }
       }
     };
 
@@ -467,6 +613,9 @@ export default function ChatScreen() {
       isActive = false;
       if (unsubscribe) {
         unsubscribe();
+      }
+      if (metadataUnsubscribe) {
+        metadataUnsubscribe();
       }
     };
   }, [resolvedCaseId, user, loadChatMessages, markChatAsRead, router, showAlert, subscribeToChatMessages, t, caseIdParam, paramId, initialRoomId, resolvedRoomId, currentConversationId, currentCaseId]);
@@ -484,7 +633,7 @@ export default function ChatScreen() {
 
   // Load more messages when scrolling up
   const handleLoadMore = useCallback(async () => {
-    const currentBucket = chatMessages ?? [];
+    const currentBucket = displayMessages;
     if (isLoadingMore || !hasMore || currentBucket.length === 0) {
       return;
     }
@@ -497,24 +646,24 @@ export default function ChatScreen() {
 
       const key = resolvedRoomId ?? resolvedCaseId;
       if (!key) return;
-      await loadOlderChatMessages(key, oldestTimestamp, clientFirebaseId, agentFirebaseId);
-
-      // Check if there are more (simplified - you can improve this)
-      setHasMore(currentBucket.length >= 20);
+      const result = await loadOlderChatMessages(key, oldestTimestamp, clientFirebaseId, agentFirebaseId);
+      if (result?.messages?.length) {
+        setDisplayMessages((prev) => mergeMessagesBatch(prev, result.messages));
+      }
+      if (typeof result?.hasMore === 'boolean') {
+        setHasMore(result.hasMore);
+      } else if (!result || !result.messages) {
+        setHasMore(false);
+      }
     } catch (error) {
       logger.error('Failed to load older messages', error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [resolvedCaseId, resolvedRoomId, chatMessages, isLoadingMore, hasMore, user, agentInfo?.firebaseId, agentInfo?.id]);
+  }, [displayMessages, resolvedCaseId, resolvedRoomId, isLoadingMore, hasMore, user, agentInfo?.firebaseId, agentInfo?.id, loadOlderChatMessages]);
 
   // Sort messages chronologically
-  const sortedMessages = useMemo(() => {
-    if (!chatMessages || chatMessages.length === 0) {
-      return [];
-    }
-    return [...chatMessages].sort((a, b) => a.timestamp - b.timestamp);
-  }, [chatMessages]);
+  const sortedMessages = useMemo(() => sortMessagesAsc(displayMessages), [displayMessages]);
 
   const handleSend = async () => {
     if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !resolvedCaseId) return;
@@ -549,11 +698,15 @@ export default function ChatScreen() {
     };
 
     // Add message to UI immediately
-    addChatMessage(optimisticMessage);
+    setDisplayMessages((prev) => mergeMessageIntoList(prev, optimisticMessage));
 
     // Clear input immediately
     setMessage('');
     setSelectedAttachments([]);
+
+    setTimeout(() => {
+      addChatMessage(optimisticMessage);
+    }, 0);
 
     try {
       // Send to Firebase
@@ -572,11 +725,36 @@ export default function ChatScreen() {
       );
 
       if (!success) {
-        // Mark optimistic message as failed
         logger.error('Failed to send message');
+        setDisplayMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempId
+              ? {
+                ...msg,
+                status: 'failed',
+                error: 'Failed to send',
+              }
+              : msg
+          )
+        );
+      } else {
+        setDisplayMessages((prev) =>
+          prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'sent' } : msg))
+        );
       }
     } catch (error: any) {
       logger.error('Failed to send message', error);
+      setDisplayMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? {
+              ...msg,
+              status: 'failed',
+              error: error?.message || 'Failed to send',
+            }
+            : msg
+        )
+      );
     }
   };
 
@@ -693,7 +871,7 @@ export default function ChatScreen() {
             inverted={false}
             ListEmptyComponent={isLoadingMessages ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
+                <ActivityIndicator size="large" color="2196F3#" />
               </View>
             ) : null}
             // Performance optimizations
@@ -961,16 +1139,16 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   messageBubbleAgent: {
-    borderTopLeftRadius: 6,
+    borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderBottomRightRadius: 18,
-    borderBottomLeftRadius: 18,
+    borderBottomLeftRadius: 6,
   },
   messageBubbleUser: {
-    borderTopRightRadius: 6,
+    borderTopRightRadius: 18,
     borderTopLeftRadius: 18,
     borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
+    borderBottomRightRadius: 6,
   },
   messageText: {
     fontSize: 16,

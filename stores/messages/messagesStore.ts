@@ -47,7 +47,10 @@ interface MessagesState {
     beforeTimestamp: number,
     clientId?: string,
     agentId?: string
-  ) => Promise<void>;
+  ) => Promise<{
+    messages: ChatMessage[];
+    hasMore: boolean;
+  }>;
   sendChatMessage: (
     caseId: string,
     senderId: string,
@@ -60,8 +63,9 @@ interface MessagesState {
   ) => Promise<boolean>;
   subscribeToChatMessages: (
     roomId: string,
-    onNewMessage: (message: ChatMessage) => void,
-    lastKnownTimestamp?: number
+    onNewMessage: (message: ChatMessage, roomId: string) => void,
+    lastKnownTimestamp?: number,
+    additionalRoomIds?: string[]
   ) => () => void;
   markChatAsRead: (roomId: string, userId: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
@@ -287,7 +291,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     try {
       const roomId = get().currentRoomId || caseId;
       if (!roomId) {
-        return;
+        return { messages: [], hasMore: false };
       }
       const result = await chatService.loadOlderMessages(roomId, beforeTimestamp, 20);
       set((state) => {
@@ -296,8 +300,10 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         const combined = [...uniqueNew, ...state.chatMessages];
         return { chatMessages: combined.sort((a, b) => a.timestamp - b.timestamp) };
       });
+      return result;
     } catch (error: any) {
       logger.error('Error loading older chat messages', error);
+      return { messages: [], hasMore: false };
     }
   },
 
@@ -335,32 +341,47 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     }
   },
 
-  subscribeToChatMessages: (roomId: string, onNewMessage: (message: ChatMessage) => void, lastKnownTimestamp?: number) => {
+  subscribeToChatMessages: (
+    roomId: string,
+    onNewMessage: (message: ChatMessage, roomId: string) => void,
+    lastKnownTimestamp?: number,
+    additionalRoomIds: string[] = []
+  ) => {
     const currentUnsubscribe = get().unsubscribeMessages;
     if (currentUnsubscribe) {
       currentUnsubscribe();
     }
 
-    const unsubscribe = chatService.subscribeToNewMessagesOptimized(
-      roomId,
-      (newMessage) => {
+    const uniqueRoomIds = [roomId, ...additionalRoomIds]
+      .filter((value, index, self) => !!value && self.indexOf(value) === index) as string[];
+
+    if (uniqueRoomIds.length === 0) {
+      return () => { };
+    }
+
+    const applyIncomingMessage = (incomingRoomId: string, newMessage: ChatMessage) => {
+      onNewMessage(newMessage, incomingRoomId);
+
+      setTimeout(() => {
         set((state) => {
-          const exists = state.chatMessages.some(
+          const existingMessages = state.chatMessages ?? [];
+          const exists = existingMessages.some(
             (m) => m.id === newMessage.id || m.tempId === newMessage.id
           );
-          if (exists) {
-            const tempIndex = state.chatMessages.findIndex(
-              (m) => m.tempId && m.id === newMessage.id
-            );
-            if (tempIndex !== -1) {
-              const updated = [...state.chatMessages];
-              updated[tempIndex] = newMessage;
-              return { chatMessages: updated.sort((a, b) => a.timestamp - b.timestamp) };
-            }
-            return state;
-          }
 
-          const updated = state.chatMessages
+          let updatedMessages = existingMessages;
+
+          if (exists) {
+          const tempIndex = existingMessages.findIndex(
+            (m) => m.tempId && m.id === newMessage.id
+          );
+          if (tempIndex !== -1) {
+            const updated = [...existingMessages];
+            updated[tempIndex] = newMessage;
+            updatedMessages = updated.sort((a, b) => a.timestamp - b.timestamp);
+          }
+        } else {
+          updatedMessages = existingMessages
             .filter(
               (m) =>
                 !(
@@ -371,17 +392,72 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
             )
             .concat([newMessage])
             .sort((a, b) => a.timestamp - b.timestamp);
+          }
 
-          return { chatMessages: updated };
+          let updatedConversations = state.conversations;
+          let updatedUnreadTotal = state.unreadChatTotal;
+
+          if (state.conversations && state.conversations.length > 0) {
+            let conversationChanged = false;
+            const mapped = state.conversations.map((conversation) => {
+              if (conversation.id !== incomingRoomId && conversation.id !== roomId) {
+                return conversation;
+              }
+              conversationChanged = true;
+              const isActiveRoom =
+                conversation.id === state.currentRoomId ||
+                incomingRoomId === state.currentRoomId ||
+                roomId === state.currentRoomId;
+              return {
+                ...conversation,
+                lastMessage: newMessage.message,
+                lastMessageTime: newMessage.timestamp,
+                unreadCount: isActiveRoom ? 0 : conversation.unreadCount,
+              };
+            });
+
+            if (conversationChanged) {
+              updatedConversations = mapped;
+              updatedUnreadTotal = computeUnreadChatTotal(mapped);
+            }
+          }
+
+          return {
+            chatMessages: updatedMessages,
+            ...(updatedConversations !== state.conversations
+              ? {
+                conversations: updatedConversations,
+                unreadChatTotal: updatedUnreadTotal,
+              }
+              : {}),
+          };
         });
+      }, 0);
+    };
 
-        onNewMessage(newMessage);
-      },
-      lastKnownTimestamp
+    const unsubscribeHandlers = uniqueRoomIds.map((id) =>
+      chatService.subscribeToNewMessagesOptimized(
+        id,
+        (message) => applyIncomingMessage(id, message),
+        lastKnownTimestamp
+      )
     );
 
-    set({ unsubscribeMessages: unsubscribe });
-    return unsubscribe;
+    const unsubscribeAll = () => {
+      unsubscribeHandlers.forEach((handler) => {
+        try {
+          handler();
+        } catch (error: any) {
+          logger.warn('Failed to unsubscribe from chat room listener', {
+            roomId: roomId,
+            error: error?.message || error,
+          });
+        }
+      });
+    };
+
+    set({ unsubscribeMessages: unsubscribeAll });
+    return unsubscribeAll;
   },
 
   markChatAsRead: async (roomId: string, userId: string) => {

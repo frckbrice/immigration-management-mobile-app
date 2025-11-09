@@ -186,6 +186,52 @@ class ChatService {
         }
     }
 
+    subscribeToChatMetadata(
+        roomId: string,
+        callback: (metadata: ChatMetadata | null) => void
+    ): () => void {
+        if (!roomId) {
+            callback(null);
+            return () => { };
+        }
+
+        const metadataRef = ref(database, `chats/${roomId}/metadata`);
+
+        const listener = onValue(
+            metadataRef,
+            (snapshot) => {
+                if (!snapshot.exists()) {
+                    callback(null);
+                    return;
+                }
+
+                const raw = snapshot.val() || {};
+                const metadata: ChatMetadata = {
+                    participants: raw.participants || {
+                        clientId: '',
+                        clientName: '',
+                        agentId: '',
+                        agentName: '',
+                    },
+                    caseReferences: raw.caseReferences || [],
+                    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : 0,
+                    lastMessage: raw.lastMessage ?? null,
+                    lastMessageTime: raw.lastMessageTime ?? null,
+                    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : undefined,
+                };
+
+                callback(metadata);
+            },
+            (error) => {
+                logger.error('Metadata subscription error', { roomId, error });
+            }
+        );
+
+        return () => {
+            off(metadataRef, 'value', listener);
+        };
+    }
+
     // Helper method to get chat room ID from client-agent pair
     getChatRoomIdFromPair(clientId: string, agentId: string): string {
         return getChatRoomId(clientId, agentId);
