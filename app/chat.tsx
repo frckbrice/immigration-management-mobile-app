@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, FlatList } from "react-native";
+import { Pressable, StyleSheet, View, Text, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, FlatList } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BackButton } from "@/components/BackButton";
-import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useMessagesStore } from "@/stores/messages/messagesStore";
@@ -16,6 +15,9 @@ import { logger } from "@/lib/utils/logger";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { mergeMessageIntoList, mergeMessagesBatch, sortMessagesAsc } from "@/lib/utils/chatMessages";
+import SearchField from "@/components/SearchField";
+import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
 
 const formatServiceTypeLabel = (serviceType?: string) =>
   serviceType
@@ -83,7 +85,8 @@ const findConversationMatch = (
 };
 
 export default function ChatScreen() {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const colors = useThemeColors();
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
@@ -147,6 +150,8 @@ export default function ChatScreen() {
   } = useMessagesStore();
   const { user } = useAuthStore();
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'attachments' | 'agent' | 'mine'>('all');
 
   const conversationsRef = useRef(conversations);
   useEffect(() => {
@@ -304,12 +309,6 @@ export default function ChatScreen() {
     const conversationListSnapshot = conversationsRef.current ?? [];
     const candidateReference =
       !isValidCaseId(caseIdParam) && caseIdParam ? caseIdParam : !isValidCaseId(paramId) && paramId ? paramId : null;
-    logger.info('[Chat UI] initialize effect', {
-      resolvedCaseId,
-      initialRoomId,
-      resolvedRoomId,
-      conversationsCount: conversationListSnapshot.length,
-    });
 
     const matchedConversation = findConversationMatch(conversationListSnapshot, {
       roomId: resolvedRoomId ?? initialRoomId,
@@ -376,11 +375,6 @@ export default function ChatScreen() {
           : (resolvedCaseId && isValidCaseId(resolvedCaseId) ? resolvedCaseId : null);
 
         let inferredRoomId = matchedConversation?.id || resolvedRoomId || initialRoomId || null;
-        logger.info('[Chat UI] matched conversation', {
-          matched: Boolean(matchedConversation),
-          matchedConversationId: matchedConversation?.id,
-          inferredRoomId,
-        });
         let agentFirebaseId = matchedConversation?.participants?.agentId || agentInfo?.firebaseId || agentInfo?.id || null;
         let agentDisplayName = matchedConversation?.participants?.agentName || agentInfo?.name;
         let agentProfilePicture = agentInfo?.profilePicture;
@@ -398,12 +392,6 @@ export default function ChatScreen() {
               error: resolveError,
             });
           }
-        } else {
-          logger.info('[Chat UI] agent firebase id missing after metadata merge', {
-            matchedAgentId: matchedConversation?.participants?.agentId,
-            agentInfoFirebase: agentInfo?.firebaseId,
-            agentInfoId: agentInfo?.id,
-          });
         }
 
         let caseData: any = null;
@@ -488,20 +476,10 @@ export default function ChatScreen() {
           }
         }
 
-        logger.info('[Chat UI] resolved identifiers', {
-          effectiveCaseId,
-          clientFirebaseId,
-          agentFirebaseId,
-          pairRoomIdCandidate,
-          inferredRoomId,
-          initialConversationRoomId,
-        });
-
         syncConversationState(initialConversationRoomId, effectiveCaseId);
         ensureResolvedRoomState(initialConversationRoomId);
 
         if (isActive) {
-          logger.debug('\n\n\n [Chat UI] setting agent info', { agentRawId, agentFirebaseId, agentDisplayName, agentProfilePicture });
           setAgentInfo((prev) => {
             const next = {
               id: agentRawId || prev?.id,
@@ -527,7 +505,6 @@ export default function ChatScreen() {
         if (caseData) {
           const statusKey = normalizeStatus(caseData.status);
           if (statusKey && statusKey !== 'under_review') {
-            logger.debug('\n\n\n [Chat UI] showing alert for case status', { statusKey });
             showAlertFn({
               title: translate('chat.unavailableTitle', { defaultValue: 'Chat Unavailable' }),
               message: translate('chat.pendingReview', { defaultValue: 'Your advisor will reach out once the case is under review.' }),
@@ -539,13 +516,6 @@ export default function ChatScreen() {
           }
         }
 
-        logger.info('[Chat UI] loading initial messages', {
-          caseId: effectiveCaseId,
-          loadRoomId: initialConversationRoomId,
-          clientFirebaseId,
-          agentFirebaseId,
-        });
-
         const loadResult = await loadChatMessagesFn({
           caseId: effectiveCaseId,
           roomId: initialConversationRoomId,
@@ -554,7 +524,6 @@ export default function ChatScreen() {
         });
 
         if (!isActive) {
-          logger.info('\n\n\n [Chat UI] initialization cancelled - component not active');
           return;
         }
 
@@ -569,28 +538,15 @@ export default function ChatScreen() {
         if (!subscriptionRoomId && clientFirebaseId && effectiveCaseId) {
           try {
             const resolvedFromUserChats = await chatService.findRoomIdForCase(clientFirebaseId, effectiveCaseId);
-            logger.debug('\n\n\n [Chat UI] resolved from user chats', { resolvedFromUserChats });
             if (resolvedFromUserChats) {
               subscriptionRoomId = resolvedFromUserChats;
             }
-            logger.debug('\n\n\n [Chat UI] subscription room id from user chats', { subscriptionRoomId });
           } catch (lookupError) {
-            logger.warn('\n\n\n [Chat UI] failed to resolve subscription room via userChats', lookupError);
+            logger.warn('[Chat UI] failed to resolve subscription room via userChats', lookupError);
           }
         }
 
-        logger.info('\n\n\n [Chat UI] initial load result', {
-          loadResultRoomId: loadResult.roomId,
-          inferredPairRoomId,
-          inferredRoomId,
-          initialConversationRoomId,
-          subscriptionRoomId,
-          loadCount: loadResult.messages?.length ?? 0,
-        });
-
         const attachRealtimeSubscription = (roomId: string, activateImmediately: boolean) => {
-          logger.info('\n\n\n [Chat UI] attaching realtime listener', { roomId, activateImmediately });
-
           if (activateImmediately) {
             activeRoomIdRef.current = roomId;
             ensureResolvedRoomState(roomId);
@@ -600,17 +556,7 @@ export default function ChatScreen() {
           return chatService.subscribeToNewMessagesOptimized(
             roomId,
             (incomingMessage) => {
-              logger.info('\n\n\n [Chat UI] incoming realtime message', {
-                id: incomingMessage.id,
-                timestamp: incomingMessage.timestamp,
-                senderId: incomingMessage.senderId,
-                roomId,
-              });
-
               setDisplayMessages((prev) => mergeMessageIntoList(prev, incomingMessage));
-              logger.info('\n\n\n [Chat UI] merging message into list', {
-                displayMessages: displayMessages.length,
-              });
               addChatMessageFn(incomingMessage);
 
               if (
@@ -621,7 +567,6 @@ export default function ChatScreen() {
               }
 
               if (!activeRoomIdRef.current) {
-                logger.info('\n\n\n [Chat UI] promoting pending room to active', { roomId });
                 activeRoomIdRef.current = roomId;
                 ensureResolvedRoomState(roomId);
                 syncConversationState(roomId, effectiveCaseId);
@@ -642,13 +587,7 @@ export default function ChatScreen() {
         };
 
         if (!loadResult.roomId) {
-          logger.info('\n\n\n [Chat UI] no initial room id from load result', {
-            subscriptionRoomId,
-          });
           if (subscriptionRoomId) {
-            logger.info('\n\n\n [Chat UI] attaching realtime listener to subscription room', {
-              subscriptionRoomId,
-            });
             unsubscribe = attachRealtimeSubscription(subscriptionRoomId, true);
             activeRoomIdRef.current = subscriptionRoomId;
             ensureResolvedRoomState(subscriptionRoomId);
@@ -656,9 +595,6 @@ export default function ChatScreen() {
           }
 
           if (!subscriptionRoomId) {
-            logger.info('\n\n\n [Chat UI] no subscription room id from load result', {
-              subscriptionRoomId,
-            });
             ensureResolvedRoomState(null);
             syncConversationState(null, null);
             activeRoomIdRef.current = null;
@@ -700,11 +636,6 @@ export default function ChatScreen() {
         setDisplayMessages(sortedInitialMessages);
         activeRoomIdRef.current = loadResult.roomId;
 
-        logger.info('\n\n\n [Chat UI] initial messages ready', {
-          activeRoomId: activeRoomIdRef.current,
-          sortedCount: sortedInitialMessages.length,
-        });
-
         useMessagesStore.setState({
           chatMessages: sortedInitialMessages,
           currentRoomId: loadResult.roomId,
@@ -723,8 +654,6 @@ export default function ChatScreen() {
           unsubscribe = attachRealtimeSubscription(subscriptionRoomId, true);
         }
 
-        logger.debug('\n\n\n sortedInitialMessages', unsubscribe);
-
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 300);
@@ -738,7 +667,7 @@ export default function ChatScreen() {
           }
         }
       } catch (error) {
-        logger.error('\n\n\n [Chat UI] Failed to initialize chat', error);
+        logger.error('[Chat UI] failed to initialize chat', error);
         if (isActive) {
           setIsLoadingMessages(false);
           chatInitializedRef.current = false;
@@ -754,7 +683,6 @@ export default function ChatScreen() {
     initializeChat();
 
     return () => {
-      logger.info('\n\n\n [Chat UI] cleanup previous listener');
       isActive = false;
       if (unsubscribe) {
         unsubscribe();
@@ -766,7 +694,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (chatError) {
-      logger.error('\n\n\n [Chat UI] Chat error state', chatError);
+      logger.error('[Chat UI] chat error state', chatError);
       showAlert({
         title: t('common.error'),
         message: chatError,
@@ -801,7 +729,7 @@ export default function ChatScreen() {
         setHasMore(false);
       }
     } catch (error) {
-      logger.error('\n\n\n [Chat UI] Failed to load older messages', error);
+      logger.error('[Chat UI] failed to load older messages', error);
     } finally {
       setIsLoadingMore(false);
     }
@@ -809,6 +737,30 @@ export default function ChatScreen() {
 
   // Sort messages chronologically
   const sortedMessages = useMemo(() => sortMessagesAsc(displayMessages), [displayMessages]);
+  const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
+  const filteredMessages = useMemo(() => {
+    let base = sortedMessages;
+
+    if (activeFilter === 'attachments') {
+      base = base.filter((message) => (message.attachments?.length ?? 0) > 0);
+    } else if (activeFilter === 'agent') {
+      base = base.filter((message) => message.senderId && message.senderId !== userUid);
+    } else if (activeFilter === 'mine') {
+      base = base.filter((message) => message.senderId === userUid);
+    }
+
+    if (hasSearchQuery) {
+      base = base.filter((message) => {
+        const content = (message.message ?? '').toLowerCase();
+        const senderName = (message.senderName ?? '').toLowerCase();
+        return content.includes(normalizedSearchQuery) || senderName.includes(normalizedSearchQuery);
+      });
+    }
+
+    return base;
+  }, [sortedMessages, activeFilter, hasSearchQuery, normalizedSearchQuery, userUid]);
+  const isFiltered = activeFilter !== 'all' || hasSearchQuery;
 
   const handleSend = async () => {
     if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !resolvedCaseId) return;
@@ -822,13 +774,6 @@ export default function ChatScreen() {
       });
       return;
     }
-
-    logger.info('\n\n\n [Chat UI] sending message', {
-      activeRoomId,
-      resolvedCaseId,
-      clientFirebaseId: auth.currentUser?.uid || user.uid,
-      agentFirebaseId: agentInfo?.firebaseId || agentInfo?.id,
-    });
 
     const messageText = message.trim();
     const attachments = selectedAttachments || [];
@@ -875,7 +820,7 @@ export default function ChatScreen() {
 
       if (!success) {
         // Mark optimistic message as failed
-        logger.error('\n\n\n [Chat UI] Failed to send message');
+        logger.error('[Chat UI] failed to send message');
         setDisplayMessages((prev) =>
           prev.map((msg) =>
             msg.id === tempId
@@ -901,7 +846,7 @@ export default function ChatScreen() {
         }));
       }
     } catch (error: any) {
-      logger.error('\n\n\n [Chat UI] Failed to send message', error);
+      logger.error('[Chat UI] failed to send message', error);
       setDisplayMessages((prev) =>
         prev.map((msg) =>
           msg.id === tempId
@@ -960,7 +905,7 @@ export default function ChatScreen() {
         return `${monthNames[date.getMonth()]} ${date.getDate()}, ${timeStr}`;
       }
     } catch (error) {
-      logger.error('\n\n\n [Chat UI] Error formatting timestamp', { timestamp, error });
+      logger.error('[Chat UI] error formatting timestamp', { timestamp, error });
       return 'Invalid date';
     }
   }, []);
@@ -972,18 +917,48 @@ export default function ChatScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.dark ? colors.background : withOpacity(colors.primary, 0.04),
+          },
+        ]}
+        edges={['top', 'bottom']}
+      >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.dark
+                ? withOpacity(colors.surfaceElevated, 0.85)
+                : withOpacity(colors.surfaceAlt, 0.95),
+              borderBottomColor: withOpacity(colors.borderStrong, theme.dark ? 0.75 : 0.35),
+              shadowColor: theme.dark ? '#000000' : withOpacity(colors.primary, 0.45),
+            },
+          ]}
+        >
           <BackButton onPress={() => router.back()} iconSize={24} style={{ marginRight: 16 }} />
 
           <View style={styles.headerCenter}>
-            <View style={styles.agentAvatar}>
+            <View
+              style={[
+                styles.agentAvatar,
+                {
+                  backgroundColor: theme.dark ? colors.secondary : colors.primary,
+                  shadowColor: withOpacity(theme.dark ? colors.secondary : colors.primary, 0.35),
+                },
+              ]}
+            >
               <IconSymbol name="person.fill" size={20} color="#fff" />
               <View
                 style={[
                   styles.onlineIndicator,
-                  { backgroundColor: agentInfo?.isOnline ? '#4CAF50' : '#FF3B30' },
+                  {
+                    backgroundColor: agentInfo?.isOnline ? colors.success : colors.warning,
+                    borderColor: theme.dark ? colors.surface : '#fff',
+                  },
                 ]}
               />
             </View>
@@ -991,7 +966,12 @@ export default function ChatScreen() {
               <Text style={[styles.agentName, { color: theme.colors.text }]}>
                 {agentInfo?.name || 'Agent'}
               </Text>
-              <Text style={[styles.agentStatus, { color: agentInfo?.isOnline ? '#4CAF50' : '#FF3B30' }]}>
+              <Text
+                style={[
+                  styles.agentStatus,
+                  { color: agentInfo?.isOnline ? colors.success : colors.warning },
+                ]}
+              >
                 {agentInfo?.isOnline ? t('chat.online') : t('chat.offline')}
               </Text>
             </View>
@@ -1014,17 +994,134 @@ export default function ChatScreen() {
         </View>
 
         <KeyboardAvoidingView
-          style={styles.chatContainer}
+          style={[
+            styles.chatContainer,
+            {
+              backgroundColor: theme.dark ? colors.surface : colors.surface,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.25),
+              borderWidth: StyleSheet.hairlineWidth,
+              shadowColor: theme.dark ? '#000000' : withOpacity(colors.secondary, 0.18),
+            },
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
+          <View
+            style={[
+              styles.messagesToolbar,
+              {
+                backgroundColor: theme.dark
+                  ? withOpacity(colors.surfaceElevated, 0.9)
+                  : withOpacity(colors.surfaceAlt, 0.95),
+                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
+                shadowColor: theme.dark ? '#000000' : withOpacity(colors.warning, 0.45),
+              },
+            ]}
+          >
+            <SearchField
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
+              placeholder={t('chat.searchPlaceholder', { defaultValue: 'Find past messages or updates' })}
+              containerStyle={[
+                styles.searchField,
+                {
+                  backgroundColor: theme.dark ? colors.surface : colors.surface,
+                  borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.28),
+                },
+              ]}
+              returnKeyType="search"
+            />
+
+            <View style={styles.filterChipsRow}>
+              {[
+                { id: 'all', label: t('chat.filters.all', { defaultValue: 'All' }) },
+                { id: 'attachments', label: t('chat.filters.attachments', { defaultValue: 'Files' }) },
+                { id: 'agent', label: t('chat.filters.agent', { defaultValue: 'Agent' }) },
+                { id: 'mine', label: t('chat.filters.mine', { defaultValue: 'Me' }) },
+              ].map((filter) => {
+                const isActive = activeFilter === filter.id;
+                return (
+                  <Pressable
+                    key={filter.id}
+                    style={[
+                      styles.filterChip,
+                      {
+                        borderColor: isActive
+                          ? withOpacity(colors.warning, theme.dark ? 0.9 : 0.75)
+                          : withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
+                        backgroundColor: isActive
+                          ? withOpacity(colors.warning, theme.dark ? 0.22 : 0.14)
+                          : withOpacity(colors.surface, theme.dark ? 0.8 : 0.9),
+                        shadowColor: isActive
+                          ? withOpacity(colors.success, theme.dark ? 0.6 : 0.35)
+                          : 'transparent',
+                      },
+                    ]}
+                    onPress={() => setActiveFilter(filter.id as typeof activeFilter)}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        filter.id === 'attachments'
+                          ? 'paperclip'
+                          : filter.id === 'agent'
+                            ? 'account-tie'
+                            : filter.id === 'mine'
+                              ? 'account-circle'
+                              : 'filter'
+                      }
+                      size={15}
+                      color={isActive ? colors.warning : colors.muted}
+                    />
+                    <Text
+                      style={[
+                        styles.filterChipLabel,
+                        {
+                          color: isActive ? colors.warning : colors.text,
+                        },
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {isFiltered && (
+              <View
+                style={[
+                  styles.filterSummary,
+                  {
+                    backgroundColor: withOpacity(colors.success, theme.dark ? 0.18 : 0.12),
+                    borderColor: withOpacity(colors.success, theme.dark ? 0.6 : 0.4),
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons name="check-decagram" size={16} color={colors.success} />
+                <Text style={[styles.filterSummaryText, { color: colors.success }]}>
+                  {t('chat.filters.activeSummary', { defaultValue: 'Filters applied' })}
+                </Text>
+              </View>
+            )}
+          </View>
+
           {/* Messages */}
           <FlatList
             ref={flatListRef}
-            data={sortedMessages}
+            data={filteredMessages}
             keyExtractor={(item) => item.id || item.tempId || `msg-${item.timestamp}`}
             style={styles.messagesContainer}
-            contentContainerStyle={styles.messagesContent}
+            contentContainerStyle={[
+              styles.messagesContent,
+              {
+                backgroundColor: theme.dark
+                  ? withOpacity(colors.surfaceElevated, 0.6)
+                  : withOpacity('#FFF9C4', 0.25),
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             onScroll={({ nativeEvent }) => {
               if (nativeEvent.contentOffset.y <= 80 && !isLoadingMore && hasMore) {
@@ -1032,17 +1129,34 @@ export default function ChatScreen() {
               }
             }}
             scrollEventThrottle={16}
-            ListHeaderComponent={isLoadingMore ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#2196F3" />
-              </View>
-            ) : null}
+            ListHeaderComponent={
+              isLoadingMore ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
             inverted={false}
-            ListEmptyComponent={isLoadingMessages ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-              </View>
-            ) : null}
+            ListEmptyComponent={
+              isLoadingMessages ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name={isFiltered ? 'text-search' : 'chat-processing-outline'}
+                    size={32}
+                    color={isFiltered ? colors.warning : colors.muted}
+                  />
+                  <Text style={[styles.emptyStateText, { color: colors.mutedAlt }]}>
+                    {isFiltered
+                      ? t('chat.filters.emptyResults', { defaultValue: 'No messages match your filters yet.' })
+                      : t('chat.emptyState', { defaultValue: 'Start the conversation with your agent.' })}
+                  </Text>
+                </View>
+              )
+            }
             // Performance optimizations
             removeClippedSubviews={true}
             maxToRenderPerBatch={10}
@@ -1051,9 +1165,13 @@ export default function ChatScreen() {
             windowSize={10}
             renderItem={({ item: msg }) => {
               const isUser = msg.senderId === (auth.currentUser?.uid || (user as any)?.uid || '');
-              const outgoingBubbleColor = '#0B93F6';
-              const incomingBubbleColor = theme.dark ? '#2A2A36' : '#FEE1FF';
+              const outgoingBubbleColor = theme.dark ? colors.secondary : colors.primary;
+              const incomingBubbleColor = theme.dark ? '#2A2A36' : withOpacity(colors.surfaceAlt, 0.95);
               const incomingTextColor = theme.dark ? '#F7F7FA' : '#0F172A';
+              const matchesSearch =
+                hasSearchQuery &&
+                ((msg.message ?? '').toLowerCase().includes(normalizedSearchQuery) ||
+                  (msg.senderName ?? '').toLowerCase().includes(normalizedSearchQuery));
               const statusIcon =
                 msg.status === 'failed'
                   ? 'alert-circle-outline'
@@ -1062,7 +1180,7 @@ export default function ChatScreen() {
                     : msg.status === 'sent'
                       ? 'check-all'
                       : 'check';
-              const statusColor = msg.status === 'failed' ? '#FF3B30' : '#D0E8FF';
+              const statusColor = msg.status === 'failed' ? colors.danger : withOpacity(colors.success, 0.85);
 
               return (
                 <View
@@ -1070,7 +1188,15 @@ export default function ChatScreen() {
                   style={[styles.messageRow, isUser && styles.messageRowUser]}
                 >
                   {!isUser && (
-                    <View style={styles.messageAvatar}>
+                    <View
+                      style={[
+                        styles.messageAvatar,
+                        {
+                          backgroundColor: withOpacity(colors.success, theme.dark ? 0.45 : 0.2),
+                          borderColor: withOpacity(colors.success, theme.dark ? 0.7 : 0.45),
+                        },
+                      ]}
+                    >
                       <MaterialCommunityIcons name="account" size={16} color="#fff" />
                     </View>
                   )}
@@ -1095,6 +1221,25 @@ export default function ChatScreen() {
                                 borderColor: theme.dark ? '#3C3C49' : '#C5DBFF',
                               },
                             ],
+                          matchesSearch &&
+                          (isUser
+                            ? {
+                              borderWidth: 1,
+                              borderColor: withOpacity(colors.warning, 0.8),
+                              shadowColor: withOpacity(colors.warning, 0.6),
+                              shadowOpacity: 0.45,
+                              shadowRadius: 8,
+                              shadowOffset: { width: 0, height: 4 },
+                            }
+                            : {
+                              borderWidth: 1,
+                              borderColor: withOpacity(colors.success, 0.8),
+                              backgroundColor: withOpacity(colors.warning, theme.dark ? 0.25 : 0.2),
+                              shadowColor: withOpacity(colors.success, 0.35),
+                              shadowOpacity: 0.4,
+                              shadowRadius: 6,
+                              shadowOffset: { width: 0, height: 3 },
+                            }),
                         ]}
                       >
                         <Text
@@ -1103,6 +1248,10 @@ export default function ChatScreen() {
                             isUser
                               ? styles.messageTextUser
                               : { color: incomingTextColor },
+                            matchesSearch && {
+                              color: isUser ? colors.onPrimary : colors.text,
+                              fontWeight: '600',
+                            },
                           ]}
                         >
                           {msg.message}
@@ -1131,9 +1280,9 @@ export default function ChatScreen() {
             style={[
               styles.inputContainer,
               {
-                backgroundColor: theme.dark ? '#161618' : '#FFFFFF',
-                borderTopColor: theme.dark ? '#2C2C2E' : '#E0E0E0',
-                shadowColor: theme.dark ? '#000000' : '#00000020',
+                backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+                borderTopColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.2),
+                shadowColor: theme.dark ? '#000000' : withOpacity(colors.primary, 0.25),
               },
             ]}
           >
@@ -1150,7 +1299,7 @@ export default function ChatScreen() {
               <MaterialCommunityIcons
                 name="paperclip"
                 size={22}
-                color={theme.dark ? '#A5A5AA' : '#6C6C6F'}
+                color={colors.muted}
               />
             </Pressable>
 
@@ -1158,15 +1307,15 @@ export default function ChatScreen() {
               style={[
                 styles.inputWrapper,
                 {
-                  backgroundColor: theme.dark ? '#1F1F23' : '#F1F2F4',
-                  borderColor: theme.dark ? '#2D2D32' : '#E0E0E5',
+                  backgroundColor: theme.dark ? withOpacity(colors.surfaceAlt, 0.8) : withOpacity(colors.surfaceAlt, 0.9),
+                  borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.28),
                 },
               ]}
             >
               <TextInput
                 style={[styles.input, { color: theme.colors.text }]}
                 placeholder={t('chat.typeMessage')}
-                placeholderTextColor={theme.dark ? '#8E8E94' : '#9A9AA0'}
+                placeholderTextColor={withOpacity(colors.text, 0.4)}
                 value={message}
                 onChangeText={setMessage}
                 multiline
@@ -1175,7 +1324,14 @@ export default function ChatScreen() {
             </View>
 
             <Pressable
-              style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
+              style={[
+                styles.sendButton,
+                {
+                  backgroundColor: colors.primary,
+                  shadowColor: withOpacity(theme.dark ? colors.secondary : colors.primary, 0.45),
+                },
+                !message.trim() && styles.sendButtonDisabled,
+              ]}
               onPress={handleSend}
               disabled={!message.trim()}
             >
@@ -1202,6 +1358,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
   },
   headerCenter: {
     flex: 1,
@@ -1213,10 +1372,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   onlineIndicator: {
     position: 'absolute',
@@ -1225,9 +1386,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#4CAF50',
     borderWidth: 2,
-    borderColor: '#fff',
   },
   agentName: {
     fontSize: 16,
@@ -1241,6 +1400,8 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
+    paddingHorizontal: 12,
+    paddingTop: 12,
   },
   messagesContainer: {
     flex: 1,
@@ -1249,6 +1410,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 110,
+  },
+  messagesToolbar: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    shadowOpacity: 0.2,
+    marginHorizontal: 4,
+    marginBottom: 12,
+  },
+  searchField: {
+    borderRadius: 18,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    shadowOpacity: 0.25,
+  },
+  filterChipLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  filterSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   dateSeparator: {
     flexDirection: 'row',
@@ -1275,10 +1487,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   messageContainer: {
     maxWidth: '78%',
@@ -1348,6 +1560,17 @@ const styles = StyleSheet.create({
   },
   messageStatusText: {
     fontSize: 11,
+  },
+  emptyState: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',

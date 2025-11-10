@@ -1,11 +1,11 @@
 import React, { forwardRef } from "react";
-import { StyleSheet, TextInput, TextInputProps, View, Pressable, ViewStyle } from "react-native";
+import { StyleSheet, TextInput, TextInputProps, View, Pressable, StyleProp, ViewStyle } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
 
 interface SearchFieldProps extends TextInputProps {
-    containerStyle?: ViewStyle;
+    containerStyle?: StyleProp<ViewStyle>;
     onClear?: () => void;
     showClear?: boolean;
 }

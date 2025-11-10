@@ -357,17 +357,14 @@ class ChatService {
         try {
             // If we have both clientId and agentId, try new format first
             if (clientId && agentId) {
-                logger.debug('\n\n\n [Chat Service] resolveChatRoomIdFromCase', { caseId, clientId, agentId });
                 const newRoomId = getChatRoomId(clientId, agentId);
                 const newMetadataRef = ref(database, `chats/${newRoomId}/metadata`);
                 const newMetadataSnap = await get(newMetadataRef);
 
                 if (newMetadataSnap.exists()) {
-                    logger.debug('\n\n\n [Chat Service] newMetadataSnap exists', { newMetadataSnap });
                     const metadata = newMetadataSnap.val();
                     const caseRefs = metadata.caseReferences || [];
                     if (caseRefs.some((ref: CaseReference) => ref.caseId === caseId)) {
-                        logger.debug('\n\n\n [Chat Service] caseRefs.some', { caseRefs, caseId });
                         return newRoomId;
                     }
                 }
@@ -398,8 +395,6 @@ class ChatService {
             if (!snapshot.exists()) {
                 return null;
             }
-
-            logger.debug('user chat ref', userChatsRef)
 
             const roomIds = Object.keys(snapshot.val() ?? {});
             for (const roomId of roomIds) {
@@ -512,7 +507,6 @@ class ChatService {
             // Write the message
             await set(newMessageRef, messageData);
 
-            logger.info('Message sent successfully', { caseIdOrRoomId, chatRoomId, messageId });
             return true;
         } catch (error) {
             logger.error('Failed to send message', error);
@@ -536,7 +530,6 @@ class ChatService {
             (snapshot) => {
                 const firebaseData = snapshot.val();
                 if (!firebaseData || typeof firebaseData !== 'object') {
-                    logger.debug('no firebaseData', firebaseData);
                     return;
                 }
 
@@ -548,7 +541,6 @@ class ChatService {
                     return;
                 }
 
-                logger.debug('\n\n\n [Chat Service] Processing message - timestamp is newer than last known timestamp', { timestamp, lastKnownTimestamp });
 
                 const mapped: ChatMessage = {
                     id: snapshot.key!,
@@ -562,11 +554,6 @@ class ChatService {
                     attachments: firebaseData.attachments || [],
                 };
 
-                logger.debug('mapped data', mapped);
-
-                logger.debug(
-                    `[Firebase New Message] Received new message ${snapshot}... for room ${chatRoomId}...`
-                );
 
                 onNewMessage(mapped);
             },

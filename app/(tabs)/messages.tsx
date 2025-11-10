@@ -8,7 +8,6 @@ import {
   Text,
   View,
   GestureResponderEvent,
-  TextInput,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from "react-native";
@@ -26,6 +25,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { ListRenderItem, ListRenderItemInfo } from "react-native";
 import type { Conversation } from "@/lib/services/chat";
 import { useScrollContext } from "@/contexts/ScrollContext";
+import SearchField from "@/components/SearchField";
 
 type SegmentKey = "chat" | "email";
 type EmailFolderKey = "inbox" | "sent";
@@ -225,153 +225,270 @@ export default function MessagesScreen() {
     });
   }, [router]);
 
-  const renderConversationItem: ListRenderItem<typeof sortedConversations[number]> = useCallback(({ item }) => {
-    const participantName = item.participants?.agentName || item.participants?.clientName || t("messages.agent", { defaultValue: "Advisor" });
-    return (
-      <Pressable
-        style={[
-          styles.conversationCard,
-          {
-            backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.35 : 0.16),
-            shadowColor: colors.backdrop,
-          },
-        ]}
-        onPress={() => handleConversationPress(item)}
-      >
-        <View style={styles.avatarContainer}>
-          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-            <IconSymbol name="person.fill" size={22} color={colors.onPrimary} />
-          </View>
-          {item.unreadCount > 0 && (
-            <View style={[styles.onlineIndicator, { backgroundColor: colors.success }]} />
-          )}
-        </View>
-        <View style={styles.conversationContent}>
-          <View style={styles.messageHeader}>
-            <Text style={[styles.messageName, { color: colors.text }]} numberOfLines={1}>
-              {participantName}
-            </Text>
-            <Text style={[styles.messageTime, { color: colors.muted }]}>
-              {formatRelativeTime(item.lastMessageTime, t("messages.justNow", { defaultValue: "Just now" }))}
-            </Text>
-          </View>
-          <Text style={[styles.conversationCase, { color: colors.muted }]} numberOfLines={1}>
-            {item.caseReference}
-          </Text>
-          <Text
-            numberOfLines={2}
+  const renderConversationItem: ListRenderItem<typeof sortedConversations[number]> = useCallback(
+    ({ item }) => {
+      const participantName =
+        item.participants?.agentName || item.participants?.clientName || t("messages.agent", { defaultValue: "Advisor" });
+      const isUnread = item.unreadCount > 0;
+      const accentColor = isUnread ? colors.success : colors.primary;
+      const neutralBorderColor = withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.24);
+      const cardBorderColor = isUnread ? withOpacity(accentColor, theme.dark ? 0.6 : 0.4) : neutralBorderColor;
+      const cardBackgroundColor = theme.dark
+        ? withOpacity(colors.surfaceElevated, isUnread ? 0.98 : 0.9)
+        : withOpacity(colors.surfaceAlt, isUnread ? 0.97 : 0.92);
+      const avatarBorderColor = isUnread
+        ? withOpacity(accentColor, theme.dark ? 0.65 : 0.45)
+        : neutralBorderColor;
+      const avatarBackground = withOpacity(accentColor, theme.dark ? 0.32 : 0.18);
+
+      return (
+        <Pressable
+          style={[
+            styles.conversationCard,
+            {
+              backgroundColor: cardBackgroundColor,
+              borderColor: cardBorderColor,
+              shadowColor: withOpacity(accentColor, theme.dark ? 0.45 : 0.9),
+            },
+          ]}
+          onPress={() => handleConversationPress(item)}
+        >
+          <View
             style={[
-              styles.messageText,
-              { color: colors.muted },
-              item.unreadCount > 0 && { fontWeight: "600", color: colors.text },
+              styles.avatarContainer,
+              {
+                backgroundColor: avatarBackground,
+                borderColor: avatarBorderColor,
+                shadowColor: withOpacity(accentColor, theme.dark ? 0.5 : 0.28),
+              },
             ]}
           >
-            {item.lastMessage || t("messages.noMessages")}
-          </Text>
-        </View>
-        {item.unreadCount > 0 && (
-          <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.unreadBadgeText, { color: colors.onPrimary }]}>
-              {item.unreadCount > 99 ? "99+" : item.unreadCount}
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: withOpacity(accentColor, theme.dark ? 0.3 : 0.22),
+                  borderColor: avatarBorderColor,
+                },
+              ]}
+            >
+              <IconSymbol name="person.fill" size={22} color={accentColor} />
+            </View>
+            {isUnread && (
+              <View
+                style={[
+                  styles.onlineIndicator,
+                  { backgroundColor: colors.success, borderColor: theme.dark ? colors.surface : "#fff" },
+                ]}
+              />
+            )}
+          </View>
+          <View style={styles.conversationContent}>
+            <View style={styles.messageHeader}>
+              <Text style={[styles.messageName, { color: colors.text }]} numberOfLines={1}>
+                {participantName}
+              </Text>
+              <Text style={[styles.messageTime, { color: colors.muted }]}>
+                {formatRelativeTime(item.lastMessageTime, t("messages.justNow", { defaultValue: "Just now" }))}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.conversationCase,
+                {
+                  color: withOpacity(accentColor, theme.dark ? 0.85 : 0.72),
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {item.caseReference}
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={[
+                styles.messageText,
+                { color: colors.muted },
+                isUnread && { fontWeight: "600", color: colors.text },
+              ]}
+            >
+              {item.lastMessage || t("messages.noMessages")}
             </Text>
           </View>
-        )}
-      </Pressable>
-    );
-  }, [colors, handleConversationPress, t, theme.dark]);
-
-  const renderEmailItem: ListRenderItem<typeof emailData[number]> = useCallback(({ item }) => (
-    <Pressable
-      style={[
-        styles.messageCard,
-        {
-          backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-          borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.35 : 0.16),
-          shadowColor: colors.backdrop,
-        },
-      ]}
-      onPress={() => handleEmailPress(item)}
-    >
-      <View style={styles.avatarContainer}>
-        <View
-          style={[
-            styles.avatar,
-            { backgroundColor: item.role === "System" ? withOpacity(colors.muted, 0.9) : colors.primary },
-          ]}
-        >
-          <IconSymbol
-            name={item.role === "System" ? "gear.circle.fill" : "envelope.fill"}
-            size={22}
-            color={colors.onPrimary}
-          />
-        </View>
-        {item.unread && (
-          <View style={[styles.onlineIndicator, { backgroundColor: colors.accent }]} />
-        )}
-      </View>
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <Text style={[styles.messageSubject, { color: colors.text }]} numberOfLines={1}>
-            {item.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
-          </Text>
-          <Text style={[styles.messageTime, { color: colors.muted }]} numberOfLines={1}>
-            {item.time}
-          </Text>
-        </View>
-        <Text style={[styles.messageMeta, { color: colors.muted }]} numberOfLines={1}>
-          {item.direction === "outgoing"
-            ? t("messages.toLabel", { defaultValue: "To {{name}}", name: item.name })
-            : t("messages.fromLabel", { defaultValue: "From {{name}}", name: item.name })}
-          {item.caseReference
-            ? ` • ${t("messages.caseLabel", {
-              defaultValue: "Case {{reference}}",
-              reference: item.caseReference,
-            })}`
-            : ""}
-        </Text>
-        <Text
-          style={[
-            styles.messageText,
-            { color: colors.muted },
-            item.unread && { fontWeight: "600", color: colors.text },
-          ]}
-          numberOfLines={2}
-        >
-          {item.preview || item.message}
-        </Text>
-      </View>
-      <View style={styles.messageActions}>
-        {item.attachments && item.attachments.length > 0 && (
-          <View style={styles.attachmentBadge}>
-            <IconSymbol
-              name="paperclip"
-              size={16}
-              color={colors.muted}
-            />
-            <Text style={[styles.attachmentText, { color: colors.muted }]}>
-              {item.attachments.length}
+          <View
+            style={[
+              styles.unreadBadge,
+              {
+                backgroundColor: isUnread
+                  ? withOpacity(accentColor, 0.9)
+                  : withOpacity(colors.surfaceAlt, theme.dark ? 0.6 : 0.4),
+                borderColor: isUnread ? withOpacity(accentColor, theme.dark ? 0.6 : 0.32) : neutralBorderColor,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.unreadBadgeText,
+                { color: isUnread ? colors.onPrimary : withOpacity(colors.text, 0.82) },
+              ]}
+            >
+              {isUnread
+                ? item.unreadCount > 99
+                  ? "99+"
+                  : item.unreadCount
+                : t("messages.view", { defaultValue: "View" })}
             </Text>
           </View>
-        )}
-        <Pressable
-          style={styles.toggleButton}
-          onPress={(event: GestureResponderEvent) => {
-            event.stopPropagation?.();
-            handleToggleEmailReadStatus(item);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={item.unread ? t("messages.markAsRead", { defaultValue: "Mark as read" }) : t("messages.markAsUnread", { defaultValue: "Mark as unread" })}
-        >
-          <IconSymbol
-            name={item.unread ? "envelope.open.fill" : "envelope.badge.fill"}
-            size={20}
-            color={item.unread ? colors.success : colors.warning}
-          />
         </Pressable>
-      </View>
-    </Pressable>
-  ), [colors, handleEmailPress, handleToggleEmailReadStatus, t, theme.dark]);
+      );
+    },
+    [colors, handleConversationPress, t, theme.dark]
+  );
+
+  const renderEmailItem: ListRenderItem<typeof emailData[number]> = useCallback(
+    ({ item }) => {
+      const isUnread = Boolean(item.unread);
+      const baseAccent = item.role === "System" ? colors.accent : colors.primary;
+      const neutralBorderColor = withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.24);
+      const cardBorderColor = isUnread ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.4) : neutralBorderColor;
+      const cardBackgroundColor = theme.dark
+        ? withOpacity(colors.surfaceElevated, isUnread ? 0.96 : 0.9)
+        : withOpacity(colors.surfaceAlt, isUnread ? 0.96 : 0.92);
+      const avatarBackground = withOpacity(baseAccent, theme.dark ? 0.3 : 0.18);
+      const avatarBorder = isUnread
+        ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.45)
+        : neutralBorderColor;
+
+      return (
+        <Pressable
+          style={[
+            styles.messageCard,
+            {
+              backgroundColor: cardBackgroundColor,
+              borderColor: cardBorderColor,
+              shadowColor: withOpacity(isUnread ? colors.warning : baseAccent, theme.dark ? 0.45 : 0.2),
+            },
+          ]}
+          onPress={() => handleEmailPress(item)}
+        >
+          <View
+            style={[
+              styles.avatarContainer,
+              {
+                backgroundColor: avatarBackground,
+                borderColor: avatarBorder,
+                shadowColor: withOpacity(isUnread ? colors.warning : baseAccent, theme.dark ? 0.45 : 0.22),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: withOpacity(baseAccent, theme.dark ? 0.26 : 0.16),
+                  borderColor: avatarBorder,
+                },
+              ]}
+            >
+              {item.role === "System" ? (
+                <IconSymbol name="gear" size={20} color={baseAccent} />
+              ) : (
+                <IconSymbol name="envelope.fill" size={20} color={baseAccent} />
+              )}
+            </View>
+            {isUnread && (
+              <View
+                style={[
+                  styles.onlineIndicator,
+                  { backgroundColor: colors.warning, borderColor: theme.dark ? colors.surface : "#fff" },
+                ]}
+              />
+            )}
+          </View>
+          <View style={styles.messageContent}>
+            <View style={styles.messageHeader}>
+              <Text style={[styles.messageSubject, { color: colors.text }]} numberOfLines={1}>
+                {item.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
+              </Text>
+              <Text style={[styles.messageTime, { color: colors.muted }]} numberOfLines={1}>
+                {item.time}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.messageMeta,
+                { color: withOpacity(baseAccent, theme.dark ? 0.85 : 0.6) },
+              ]}
+              numberOfLines={1}
+            >
+              {item.direction === "outgoing"
+                ? t("messages.toLabel", { defaultValue: "To {{name}}", name: item.name })
+                : t("messages.fromLabel", { defaultValue: "From {{name}}", name: item.name })}
+              {item.caseReference
+                ? ` • ${t("messages.caseLabel", {
+                  defaultValue: "Case {{reference}}",
+                  reference: item.caseReference,
+                })}`
+                : ""}
+            </Text>
+            <Text
+              style={[
+                styles.messageText,
+                { color: colors.muted },
+                isUnread && { fontWeight: "600", color: colors.text },
+              ]}
+              numberOfLines={2}
+            >
+              {item.preview || item.message}
+            </Text>
+          </View>
+          <View style={styles.messageActions}>
+            {item.attachments && item.attachments.length > 0 && (
+              <View
+                style={[
+                  styles.attachmentBadge,
+                  {
+                    backgroundColor: withOpacity(colors.success, theme.dark ? 0.28 : 0.16),
+                    borderColor: withOpacity(colors.success, theme.dark ? 0.55 : 0.32),
+                  },
+                ]}
+              >
+                <IconSymbol name="doc.text.fill" size={16} color={colors.success} />
+                <Text style={[styles.attachmentText, { color: colors.success }]}>
+                  {item.attachments.length}
+                </Text>
+              </View>
+            )}
+            <Pressable
+              style={[
+                styles.toggleButton,
+                {
+                  backgroundColor: withOpacity(isUnread ? colors.warning : colors.success, 0.12),
+                  borderColor: withOpacity(isUnread ? colors.warning : colors.success, 0.32),
+                },
+              ]}
+              onPress={(event: GestureResponderEvent) => {
+                event.stopPropagation?.();
+                handleToggleEmailReadStatus(item);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                item.unread
+                  ? t("messages.markAsRead", { defaultValue: "Mark as read" })
+                  : t("messages.markAsUnread", { defaultValue: "Mark as unread" })
+              }
+            >
+              <IconSymbol
+                name={item.unread ? "envelope.fill" : "checkmark.circle.fill"}
+                size={20}
+                color={isUnread ? colors.warning : colors.success}
+              />
+            </Pressable>
+          </View>
+        </Pressable>
+      );
+    },
+    [colors, handleEmailPress, handleToggleEmailReadStatus, t, theme.dark]
+  );
 
   const renderEmptyState = useCallback((title: string) => (
     <View style={styles.emptyContainer}>
@@ -490,8 +607,91 @@ export default function MessagesScreen() {
     : emailRefreshing && filteredEmailData.length > 0;
   const onRefresh = isChatSegment ? handleChatRefresh : handleEmailRefresh;
 
+  const totalConversationCount = sortedConversations.length;
+
   const listHeaderComponent = useMemo(() => (
     <View style={styles.listHeader}>
+      <View
+        style={[
+          styles.summaryCard,
+          {
+            backgroundColor: theme.dark
+              ? withOpacity(colors.surfaceElevated, 0.92)
+              : withOpacity(colors.primary, 0.12),
+            borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.32),
+            shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.25),
+          },
+        ]}
+      >
+        <View style={styles.summaryItem}>
+          <View
+            style={[
+              styles.summaryIcon,
+              {
+                backgroundColor: withOpacity(colors.primary, theme.dark ? 0.35 : 0.18),
+                borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.38),
+              },
+            ]}
+          >
+            <IconSymbol name="message.fill" size={18} color={colors.primary} />
+          </View>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{totalConversationCount}</Text>
+          <Text style={[styles.summaryLabel, { color: withOpacity(colors.text, 0.7) }]}>
+            {t("messages.activeChats", { defaultValue: "Active chats" })}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.summaryItem,
+            styles.summaryDivider,
+            {
+              borderLeftColor: withOpacity(colors.primary, theme.dark ? 0.28 : 0.14),
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.summaryIcon,
+              {
+                backgroundColor: withOpacity(colors.warning, theme.dark ? 0.36 : 0.18),
+                borderColor: withOpacity(colors.warning, theme.dark ? 0.55 : 0.4),
+              },
+            ]}
+          >
+            <IconSymbol name="bell.fill" size={18} color={colors.warning} />
+          </View>
+          <Text style={[styles.summaryValue, { color: colors.warning }]}>{unreadChatTotal}</Text>
+          <Text style={[styles.summaryLabel, { color: withOpacity(colors.warning, 0.85) }]}>
+            {t("messages.unreadChats", { defaultValue: "Unread chat" })}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.summaryItem,
+            styles.summaryDivider,
+            {
+              borderLeftColor: withOpacity(colors.primary, theme.dark ? 0.28 : 0.14),
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.summaryIcon,
+              {
+                backgroundColor: withOpacity(colors.success, theme.dark ? 0.38 : 0.2),
+                borderColor: withOpacity(colors.success, theme.dark ? 0.6 : 0.46),
+              },
+            ]}
+          >
+            <IconSymbol name="envelope.fill" size={18} color={colors.success} />
+          </View>
+          <Text style={[styles.summaryValue, { color: colors.success }]}>{unreadEmailTotal}</Text>
+          <Text style={[styles.summaryLabel, { color: withOpacity(colors.success, 0.85) }]}>
+            {t("messages.unreadEmails", { defaultValue: "Unread email" })}
+          </Text>
+        </View>
+      </View>
+
       <View
         style={[
           styles.segmentContainer,
@@ -518,10 +718,11 @@ export default function MessagesScreen() {
                 {
                   backgroundColor: isActive
                     ? withOpacity(colors.primary, theme.dark ? 0.32 : 0.12)
-                    : "transparent",
+                    : withOpacity(colors.surfaceAlt, theme.dark ? 0.35 : 0.08),
                   borderColor: isActive
                     ? withOpacity(colors.primary, theme.dark ? 0.6 : 0.28)
-                    : "transparent",
+                    : withOpacity(colors.primary, theme.dark ? 0.45 : 0.24),
+                  borderWidth: isActive ? StyleSheet.hairlineWidth : 2,
                 },
               ]}
             >
@@ -584,36 +785,30 @@ export default function MessagesScreen() {
         </View>
       )}
 
-      <View
-        style={[
-          styles.searchContainer,
+      <SearchField
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onClear={() => setSearchQuery("")}
+        placeholder={
+          activeSegment === "chat"
+            ? t("messages.searchConversations", { defaultValue: "Search conversations" })
+            : t("messages.searchEmails", { defaultValue: "Search messages" })
+        }
+        containerStyle={[
+          styles.searchFieldContainer,
           {
-            backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.45 : 0.16),
+            backgroundColor: theme.dark
+              ? withOpacity(colors.surfaceElevated, 0.96)
+              : withOpacity(colors.surfaceAlt, 0.94),
+            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.28),
+            borderWidth: 1,
+            shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.25),
+            shadowOpacity: theme.dark ? 0.32 : 0.2,
+            shadowRadius: 14,
+            elevation: 4,
           },
         ]}
-      >
-        <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder={
-            activeSegment === "chat"
-              ? t("messages.searchConversations", { defaultValue: "Search conversations" })
-              : t("messages.searchEmails", { defaultValue: "Search messages" })
-          }
-          placeholderTextColor={colors.muted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <Pressable onPress={() => setSearchQuery("")} style={styles.searchClearButton}>
-            <IconSymbol name="xmark.circle.fill" size={18} color={colors.muted} />
-          </Pressable>
-        )}
-      </View>
+      />
 
       {activeSegment === "chat" && conversationsError ? (
         <Pressable
@@ -655,10 +850,12 @@ export default function MessagesScreen() {
     colors.muted,
     colors.onPrimary,
     colors.primary,
+    colors.success,
     colors.surface,
     colors.surfaceAlt,
     colors.surfaceElevated,
     colors.text,
+    colors.warning,
     conversationsError,
     error,
     handleConversationsRetry,
@@ -666,6 +863,7 @@ export default function MessagesScreen() {
     searchQuery,
     t,
     theme.dark,
+    totalConversationCount,
     unreadChatTotal,
     unreadEmailTotal,
   ]);
@@ -691,9 +889,26 @@ export default function MessagesScreen() {
         }}
       />
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.dark ? colors.background : withOpacity(colors.primary, 0.06),
+            paddingTop: insets.top,
+          },
+        ]}
         edges={["top"]}
       >
+        <View
+          pointerEvents="none"
+          style={[
+            styles.backgroundAccent,
+            {
+              backgroundColor: theme.dark
+                ? withOpacity(colors.surfaceElevated, 0.32)
+                : withOpacity(colors.warning, 0.12),
+            },
+          ]}
+        />
         <View style={styles.header}>
           <BackButton onPress={handleBackPress} iconSize={22} />
           <View style={styles.headerTextContainer}>
@@ -719,7 +934,18 @@ export default function MessagesScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.listWrapper}>
+        <View
+          style={[
+            styles.listWrapper,
+            {
+              backgroundColor: theme.dark
+                ? withOpacity(colors.surface, 0.96)
+                : withOpacity(colors.surface, 0.98),
+              borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.18),
+              shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.18),
+            },
+          ]}
+        >
           <FlatList
             data={listData}
             keyExtractor={keyExtractor}
@@ -768,6 +994,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundAccent: {
+    ...StyleSheet.absoluteFillObject,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -796,7 +1031,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   listEmptyPadding: {
     flexGrow: 1,
@@ -804,6 +1040,46 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     paddingBottom: 16,
+  },
+  summaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  summaryDivider: {
+    paddingLeft: 20,
+    marginLeft: 20,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  summaryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
   },
   segmentContainer: {
     flexDirection: "row",
@@ -861,22 +1137,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    marginHorizontal: 12,
-    fontSize: 16,
-  },
-  searchClearButton: {
-    padding: 4,
+  searchFieldContainer: {
+    marginBottom: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
   errorContainer: {
     paddingHorizontal: 16,
@@ -897,6 +1166,15 @@ const styles = StyleSheet.create({
   listWrapper: {
     flex: 1,
     position: "relative",
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+    paddingBottom: 8,
+    marginHorizontal: 12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 6,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -930,6 +1208,14 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: "relative",
     marginRight: 12,
+    borderRadius: 26,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
   },
   avatar: {
     width: 48,
@@ -937,6 +1223,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
   },
   onlineIndicator: {
     position: "absolute",
@@ -1019,6 +1306,10 @@ const styles = StyleSheet.create({
   attachmentBadge: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 4,
   },
   attachmentText: {
@@ -1029,5 +1320,6 @@ const styles = StyleSheet.create({
   toggleButton: {
     padding: 8,
     borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
