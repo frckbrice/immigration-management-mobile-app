@@ -428,27 +428,32 @@ export default function MessagesScreen() {
     [activeEmailFolder, t]
   );
 
+  const showChatLoadingOverlay =
+    activeSegment === "chat" && chatRefreshing && filteredConversations.length === 0;
+  const showEmailLoadingOverlay =
+    activeSegment === "email" && emailRefreshing && filteredEmailData.length === 0;
+  const showLoadingOverlay = showChatLoadingOverlay || showEmailLoadingOverlay;
+
   const listEmptyComponent = useMemo(() => {
     if (activeSegment === "chat") {
-      if (chatRefreshing) {
-        return (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        );
+      if (showChatLoadingOverlay) {
+        return null;
       }
       return renderEmptyState(chatEmptyTitle);
     }
 
-    if (emailRefreshing) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      );
+    if (showEmailLoadingOverlay) {
+      return null;
     }
     return renderEmptyState(emailEmptyTitle);
-  }, [activeSegment, chatEmptyTitle, chatRefreshing, colors.primary, emailEmptyTitle, emailRefreshing, renderEmptyState]);
+  }, [
+    activeSegment,
+    chatEmptyTitle,
+    emailEmptyTitle,
+    renderEmptyState,
+    showChatLoadingOverlay,
+    showEmailLoadingOverlay,
+  ]);
 
   const isChatSegment = activeSegment === "chat";
 
@@ -714,38 +719,46 @@ export default function MessagesScreen() {
           </Pressable>
         </View>
 
-        <FlatList
-          data={listData}
-          keyExtractor={keyExtractor}
-          renderItem={renderListItem}
-          ListHeaderComponent={listHeaderComponent}
-          ListEmptyComponent={listEmptyComponent}
-          showsVerticalScrollIndicator={false}
-          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-            const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-            if (scrollTimeoutRef.current) {
-              clearTimeout(scrollTimeoutRef.current);
-            }
-            scrollTimeoutRef.current = setTimeout(() => {
-              const currentY = contentOffset.y;
-              const isAtBottom = currentY + layoutMeasurement.height >= contentSize.height - 50;
-              setAtBottom(isAtBottom);
-              const diff = currentY - lastScrollOffsetRef.current;
-              if (Math.abs(diff) > 5) {
-                setScrollDirection(diff > 0);
-                lastScrollOffsetRef.current = currentY;
+        <View style={styles.listWrapper}>
+          <FlatList
+            data={listData}
+            keyExtractor={keyExtractor}
+            renderItem={renderListItem}
+            ListHeaderComponent={listHeaderComponent}
+            ListEmptyComponent={listEmptyComponent}
+            showsVerticalScrollIndicator={false}
+            onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+              const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+              if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
               }
-            }, 50);
-          }}
-          scrollEventThrottle={16}
-          contentContainerStyle={[
-            styles.listContent,
-            listData.length === 0 ? styles.listEmptyPadding : null,
-            { paddingBottom: contentPaddingBottom },
-          ]}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
+              scrollTimeoutRef.current = setTimeout(() => {
+                const currentY = contentOffset.y;
+                const isAtBottom = currentY + layoutMeasurement.height >= contentSize.height - 50;
+                setAtBottom(isAtBottom);
+                const diff = currentY - lastScrollOffsetRef.current;
+                if (Math.abs(diff) > 5) {
+                  setScrollDirection(diff > 0);
+                  lastScrollOffsetRef.current = currentY;
+                }
+              }, 50);
+            }}
+            scrollEventThrottle={16}
+            contentContainerStyle={[
+              styles.listContent,
+              listData.length === 0 && !showLoadingOverlay ? styles.listEmptyPadding : null,
+              { paddingBottom: contentPaddingBottom },
+            ]}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+
+          {showLoadingOverlay && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          )}
+        </View>
       </SafeAreaView>
     </>
   );
@@ -880,6 +893,17 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     alignItems: "center",
     justifyContent: "center",
+  },
+  listWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    pointerEvents: "none",
   },
   emptyContainer: {
     paddingVertical: 64,

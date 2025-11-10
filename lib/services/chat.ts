@@ -80,6 +80,98 @@ function getChatRoomId(clientId: string, agentId: string): string {
 
 class ChatService {
 
+    private async fetchMessagesForRoom(
+        roomId: string,
+        limit: number = 50
+    ): Promise<{
+        roomId: string;
+        messages: ChatMessage[];
+        hasMore: boolean;
+        totalCount: number;
+    }> {
+        try {
+            const messagesRef = ref(database, `chats/${roomId}/messages`);
+
+            let messagesQuery;
+            try {
+                messagesQuery = query(messagesRef, orderByChild('sentAt'), limitToLast(limit));
+            } catch (error: any) {
+                logger.warn('Ordered query failed, using basic query with limit', { roomId, error: error.message });
+                messagesQuery = query(messagesRef, limitToLast(limit));
+            }
+
+            const snapshot = await get(messagesQuery);
+            const messages: ChatMessage[] = [];
+
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    const firebaseData = childSnapshot.val();
+                    if (!firebaseData || typeof firebaseData !== 'object') return;
+
+                    const mappedMessage: ChatMessage = {
+                        id: childSnapshot.key!,
+                        caseId: firebaseData.caseId || '',
+                        senderId: firebaseData.senderId || '',
+                        senderName: firebaseData.senderName || 'Unknown',
+                        senderRole: firebaseData.senderRole || 'CLIENT',
+                        message: firebaseData.content || firebaseData.message || '',
+                        timestamp: firebaseData.sentAt || firebaseData.timestamp || Date.now(),
+                        isRead: firebaseData.isRead || false,
+                        attachments: firebaseData.attachments || [],
+                    };
+
+                    messages.push(mappedMessage);
+                });
+            }
+
+            messages.sort((a, b) => a.timestamp - b.timestamp);
+
+            const totalCount = messages.length;
+            let hasMore = false;
+
+            if (messages.length === limit) {
+                try {
+                    const oldestTimestamp = Math.min(...messages.map((m) => m.timestamp));
+                    const olderQuery = query(
+                        messagesRef,
+                        orderByChild('sentAt'),
+                        endAt(oldestTimestamp - 1),
+                        limitToLast(1)
+                    );
+                    const olderSnapshot = await get(olderQuery);
+                    hasMore = olderSnapshot.exists();
+                } catch (error) {
+                    hasMore = true;
+                }
+            }
+
+            return {
+                roomId,
+                messages,
+                hasMore,
+                totalCount,
+            };
+        } catch (error) {
+            logger.error('Error fetching messages for room', { roomId, error });
+            return { roomId, messages: [], hasMore: false, totalCount: 0 };
+        }
+    }
+
+    async loadMessagesForRoom(
+        roomId: string,
+        limit: number = 50
+    ): Promise<{
+        roomId: string;
+        messages: ChatMessage[];
+        hasMore: boolean;
+        totalCount: number;
+    }> {
+        if (!roomId) {
+            return { roomId, messages: [], hasMore: false, totalCount: 0 };
+        }
+        return this.fetchMessagesForRoom(roomId, limit);
+    }
+
     /**
      * Resolve the Firebase UID associated with a backend (PostgreSQL) user ID.
      * If the identifier already looks like a Firebase UID, it is returned as-is.
@@ -186,52 +278,6 @@ class ChatService {
         }
     }
 
-    subscribeToChatMetadata(
-        roomId: string,
-        callback: (metadata: ChatMetadata | null) => void
-    ): () => void {
-        if (!roomId) {
-            callback(null);
-            return () => { };
-        }
-
-        const metadataRef = ref(database, `chats/${roomId}/metadata`);
-
-        const listener = onValue(
-            metadataRef,
-            (snapshot) => {
-                if (!snapshot.exists()) {
-                    callback(null);
-                    return;
-                }
-
-                const raw = snapshot.val() || {};
-                const metadata: ChatMetadata = {
-                    participants: raw.participants || {
-                        clientId: '',
-                        clientName: '',
-                        agentId: '',
-                        agentName: '',
-                    },
-                    caseReferences: raw.caseReferences || [],
-                    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : 0,
-                    lastMessage: raw.lastMessage ?? null,
-                    lastMessageTime: raw.lastMessageTime ?? null,
-                    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : undefined,
-                };
-
-                callback(metadata);
-            },
-            (error) => {
-                logger.error('Metadata subscription error', { roomId, error });
-            }
-        );
-
-        return () => {
-            off(metadataRef, 'value', listener);
-        };
-    }
-
     // Helper method to get chat room ID from client-agent pair
     getChatRoomIdFromPair(clientId: string, agentId: string): string {
         return getChatRoomId(clientId, agentId);
@@ -311,14 +357,17 @@ class ChatService {
         try {
             // If we have both clientId and agentId, try new format first
             if (clientId && agentId) {
+                logger.debug('\n\n\n [Chat Service] resolveChatRoomIdFromCase', { caseId, clientId, agentId });
                 const newRoomId = getChatRoomId(clientId, agentId);
                 const newMetadataRef = ref(database, `chats/${newRoomId}/metadata`);
                 const newMetadataSnap = await get(newMetadataRef);
 
                 if (newMetadataSnap.exists()) {
+                    logger.debug('\n\n\n [Chat Service] newMetadataSnap exists', { newMetadataSnap });
                     const metadata = newMetadataSnap.val();
                     const caseRefs = metadata.caseReferences || [];
                     if (caseRefs.some((ref: CaseReference) => ref.caseId === caseId)) {
+                        logger.debug('\n\n\n [Chat Service] caseRefs.some', { caseRefs, caseId });
                         return newRoomId;
                     }
                 }
@@ -334,6 +383,42 @@ class ChatService {
             return null;
         } catch (error) {
             logger.error('Failed to resolve chat room ID from case', error);
+            return null;
+        }
+    }
+
+    async findRoomIdForCase(clientId: string, caseId: string): Promise<string | null> {
+        try {
+            if (!clientId || !caseId) {
+                return null;
+            }
+
+            const userChatsRef = ref(database, `userChats/${clientId}`);
+            const snapshot = await get(userChatsRef);
+            if (!snapshot.exists()) {
+                return null;
+            }
+
+            logger.debug('user chat ref', userChatsRef)
+
+            const roomIds = Object.keys(snapshot.val() ?? {});
+            for (const roomId of roomIds) {
+                const metadata = await this.getChatMetadata(roomId);
+                if (!metadata) {
+                    continue;
+                }
+
+                if (metadata.caseReferences && metadata.caseReferences.length > 0) {
+                    const match = metadata.caseReferences.some((ref) => ref.caseId === caseId);
+                    if (match) {
+                        return roomId;
+                    }
+                }
+            }
+
+            return null;
+        } catch (error) {
+            logger.warn('Failed to locate room id from userChats', { clientId, caseId, error });
             return null;
         }
     }
@@ -450,14 +535,20 @@ class ChatService {
             messagesRef,
             (snapshot) => {
                 const firebaseData = snapshot.val();
-                if (!firebaseData || typeof firebaseData !== 'object') return;
+                if (!firebaseData || typeof firebaseData !== 'object') {
+                    logger.debug('no firebaseData', firebaseData);
+                    return;
+                }
 
                 const timestamp = firebaseData.sentAt || firebaseData.timestamp || Date.now();
 
                 // Only process messages newer than last known timestamp (if provided)
-                if (lastKnownTimestamp && timestamp <= lastKnownTimestamp) {
+                if (lastKnownTimestamp && timestamp < lastKnownTimestamp) {
+                    logger.debug('\n\n\n [Chat Service] Skipping message - timestamp is older than last known timestamp', { timestamp, lastKnownTimestamp });
                     return;
                 }
+
+                logger.debug('\n\n\n [Chat Service] Processing message - timestamp is newer than last known timestamp', { timestamp, lastKnownTimestamp });
 
                 const mapped: ChatMessage = {
                     id: snapshot.key!,
@@ -471,8 +562,10 @@ class ChatService {
                     attachments: firebaseData.attachments || [],
                 };
 
+                logger.debug('mapped data', mapped);
+
                 logger.debug(
-                    `[Firebase New Message] Received new message ${snapshot.key?.substring(0, 8)}... for room ${chatRoomId.substring(0, 8)}...`
+                    `[Firebase New Message] Received new message ${snapshot}... for room ${chatRoomId}...`
                 );
 
                 onNewMessage(mapped);
@@ -485,7 +578,7 @@ class ChatService {
             }
         );
 
-        return () => off(messagesRef, 'child_added', unsubscribe);
+        return unsubscribe;
     }
 
     // Load initial messages directly from Firebase
@@ -498,26 +591,65 @@ class ChatService {
         try {
             logger.info('loadInitialMessages from Firebase', { caseId, clientId, agentId });
 
-            // Determine existing room ID (new format or legacy case-based)
+            // Determine existing room ID (prefer client-agent pair, then derived, fallback to caseId)
             let resolvedRoomId: string | null = null;
 
-            // Legacy format: room ID equals caseId
-            const legacyMetadataRef = ref(database, `chats/${caseId}/metadata`);
-            const legacyMetadataSnap = await get(legacyMetadataRef);
-            if (legacyMetadataSnap.exists()) {
-                resolvedRoomId = caseId;
-            }
+            // Prefer explicit client-agent pair
+            if (clientId && agentId) {
+                const pairRoomId = getChatRoomId(clientId, agentId);
 
-            // New format: determine via participants/case references
-            if (!resolvedRoomId && clientId && agentId) {
-                const resolvedId = await this.resolveChatRoomIdFromCase(caseId, clientId, agentId);
-                if (resolvedId) {
-                    resolvedRoomId = resolvedId;
+                const pairMetadataRef = ref(database, `chats/${pairRoomId}/metadata`);
+                const pairMetadataSnap = await get(pairMetadataRef);
+                if (pairMetadataSnap.exists()) {
+                    resolvedRoomId = pairRoomId;
+                } else {
+                    const pairMessagesRef = ref(database, `chats/${pairRoomId}/messages`);
+                    const pairMessagesSnap = await get(pairMessagesRef);
+                    if (pairMessagesSnap.exists()) {
+                        resolvedRoomId = pairRoomId;
+                    }
+                }
+
+                if (!resolvedRoomId) {
+                    const resolvedFromCase = await this.resolveChatRoomIdFromCase(caseId, clientId, agentId);
+                    logger.debug('\n\n\n [Chat Service] resolvedFromCase', { resolvedFromCase });
+                    if (resolvedFromCase) {
+                        const derivedMetadataRef = ref(database, `chats/${resolvedFromCase}/metadata`);
+                        const derivedMetadataSnap = await get(derivedMetadataRef);
+                        logger.debug('\n\n\n [Chat Service] derivedMetadataSnap', { derivedMetadataSnap });
+                        if (derivedMetadataSnap.exists()) {
+                            resolvedRoomId = resolvedFromCase;
+                        } else {
+                            const derivedMessagesRef = ref(database, `chats/${resolvedFromCase}/messages`);
+                            const derivedMessagesSnap = await get(derivedMessagesRef);
+                            logger.debug('\n\n\n [Chat Service] derivedMessagesSnap', { derivedMessagesSnap });
+                            if (derivedMessagesSnap.exists()) {
+                                resolvedRoomId = resolvedFromCase;
+                            }
+                        }
+                    }
                 }
             }
 
             if (!resolvedRoomId) {
-                logger.info('No existing chat room found for case', { caseId });
+                const legacyMetadataRef = ref(database, `chats/${caseId}/metadata`);
+                const legacyMetadataSnap = await get(legacyMetadataRef);
+                if (legacyMetadataSnap.exists()) {
+                    logger.debug('\n\n\n [Chat Service] legacyMetadataSnap exists', { legacyMetadataSnap });
+                    resolvedRoomId = caseId;
+                } else {
+                    const legacyMessagesRef = ref(database, `chats/${caseId}/messages`);
+                    const legacyMessagesSnap = await get(legacyMessagesRef);
+                    logger.debug('\n\n\n [Chat Service] legacyMessagesSnap', { legacyMessagesSnap });
+                    if (legacyMessagesSnap.exists()) {
+                        logger.debug('\n\n\n [Chat Service] legacyMessagesSnap exists', { legacyMessagesSnap });
+                        resolvedRoomId = caseId;
+                    }
+                }
+            }
+
+            if (!resolvedRoomId) {
+                logger.info('\n\n\n [Chat Service] No existing chat room found for case', { caseId });
                 return {
                     roomId: null,
                     messages: [],
@@ -526,85 +658,19 @@ class ChatService {
                 };
             }
 
-            // Load from Firebase using optimized query
-            const messagesRef = ref(database, `chats/${resolvedRoomId}/messages`);
+            const result = await this.fetchMessagesForRoom(resolvedRoomId, 50);
 
-            let messagesQuery;
-            try {
-                messagesQuery = query(
-                    messagesRef,
-                    orderByChild('sentAt'),
-                    limitToLast(50) // Load ONLY last 50 messages for initial display
-                );
-            } catch (error: any) {
-                logger.warn('Ordered query failed, using basic query with limit', { error: error.message });
-                messagesQuery = query(messagesRef, limitToLast(50));
-            }
-
-            const snapshot = await get(messagesQuery);
-
-            const messages: ChatMessage[] = [];
-
-            if (snapshot.exists()) {
-                snapshot.forEach((childSnapshot) => {
-                    const firebaseData = childSnapshot.val();
-                    if (!firebaseData || typeof firebaseData !== 'object') return;
-
-                    const mappedMessage: ChatMessage = {
-                        id: childSnapshot.key!,
-                        caseId: firebaseData.caseId || '',
-                        senderId: firebaseData.senderId || '',
-                        senderName: firebaseData.senderName || 'Unknown',
-                        senderRole: firebaseData.senderRole || 'CLIENT',
-                        message: firebaseData.content || firebaseData.message || '',
-                        timestamp: firebaseData.sentAt || firebaseData.timestamp || Date.now(),
-                        isRead: firebaseData.isRead || false,
-                        attachments: firebaseData.attachments || [],
-                    };
-
-                    messages.push(mappedMessage);
-                });
-            }
-
-            // Sort chronologically (oldest → newest)
-            messages.sort((a, b) => a.timestamp - b.timestamp);
-
-            // Check if there are more messages
-            let totalCount = messages.length;
-            let hasMore = false;
-
-            if (messages.length === 50) {
-                try {
-                    const oldestTimestamp = Math.min(...messages.map(m => m.timestamp));
-                    const olderQuery = query(
-                        messagesRef,
-                        orderByChild('sentAt'),
-                        endAt(oldestTimestamp - 1),
-                        limitToLast(1)
-                    );
-                    const olderSnapshot = await get(olderQuery);
-                    hasMore = olderSnapshot.exists();
-                } catch (error) {
-                    hasMore = true;
-                }
-            }
-
-            logger.info('Initial messages loaded from Firebase', {
+            logger.info('\n\n\n [Chat Service] Initial messages loaded from Firebase', {
                 caseId,
                 resolvedRoomId,
-                count: messages.length,
-                hasMore,
-                totalCount
+                count: result.messages.length,
+                hasMore: result.hasMore,
+                totalCount: result.totalCount
             });
 
-            return {
-                roomId: resolvedRoomId,
-                messages,
-                hasMore,
-                totalCount,
-            };
+            return result;
         } catch (error) {
-            logger.error('Error loading initial messages', error);
+            logger.error('\n\n\n [Chat Service] Error loading initial messages', error);
             return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
         }
     }
@@ -631,7 +697,7 @@ class ChatService {
                 );
                 snapshot = await get(messagesQuery);
             } catch (queryError: any) {
-                logger.warn('Ordered query failed, falling back to full load', { caseId: roomId, resolvedRoomId: roomId, error: queryError.message });
+                logger.warn('\n\n\n [Chat Service] Ordered query failed, falling back to full load', { caseId: roomId, resolvedRoomId: roomId, error: queryError.message });
                 snapshot = await get(messagesRef);
             }
 
@@ -666,7 +732,7 @@ class ChatService {
             const resultMessages = filtered.slice(-limit);
             const hasMore = filtered.length >= limit;
 
-            logger.info('Older messages loaded from Firebase', {
+            logger.info('\n\n\n [Chat Service] Older messages loaded from Firebase', {
                 roomId,
                 count: resultMessages.length,
                 hasMore
@@ -677,7 +743,7 @@ class ChatService {
                 hasMore,
             };
         } catch (error) {
-            logger.error('Error loading older messages', error);
+            logger.error('\n\n\n [Chat Service] Error loading older messages', error);
             return { messages: [], hasMore: false };
         }
     }
@@ -689,7 +755,7 @@ class ChatService {
             const snapshot = await get(messagesRef);
 
             if (!snapshot.exists()) {
-                logger.info('No messages found to mark as read', { roomId });
+                logger.info('\n\n\n [Chat Service] No messages found to mark as read', { roomId });
                 return;
             }
 
@@ -712,23 +778,35 @@ class ChatService {
                 }
             });
 
-            if (updatePromises.length > 0) {
-                await Promise.all(updatePromises);
-                logger.info('Messages marked as read', {
-                    roomId,
-                    userId,
-                    count: updatePromises.length,
-                });
+            await Promise.all(updatePromises);
+
+            const userChatRef = ref(database, `userChats/${userId}/${roomId}`);
+            try {
+                await update(userChatRef, { unreadCount: 0 });
+            } catch (updateError: any) {
+                if (updateError?.code !== 'PERMISSION_DENIED') {
+                    logger.warn('\n\n\n [Chat Service] Failed to reset unread count in userChats', {
+                        roomId,
+                        userId,
+                        error: updateError?.message,
+                    });
+                }
             }
+
+            logger.info('\n\n\n [Chat Service] Messages marked as read', {
+                roomId,
+                userId,
+                count: updatePromises.length,
+            });
         } catch (error) {
-            logger.error(`Failed to mark messages as read (roomId=${roomId}, userId=${userId})`, error);
+            logger.error(`\n\n\n [Chat Service] Failed to mark messages as read (roomId=${roomId}, userId=${userId})`, error);
         }
     }
 
     // Mark chat room as read
     async markChatRoomAsRead(roomId: string, userId: string): Promise<boolean> {
         try {
-            logger.info('Marking chat room as read', { roomId, userId });
+            logger.info('\n\n\n [Chat Service] Marking chat room as read', { roomId, userId });
             await this.markMessagesAsRead(roomId, userId);
             logger.info('Chat room marked as read successfully', { roomId, userId });
             return true;

@@ -6,6 +6,7 @@ import type { Message } from '../../lib/types';
 
 const EMAIL_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 const CONVERSATIONS_CACHE_TTL = 60 * 1000; // 1 minute
+const MAX_CHAT_MESSAGES = 200;
 
 interface MessagesState {
   messages: Message[];
@@ -33,9 +34,12 @@ interface MessagesState {
   fetchConversations: (userId: string, force?: boolean) => Promise<void>;
   subscribeToConversations: (userId: string) => () => void;
   loadChatMessages: (
-    caseId: string,
-    clientId?: string,
-    agentId?: string
+    params: {
+      caseId: string;
+      roomId?: string | null;
+      clientId?: string | null;
+      agentId?: string | null;
+    }
   ) => Promise<{
     roomId: string | null;
     messages: ChatMessage[];
@@ -47,10 +51,7 @@ interface MessagesState {
     beforeTimestamp: number,
     clientId?: string,
     agentId?: string
-  ) => Promise<{
-    messages: ChatMessage[];
-    hasMore: boolean;
-  }>;
+  ) => Promise<void>;
   sendChatMessage: (
     caseId: string,
     senderId: string,
@@ -63,9 +64,8 @@ interface MessagesState {
   ) => Promise<boolean>;
   subscribeToChatMessages: (
     roomId: string,
-    onNewMessage: (message: ChatMessage, roomId: string) => void,
-    lastKnownTimestamp?: number,
-    additionalRoomIds?: string[]
+    onNewMessage: (message: ChatMessage) => void,
+    lastKnownTimestamp?: number
   ) => () => void;
   markChatAsRead: (roomId: string, userId: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
@@ -265,20 +265,56 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     return unsubscribe;
   },
 
-  loadChatMessages: async (caseId: string, clientId?: string, agentId?: string) => {
+  loadChatMessages: async ({ caseId, roomId, clientId, agentId }: {
+    caseId: string;
+    roomId?: string | null;
+    clientId?: string | null;
+    agentId?: string | null;
+  }) => {
     set({ isLoading: true, error: null, currentCaseId: caseId });
     try {
-      const result = await chatService.loadInitialMessages(caseId, clientId, agentId);
-      if (!result.roomId) {
-        set({ chatMessages: [], currentRoomId: null, isLoading: false });
-        return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
+      let resolvedRoomId = roomId || null;
+
+      if (!resolvedRoomId) {
+        if (clientId && agentId) {
+          resolvedRoomId = chatService.getChatRoomIdFromPair(clientId, agentId);
+        }
+
+        if (!resolvedRoomId && clientId) {
+          resolvedRoomId = await chatService.findRoomIdForCase(clientId, caseId);
+        }
+
+        if (!resolvedRoomId) {
+          logger.warn('loadChatMessages missing identifiers', { caseId, roomId, clientId, agentId });
+          set({ chatMessages: [], currentRoomId: null, isLoading: false });
+          return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
+        }
       }
+
+      const result = await chatService.loadMessagesForRoom(resolvedRoomId, 50);
+
+      logger.info('Loaded chat messages', {
+        caseId,
+        roomId: resolvedRoomId,
+        messages: result.messages.length,
+        hasMore: result.hasMore,
+        totalCount: result.totalCount,
+      });
+
+      const sorted = (result.messages ?? []).slice().sort((a, b) => a.timestamp - b.timestamp);
+      const limited =
+        sorted.length > MAX_CHAT_MESSAGES
+          ? sorted.slice(sorted.length - MAX_CHAT_MESSAGES)
+          : sorted;
+
       set({
-        chatMessages: result.messages,
-        currentRoomId: result.roomId,
+        chatMessages: limited,
+        currentRoomId: resolvedRoomId,
+        currentCaseId: caseId,
         isLoading: false,
       });
-      return result;
+
+      return { ...result, roomId: resolvedRoomId };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to load chat messages';
       logger.error('Error loading chat messages', error);
@@ -291,19 +327,21 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     try {
       const roomId = get().currentRoomId || caseId;
       if (!roomId) {
-        return { messages: [], hasMore: false };
+        return;
       }
       const result = await chatService.loadOlderMessages(roomId, beforeTimestamp, 20);
       set((state) => {
         const existingIds = new Set(state.chatMessages.map((m) => m.id));
         const uniqueNew = result.messages.filter((m) => !existingIds.has(m.id));
-        const combined = [...uniqueNew, ...state.chatMessages];
-        return { chatMessages: combined.sort((a, b) => a.timestamp - b.timestamp) };
+        const combined = [...uniqueNew, ...state.chatMessages].sort((a, b) => a.timestamp - b.timestamp);
+        const limited =
+          combined.length > MAX_CHAT_MESSAGES
+            ? combined.slice(combined.length - MAX_CHAT_MESSAGES)
+            : combined;
+        return { chatMessages: limited };
       });
-      return result;
     } catch (error: any) {
       logger.error('Error loading older chat messages', error);
-      return { messages: [], hasMore: false };
     }
   },
 
@@ -341,47 +379,34 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     }
   },
 
-  subscribeToChatMessages: (
-    roomId: string,
-    onNewMessage: (message: ChatMessage, roomId: string) => void,
-    lastKnownTimestamp?: number,
-    additionalRoomIds: string[] = []
-  ) => {
+  subscribeToChatMessages: (roomId: string, onNewMessage: (message: ChatMessage) => void, lastKnownTimestamp?: number) => {
     const currentUnsubscribe = get().unsubscribeMessages;
     if (currentUnsubscribe) {
       currentUnsubscribe();
     }
 
-    const uniqueRoomIds = [roomId, ...additionalRoomIds]
-      .filter((value, index, self) => !!value && self.indexOf(value) === index) as string[];
+    const unsubscribe = chatService.subscribeToNewMessagesOptimized(
+      roomId,
+      (newMessage) => {
+        onNewMessage(newMessage);
 
-    if (uniqueRoomIds.length === 0) {
-      return () => { };
-    }
-
-    const applyIncomingMessage = (incomingRoomId: string, newMessage: ChatMessage) => {
-      onNewMessage(newMessage, incomingRoomId);
-
-      setTimeout(() => {
         set((state) => {
-          const existingMessages = state.chatMessages ?? [];
-          const exists = existingMessages.some(
+          const exists = state.chatMessages.some(
             (m) => m.id === newMessage.id || m.tempId === newMessage.id
           );
-
-          let updatedMessages = existingMessages;
-
           if (exists) {
-          const tempIndex = existingMessages.findIndex(
-            (m) => m.tempId && m.id === newMessage.id
-          );
-          if (tempIndex !== -1) {
-            const updated = [...existingMessages];
-            updated[tempIndex] = newMessage;
-            updatedMessages = updated.sort((a, b) => a.timestamp - b.timestamp);
+            const tempIndex = state.chatMessages.findIndex(
+              (m) => m.tempId && m.id === newMessage.id
+            );
+            if (tempIndex !== -1) {
+              const updated = [...state.chatMessages];
+              updated[tempIndex] = newMessage;
+              return { chatMessages: updated.sort((a, b) => a.timestamp - b.timestamp) };
+            }
+            return state;
           }
-        } else {
-          updatedMessages = existingMessages
+
+          const updated = state.chatMessages
             .filter(
               (m) =>
                 !(
@@ -392,72 +417,21 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
             )
             .concat([newMessage])
             .sort((a, b) => a.timestamp - b.timestamp);
-          }
 
-          let updatedConversations = state.conversations;
-          let updatedUnreadTotal = state.unreadChatTotal;
+          const limited =
+            updated.length > MAX_CHAT_MESSAGES
+              ? updated.slice(updated.length - MAX_CHAT_MESSAGES)
+              : updated;
 
-          if (state.conversations && state.conversations.length > 0) {
-            let conversationChanged = false;
-            const mapped = state.conversations.map((conversation) => {
-              if (conversation.id !== incomingRoomId && conversation.id !== roomId) {
-                return conversation;
-              }
-              conversationChanged = true;
-              const isActiveRoom =
-                conversation.id === state.currentRoomId ||
-                incomingRoomId === state.currentRoomId ||
-                roomId === state.currentRoomId;
-              return {
-                ...conversation,
-                lastMessage: newMessage.message,
-                lastMessageTime: newMessage.timestamp,
-                unreadCount: isActiveRoom ? 0 : conversation.unreadCount,
-              };
-            });
-
-            if (conversationChanged) {
-              updatedConversations = mapped;
-              updatedUnreadTotal = computeUnreadChatTotal(mapped);
-            }
-          }
-
-          return {
-            chatMessages: updatedMessages,
-            ...(updatedConversations !== state.conversations
-              ? {
-                conversations: updatedConversations,
-                unreadChatTotal: updatedUnreadTotal,
-              }
-              : {}),
-          };
+          return { chatMessages: limited };
         });
-      }, 0);
-    };
 
-    const unsubscribeHandlers = uniqueRoomIds.map((id) =>
-      chatService.subscribeToNewMessagesOptimized(
-        id,
-        (message) => applyIncomingMessage(id, message),
-        lastKnownTimestamp
-      )
+      },
+      lastKnownTimestamp
     );
 
-    const unsubscribeAll = () => {
-      unsubscribeHandlers.forEach((handler) => {
-        try {
-          handler();
-        } catch (error: any) {
-          logger.warn('Failed to unsubscribe from chat room listener', {
-            roomId: roomId,
-            error: error?.message || error,
-          });
-        }
-      });
-    };
-
-    set({ unsubscribeMessages: unsubscribeAll });
-    return unsubscribeAll;
+    set({ unsubscribeMessages: unsubscribe });
+    return unsubscribe;
   },
 
   markChatAsRead: async (roomId: string, userId: string) => {
@@ -578,11 +552,38 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   addChatMessage: (message: ChatMessage) => {
-    set((state) => ({
-      chatMessages: [...state.chatMessages, message].sort(
-        (a, b) => a.timestamp - b.timestamp
-      ),
-    }));
+    set((state) => {
+      const existingIndex = state.chatMessages.findIndex(
+        (m) =>
+          m.id === message.id ||
+          (message.id && m.tempId === message.id) ||
+          (m.tempId && message.tempId && m.tempId === message.tempId)
+      );
+
+      let updated: ChatMessage[];
+      if (existingIndex !== -1) {
+        updated = [...state.chatMessages];
+        updated[existingIndex] = message;
+      } else {
+        const filtered = state.chatMessages.filter(
+          (m) =>
+            !(
+              m.tempId &&
+              message.tempId &&
+              m.tempId === message.tempId &&
+              Math.abs(m.timestamp - message.timestamp) < 5000
+            )
+        );
+        updated = [...filtered, message];
+      }
+
+      updated.sort((a, b) => a.timestamp - b.timestamp);
+      if (updated.length > MAX_CHAT_MESSAGES) {
+        updated = updated.slice(updated.length - MAX_CHAT_MESSAGES);
+      }
+
+      return { chatMessages: updated };
+    });
   },
 
   setConversationUnread: (roomId: string, unread: number) => {
