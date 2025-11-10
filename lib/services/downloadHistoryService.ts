@@ -53,13 +53,40 @@ export const downloadHistoryService = {
 
   async addDownload(record: Omit<DownloadHistoryRecord, 'id' | 'downloadedAt'>): Promise<DownloadHistoryRecord> {
     const current = await readDownloads();
+
+    const duplicate = current.find((item) => {
+      const sameSource = record.source ? item.source === record.source : true;
+      const sameSourceId = record.sourceId ? item.sourceId === record.sourceId : true;
+      const sameUrl = record.url && item.url ? item.url === record.url : false;
+      const sameName = item.name === record.name;
+
+      if (sameUrl && sameSource && sameSourceId) {
+        return true;
+      }
+
+      if (record.source && record.sourceId) {
+        return sameSource && sameSourceId && sameName;
+      }
+
+      return sameUrl && sameName;
+    });
+
+    if (duplicate) {
+      logger.info('Duplicate download skipped', {
+        name: record.name,
+        source: record.source,
+        sourceId: record.sourceId,
+      });
+      return duplicate;
+    }
+
     const newRecord: DownloadHistoryRecord = {
       ...record,
       id: `download_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       downloadedAt: new Date().toISOString(),
     };
 
-    const updated = [newRecord, ...current.filter((item) => item.name !== newRecord.name || item.localUri !== newRecord.localUri)];
+    const updated = [newRecord, ...current];
 
     if (updated.length > MAX_ITEMS) {
       updated.length = MAX_ITEMS;

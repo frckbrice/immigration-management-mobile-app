@@ -92,6 +92,9 @@ const MAPPING = {
   "exclamationmark.triangle": "warning-amber",
   "questionmark.circle.fill": "help",
   "questionmark.circle": "help-outline",
+  "paperclip": "attach-file",
+  "paperclip.circle.fill": "attach-file",
+  "paperclip.circle": "attach-file",
   "globe": "language",
   "circle.lefthalf.fill": "brightness-6",
 

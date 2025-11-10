@@ -9,7 +9,6 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
 import { withOpacity } from '@/styles/theme';
 import { useMessagesStore } from '@/stores/messages/messagesStore';
-import { useShallow } from 'zustand/react/shallow';
 
 const TAB_ITEMS: TabBarItem[] = [
   {
@@ -57,13 +56,8 @@ const TAB_ITEMS: TabBarItem[] = [
 export default function TabLayout() {
   const theme = useAppTheme();
   const colors = theme.colors;
-  const { unreadChatTotal, unreadEmailTotal } = useMessagesStore(
-    useShallow((state) => ({
-      unreadChatTotal: state.unreadChatTotal,
-      unreadEmailTotal: state.unreadEmailTotal,
-    }))
-  );
-  const totalUnreadMessages = unreadChatTotal + unreadEmailTotal;
+  const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
+  const totalUnreadMessages = unreadChatTotal;
   const tabBadges = useMemo<Record<string, number>>(
     () => ({
       messages: totalUnreadMessages,

@@ -337,7 +337,7 @@ export default function ComposeEmailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.pageHeader}>
+        {/* <View style={styles.pageHeader}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>
             {t("messages.composeTitle", { defaultValue: "New email" })}
           </Text>
@@ -346,7 +346,7 @@ export default function ComposeEmailScreen() {
               defaultValue: "Start a fresh conversation with your advisor via email.",
             })}
           </Text>
-        </View>
+        </View> */}
 
         <View style={styles.section}>
           <View
@@ -354,8 +354,8 @@ export default function ComposeEmailScreen() {
               styles.card,
               {
                 backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
-                shadowColor: colors.backdrop,
+                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.75),
+                shadowColor: 'green',
               },
             ]}
           >
@@ -447,8 +447,8 @@ export default function ComposeEmailScreen() {
               styles.card,
               {
                 backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
-                shadowColor: colors.backdrop,
+                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.75),
+                shadowColor: 'green',
               },
             ]}
           >

@@ -8,6 +8,39 @@ const getAuthStore = () => {
     return require('../../stores/auth/authStore').useAuthStore;
 };
 
+const REFRESH_AUTH_COOLDOWN_MS = 60 * 1000;
+let lastRefreshAuthAttempt = 0;
+let refreshAuthInFlight: Promise<void> | null = null;
+
+const invokeRefreshAuth = async (): Promise<void> => {
+    if (refreshAuthInFlight) {
+        return refreshAuthInFlight;
+    }
+
+    const now = Date.now();
+    if (now - lastRefreshAuthAttempt < REFRESH_AUTH_COOLDOWN_MS) {
+        logger.warn('[Axios] Skipping refreshAuth retry due to cooldown window');
+        return Promise.reject(new Error('[Axios] refreshAuth throttled'));
+    }
+
+    lastRefreshAuthAttempt = now;
+    const authStore = getAuthStore().getState();
+
+    const refreshPromise = authStore
+        .refreshAuth()
+        .catch((error: any) => {
+            logger.error('[Axios] Error refreshing auth', error);
+            throw error;
+        })
+        .finally(() => {
+            refreshAuthInFlight = null;
+        });
+
+    refreshAuthInFlight = refreshPromise;
+
+    return refreshPromise;
+};
+
 // Get API URL from environment or config
 // Priority: expo extra.apiUrl → explicit PROD/DEV envs → localhost
 const isProduction = process.env.NODE_ENV === 'production';
@@ -146,7 +179,7 @@ apiClient.interceptors.response.use(
                 } else {
                     logger.info('User has stored credentials - attempting refreshAuth before logout');
                     try {
-                        await authStore.refreshAuth();
+                        await invokeRefreshAuth();
                         // If refreshAuth succeeded, retry the request one more time
                         const refreshedUser = auth.currentUser;
                         if (refreshedUser) {
@@ -186,7 +219,7 @@ apiClient.interceptors.response.use(
                                 logger.warn('401 persisted after token refresh - trying refreshAuth');
                                 const authStore = getAuthStore().getState();
                                 try {
-                                    await authStore.refreshAuth();
+                                    await invokeRefreshAuth();
                                     // Try one more time with refreshed auth
                                     const refreshedUser = auth.currentUser;
                                     if (refreshedUser) {
@@ -222,7 +255,7 @@ apiClient.interceptors.response.use(
                     const authStore = getAuthStore().getState();
 
                     try {
-                        await authStore.refreshAuth();
+                        await invokeRefreshAuth();
                         const refreshedUser = auth.currentUser;
 
                         if (refreshedUser) {
@@ -265,7 +298,7 @@ apiClient.interceptors.response.use(
                 if (!isAuthEndpoint) {
                     try {
                         const authStore = getAuthStore().getState();
-                        await authStore.refreshAuth();
+                        await invokeRefreshAuth();
 
                         const refreshedUser = auth.currentUser;
                         if (refreshedUser) {

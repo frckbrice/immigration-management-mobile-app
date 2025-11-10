@@ -94,31 +94,31 @@ const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, 
     switch (toast.type) {
       case 'success':
         return {
-          backgroundColor: colors.success,
-          borderColor: colors.success,
+          backgroundColor: theme.dark ? withOpacity(colors.success, 0.7) : colors.success,
+          borderColor: withOpacity(colors.success, theme.dark ? 0.6 : 0.4),
         };
       case 'error':
         return {
-          backgroundColor: colors.danger,
-          borderColor: colors.danger,
+          backgroundColor: theme.dark ? withOpacity(colors.danger, 0.4) : colors.danger,
+          borderColor: withOpacity(colors.danger, theme.dark ? 0.65 : 0.45),
         };
       default:
         return {
-          backgroundColor: colors.primary,
-          borderColor: colors.primary,
+          backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+          borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.25),
         };
     }
-  }, [toast.type, colors.success, colors.danger, colors.primary]);
+  }, [toast.type, colors.success, colors.danger, colors.surface, colors.surfaceElevated, colors.borderStrong, theme.dark]);
 
   const textColor = useMemo(() => {
     switch (toast.type) {
       case 'success':
       case 'error':
-        return colors.onPrimary || '#FFFFFF';
+        return '#000000';
       default:
-        return theme.dark ? colors.onSurface : colors.onPrimary || '#FFFFFF';
+        return theme.dark ? colors.onSurface : colors.text;
     }
-  }, [colors.onPrimary, colors.onSurface, theme.dark, toast.type]);
+  }, [colors.onSurface, colors.text, theme.dark, toast.type]);
 
   const translateY = animated.interpolate({
     inputRange: [0, 1],
@@ -138,8 +138,8 @@ const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, 
         },
       ]}
     >
-      {toast.title ? <Text style={[styles.toastTitle, { color: textColor }]}>{toast.title}</Text> : null}
-      <Text style={[styles.toastMessage, { color: textColor }]}>{toast.message}</Text>
+      {toast.title ? <Text style={[styles.toastTitle, { color: 'white' }]}>{toast.title}</Text> : null}
+      <Text style={[styles.toastMessage, { color: 'white' }]}>{toast.message}</Text>
     </Animated.View>
   );
 };
@@ -147,7 +147,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, 
 const styles = StyleSheet.create({
   toastHost: {
     position: 'absolute',
-    top: 50,
+    top: 40,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -156,27 +156,26 @@ const styles = StyleSheet.create({
     elevation: 1000,
   },
   toastCard: {
+    maxWidth: 420,
     width: '100%',
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 18,
     marginBottom: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
   },
   toastTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 4,
   },
   toastMessage: {
     fontSize: 14,
-    color: '#E2E8F0',
     lineHeight: 18,
   },
 });

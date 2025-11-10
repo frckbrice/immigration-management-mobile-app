@@ -195,6 +195,16 @@ const mapEmailToMessage = (email: RawEmail, direction?: MessageDirection): Messa
   };
 };
 
+const EMAIL_DETAIL_CACHE_TTL = 5 * 1000; // 5 seconds
+
+type CachedEmailEntry = {
+  data: Message;
+  expiresAt: number;
+};
+
+const emailDetailCache = new Map<string, CachedEmailEntry>();
+const emailDetailInFlight = new Map<string, Promise<Message>>();
+
 export const messagesService = {
   async getEmails(params: EmailListParams = {}): Promise<Message[]> {
     const searchParams = new URLSearchParams();
@@ -249,18 +259,42 @@ export const messagesService = {
   },
 
   async getMessageById(messageId: string): Promise<Message> {
-    try {
-      const response = await apiClient.get<ApiResponse<{ email: RawEmail }>>(`/emails/${messageId}`);
-      const email = response.data.data?.email;
-      if (!email) {
-        throw new Error(response.data.error || 'Message not found');
-      }
-      logger.info('Email fetched', { messageId });
-      return mapEmailToMessage(email);
-    } catch (error: any) {
-      logger.error('Error fetching message', error);
-      throw error;
+    const now = Date.now();
+    const cached = emailDetailCache.get(messageId);
+    if (cached && cached.expiresAt > now) {
+      logger.info('Email fetched (cache hit)', { messageId });
+      return cached.data;
     }
+
+    const inFlight = emailDetailInFlight.get(messageId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = (async (): Promise<Message> => {
+      try {
+        const response = await apiClient.get<ApiResponse<{ email: RawEmail }>>(`/emails/${messageId}`);
+        const email = response.data.data?.email;
+        if (!email) {
+          throw new Error(response.data.error || 'Message not found');
+        }
+        const mapped = mapEmailToMessage(email);
+        emailDetailCache.set(messageId, {
+          data: mapped,
+          expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
+        });
+        logger.info('Email fetched', { messageId });
+        return mapped;
+      } catch (error: any) {
+        logger.error('Error fetching message', error);
+        throw error;
+      } finally {
+        emailDetailInFlight.delete(messageId);
+      }
+    })();
+
+    emailDetailInFlight.set(messageId, request);
+    return request;
   },
 
   async sendEmail(payload: SendEmailPayload) {
@@ -321,6 +355,18 @@ export const messagesService = {
   async markAsRead(messageId: string): Promise<void> {
     try {
       await apiClient.put<ApiResponse<void>>(`/emails/${encodeURIComponent(messageId)}`);
+      const cached = emailDetailCache.get(messageId);
+      if (cached) {
+        emailDetailCache.set(messageId, {
+          data: {
+            ...cached.data,
+            unread: false,
+            isRead: true,
+            readAt: new Date().toISOString(),
+          },
+          expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
+        });
+      }
       logger.info('Message marked as read', { messageId });
     } catch (error: any) {
       logger.error('Error marking message as read', error);
@@ -345,6 +391,18 @@ export const messagesService = {
       await apiClient.put<ApiResponse<void>>(`/emails/${encodeURIComponent(messageId)}`, {
         unread: true,
       });
+      const cached = emailDetailCache.get(messageId);
+      if (cached) {
+        emailDetailCache.set(messageId, {
+          data: {
+            ...cached.data,
+            unread: true,
+            isRead: false,
+            readAt: undefined,
+          },
+          expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
+        });
+      }
       logger.info('Message marked as unread', { messageId });
     } catch (error: any) {
       logger.warn('Backend does not support mark-as-unread; falling back to local state', {

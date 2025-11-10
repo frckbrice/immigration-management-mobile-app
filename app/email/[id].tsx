@@ -10,19 +10,25 @@ import {
   Text,
   TextInput,
   View,
+  Linking,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useTheme } from "@react-navigation/native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useAppTheme } from "@/lib/hooks/useAppTheme";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useToast } from "@/components/Toast";
 import { messagesService } from "@/lib/services/messagesService";
 import { downloadAndTrackFile } from "@/lib/utils/fileDownload";
 import { useMessagesStore } from "@/stores/messages/messagesStore";
 import { useAuthStore } from "@/stores/auth/authStore";
 import type { EmailAttachment, Message } from "@/lib/types";
 import { logger } from "@/lib/utils/logger";
+import { COLORS, FONT_SIZES, SPACING } from "@/lib/constants";
+import { withOpacity } from "@/styles/theme";
+import { apiClient } from "@/lib/api/axios";
 
 const formatFullDate = (value?: string | null) => {
   if (!value) return "";
@@ -41,45 +47,91 @@ const formatFullDate = (value?: string | null) => {
 const AttachmentRow = ({
   attachment,
   onDownload,
+  onPreview,
   isLoading,
+  isPreviewing,
+  accentColor,
+  isDark,
+  mutedColor,
 }: {
   attachment: EmailAttachment;
   onDownload: (attachment: EmailAttachment) => void;
+    onPreview: (attachment: EmailAttachment) => void;
   isLoading: boolean;
+    isPreviewing: boolean;
+    accentColor: string;
+    isDark: boolean;
+    mutedColor: string;
 }) => {
+  const backgroundColor = isDark ? withOpacity(accentColor, 0.18) : withOpacity(accentColor, 0.1);
+
   return (
-    <Pressable
-      style={styles.attachmentRow}
-      onPress={() => onDownload(attachment)}
-      disabled={isLoading}
+    <View
+      style={[
+        styles.attachmentRow,
+        {
+          backgroundColor,
+        },
+      ]}
     >
-      <View style={styles.attachmentIcon}>
-        <IconSymbol name="paperclip" size={20} color="#2196F3" />
+      <View
+        style={[
+          styles.attachmentIcon,
+          { backgroundColor: isDark ? withOpacity(accentColor, 0.25) : withOpacity(accentColor, 0.18) },
+        ]}
+      >
+        <IconSymbol name="paperclip" size={18} color={accentColor} />
       </View>
       <View style={styles.attachmentDetails}>
         <Text style={styles.attachmentName} numberOfLines={1}>
           {attachment.name}
         </Text>
         {attachment.size ? (
-          <Text style={styles.attachmentMeta}>
+          <Text style={[styles.attachmentMeta, { color: mutedColor }]}>
             {(attachment.size / (1024 * 1024)).toFixed(2)} MB
           </Text>
         ) : null}
       </View>
-      <IconSymbol name={isLoading ? "clock" : "arrow.down.circle"} size={20} color="#2196F3" />
-    </Pressable>
+      <View style={styles.attachmentActions}>
+        <Pressable
+          style={[styles.attachmentActionButton, { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) }]}
+          onPress={() => onPreview(attachment)}
+          disabled={isPreviewing}
+          accessibilityRole="button"
+        >
+          {isPreviewing ? (
+            <ActivityIndicator size="small" color={accentColor} />
+          ) : (
+            <IconSymbol name="eye.fill" size={16} color={accentColor} />
+          )}
+        </Pressable>
+        <Pressable
+          style={[styles.attachmentActionButton, { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) }]}
+          onPress={() => onDownload(attachment)}
+          disabled={isLoading}
+          accessibilityRole="button"
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={accentColor} />
+          ) : (
+            <IconSymbol name="arrow.down.circle.fill" size={16} color={accentColor} />
+          )}
+        </Pressable>
+      </View>
+    </View>
   );
 };
 
 export default function EmailDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
+  const { showToast } = useToast();
   const { user } = useAuthStore();
   const { markAsRead, markAsUnread } = useMessagesStore();
-
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState<Message | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -88,6 +140,25 @@ export default function EmailDetailScreen() {
   const [replyText, setReplyText] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const handleGoToProfile = useCallback(() => {
+    router.push("/(tabs)/profile");
+  }, [router]);
+
+  const resolveAttachmentUrl = useCallback((url?: string | null) => {
+    if (!url) {
+      throw new Error("Attachment URL is missing");
+    }
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    const baseURL = apiClient.defaults.baseURL?.replace(/\/$/, "");
+    if (!baseURL) {
+      return url;
+    }
+    return `${baseURL}${url.startsWith("/") ? url : `/${url}`}`;
+  }, []);
 
   const loadEmail = useCallback(
     async (suppressLoading = false) => {
@@ -145,12 +216,12 @@ export default function EmailDetailScreen() {
         if (!result.success) {
           throw new Error(result.error);
         }
-        showAlert({
+        showToast({
+          type: "success",
           title: t("email.downloadSuccessTitle", { defaultValue: "Download complete" }),
           message: t("email.downloadSuccessMessage", {
             defaultValue: "You can find this file under Downloads in Documents.",
           }),
-          actions: [{ text: t("common.close"), variant: "primary" }],
         });
       } catch (downloadError: any) {
         logger.error("Failed to download attachment", downloadError);
@@ -165,6 +236,43 @@ export default function EmailDetailScreen() {
       }
     },
     [email, showAlert, t]
+  );
+
+  const handlePreviewAttachment = useCallback(
+    async (attachment: EmailAttachment) => {
+      setPreviewingId(attachment.url || attachment.name);
+      try {
+        const remoteUrl = resolveAttachmentUrl(attachment.url);
+        const canOpen = await Linking.canOpenURL(remoteUrl);
+
+        if (!canOpen) {
+          showAlert({
+            title: t("email.previewUnavailableTitle", { defaultValue: "Preview unavailable" }),
+            message: t("email.previewUnavailableMessage", {
+              defaultValue: "We could not open this attachment. Please download it instead.",
+            }),
+            actions: [{ text: t("common.close"), variant: "primary" }],
+          });
+          return;
+        }
+
+        await Linking.openURL(remoteUrl);
+      } catch (error: any) {
+        logger.error("Failed to open attachment preview", error);
+        showAlert({
+          title: t("email.previewUnavailableTitle", { defaultValue: "Preview unavailable" }),
+          message:
+            error?.message ||
+            t("email.previewUnavailableMessage", {
+              defaultValue: "We could not open this attachment. Please download it instead.",
+            }),
+          actions: [{ text: t("common.close"), variant: "primary" }],
+        });
+      } finally {
+        setPreviewingId(null);
+      }
+    },
+    [resolveAttachmentUrl, showAlert, t]
   );
 
   const handleReplySubmit = useCallback(async () => {
@@ -218,25 +326,71 @@ export default function EmailDetailScreen() {
 
   const canReply = !!email?.threadId && !!user;
   const isInboxEmail = email?.direction !== "outgoing";
+  const directionIcon = isInboxEmail ? "envelope.fill" : "paperplane.fill";
+  const sentAtLabel = email?.sentAt ? formatFullDate(email.sentAt) : "";
+  const cardBackground = theme.dark ? theme.colors.surfaceElevated : COLORS.card;
+  const surfaceBackground = theme.dark ? theme.colors.surface : COLORS.surface;
+  const mutedTextColor = withOpacity(theme.colors.text, theme.dark ? 0.7 : 0.6);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={["top"]}>
-        <View style={styles.header}>
-          <Pressable style={styles.headerButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]} numberOfLines={1}>
-            {t("email.detailTitle", { defaultValue: "Email" })}
-          </Text>
-          <Pressable style={styles.headerButton} onPress={handleToggleRead}>
-            <IconSymbol
-              name={email?.unread ? "envelope.open.fill" : "envelope.badge.fill"}
-              size={22}
-              color={theme.colors.primary}
-            />
-          </Pressable>
+      <SafeAreaView style={[styles.container, {
+        backgroundColor: theme.colors.background, paddingTop: insets.top, paddingBottom: insets.bottom
+      }]} edges={["top"]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.dark ? theme.colors.surface : COLORS.surface,
+              borderBottomColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.4 : 0.18),
+            },
+          ]}
+        >
+          <BackButton onPress={() => router.back()} iconSize={22} style={styles.backButton} />
+          <View style={styles.headerContent}>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]} numberOfLines={1}>
+              {t("email.detailTitle", { defaultValue: "Email" })}
+            </Text>
+            {email?.subject ? (
+              <Text
+                style={[styles.headerSubtitle, { color: withOpacity(theme.colors.text, theme.dark ? 0.7 : 0.55) }]}
+                numberOfLines={1}
+              >
+                {email.subject}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={[
+                styles.headerActionButton,
+                {
+                  backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.18) : withOpacity(theme.colors.primary, 0.12),
+                  borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.45 : 0.25),
+                },
+              ]}
+              onPress={handleToggleRead}
+            >
+              <IconSymbol
+                name={email?.unread ? "envelope.fill" : "envelope"}
+                size={18}
+                color={theme.colors.primary}
+              />
+            </Pressable>
+            <Pressable
+              style={[
+                styles.headerActionButton,
+                {
+                  backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.18) : withOpacity(theme.colors.primary, 0.12),
+                  borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.45 : 0.25),
+                },
+              ]}
+              onPress={handleGoToProfile}
+            >
+              <IconSymbol name="person.circle.fill" size={20} color={theme.colors.primary} />
+            </Pressable>
+          </View>
         </View>
 
         {isLoading ? (
@@ -260,49 +414,58 @@ export default function EmailDetailScreen() {
                 <RefreshControl refreshing={isRefreshing} onRefresh={() => loadEmail(true)} />
               }
             >
-              <View style={styles.subjectBlock}>
-                <Text style={[styles.subjectText, { color: theme.colors.text }]}>
-                  {email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
-                </Text>
-                <Text style={[styles.metaText, { color: theme.colors.text }]}>
-                  {formatFullDate(email.sentAt)}
-                </Text>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.directionBadge, { backgroundColor: isInboxEmail ? "#EAF4FF" : "#F5F5F5" }]}>
-                    <Text style={[styles.directionText, { color: theme.colors.primary }]}>
+                  <View
+                    style={[
+                      styles.heroCard,
+                      {
+                        backgroundColor: cardBackground,
+                        borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.5 : 0.16),
+                        shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.25 : 0.12),
+                      },
+                    ]}
+                  >
+                    {/* <View style={styles.subjectRow}>
+                      <IconSymbol name={directionIcon} size={18} color={theme.colors.primary} />
+                      <Text style={[styles.subjectText, { color: theme.colors.text }]} numberOfLines={2}>
+                        {email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
+                      </Text>
+                    </View> */}
+                    <View style={[styles.metaRow, { marginTop: 4 }]}>
+                      {sentAtLabel ? (
+                        <View style={styles.metaItem}>
+                          <IconSymbol name="clock.fill" size={14} color={mutedTextColor} />
+                          <Text style={[styles.metaText, { color: mutedTextColor }]}>{sentAtLabel}</Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.metaDivider} />
+                      <View
+                        style={[
+                          styles.directionPill,
+                          {
+                            backgroundColor: theme.dark
+                              ? withOpacity(theme.colors.primary, 0.25)
+                              : withOpacity(theme.colors.primary, 0.12),
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.pillText, { color: theme.colors.primary }]}>
                       {isInboxEmail
                         ? t("messages.inbox", { defaultValue: "Inbox" })
                         : t("messages.sent", { defaultValue: "Sent" })}
                     </Text>
-                  </View>
-                  {email.caseReference ? (
-                    <Pressable style={styles.caseBadge} onPress={handleViewCase}>
-                      <IconSymbol name="folder" size={16} color="#2196F3" />
-                      <Text style={styles.caseBadgeText}>
-                        {t("messages.caseLabel", {
-                          defaultValue: "Case {{reference}}",
-                          reference: email.caseReference,
-                        })}
-                      </Text>
-                    </Pressable>
-                  ) : null}
+                      </View>
                 </View>
               </View>
 
-              <View style={styles.participantBlock}>
-                <Text style={[styles.participantText, { color: theme.colors.text }]}>
-                  {isInboxEmail
-                    ? t("messages.fromLabel", { defaultValue: "From {{name}}", name: email.name })
-                    : t("messages.toLabel", { defaultValue: "To {{name}}", name: email.name })}
-                </Text>
-                {email.senderId ? (
-                  <Text style={[styles.participantMeta, { color: theme.colors.text + "99" }]}>
-                    ID: {email.senderId}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.bodyBlock, { backgroundColor: theme.dark ? "#1C1C1E" : "#FFFFFF" }]}>
+                  <View
+                    style={[
+                      styles.bodyCard,
+                      {
+                        backgroundColor: surfaceBackground,
+                        borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.16),
+                      },
+                    ]}
+                  >
                 {contentParagraphs.length > 0 ? (
                   contentParagraphs.map((paragraph, index) => (
                     <Text key={index} style={[styles.bodyText, { color: theme.colors.text }]}>
@@ -310,23 +473,43 @@ export default function EmailDetailScreen() {
                     </Text>
                   ))
                 ) : (
-                  <Text style={[styles.bodyText, { color: theme.dark ? "#98989D" : "#666" }]}>
+                        <Text style={[styles.bodyText, { color: mutedTextColor }]}>
                     {t("email.emptyBody", { defaultValue: "No message content." })}
                   </Text>
                 )}
               </View>
 
               {email.attachments && email.attachments.length > 0 ? (
-                <View style={styles.attachmentsSection}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                    {t("email.attachmentsTitle", { defaultValue: "Attachments" })}
-                  </Text>
+                    <View
+                      style={[
+                        styles.attachmentsCard,
+                        {
+                          backgroundColor: surfaceBackground,
+                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.16),
+                        },
+                      ]}
+                    >
+                      <View style={styles.attachmentsHeader}>
+                        <IconSymbol name="paperclip" size={18} color={theme.colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                          {t("email.attachmentsTitle", { defaultValue: "Attachments" })}
+                        </Text>
+                        <View style={styles.metaDivider} />
+                        <Text style={[styles.attachmentsCount, { color: mutedTextColor }]}>
+                          {email.attachments.length}
+                        </Text>
+                      </View>
                   {email.attachments.map((attachment) => (
                     <AttachmentRow
                       key={attachment.url || attachment.name}
                       attachment={attachment}
                       onDownload={handleDownloadAttachment}
+                      onPreview={handlePreviewAttachment}
                       isLoading={downloadingId === (attachment.url || attachment.name)}
+                      isPreviewing={previewingId === (attachment.url || attachment.name)}
+                      accentColor={theme.colors.primary}
+                      isDark={theme.dark}
+                      mutedColor={mutedTextColor}
                     />
                   ))}
                 </View>
@@ -337,37 +520,92 @@ export default function EmailDetailScreen() {
               behavior={Platform.OS === "ios" ? "padding" : undefined}
               keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
             >
-              <View style={[styles.actionBar, { borderTopColor: theme.dark ? "#2C2C2E" : "#E5E5EA" }]}>
-                {canReply && (
-                  <Pressable
-                    style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => setReplyVisible(true)}
+                  <View
+                    style={[
+                      styles.actionBar,
+                      {
+                        borderTopColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.18),
+                        backgroundColor: surfaceBackground,
+                      },
+                    ]}
                   >
-                    <Text style={styles.primaryButtonText}>
-                      {t("email.reply", { defaultValue: "Reply" })}
-                    </Text>
-                  </Pressable>
-                )}
-                <Pressable style={styles.secondaryButton} onPress={handleToggleRead}>
-                  <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
-                    {email.unread
-                      ? t("messages.markAsRead", { defaultValue: "Mark as read" })
-                      : t("messages.markAsUnread", { defaultValue: "Mark as unread" })}
-                  </Text>
+                    <Pressable
+                      style={[
+                        styles.secondaryButton,
+                        {
+                          backgroundColor: theme.dark
+                            ? withOpacity(theme.colors.primary, 0.1)
+                            : withOpacity(theme.colors.primary, 0.06),
+                        },
+                      ]}
+                      onPress={handleToggleRead}
+                    >
+                      <View style={styles.buttonContent}>
+                        <IconSymbol
+                          name={email?.unread ? "envelope.fill" : "envelope"}
+                          size={16}
+                          color={theme.colors.primary}
+                        />
+                        <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
+                          {email?.unread
+                            ? t("messages.markAsRead", { defaultValue: "Mark as read" })
+                            : t("messages.markAsUnread", { defaultValue: "Mark as unread" })}
+                        </Text>
+                      </View>
                 </Pressable>
-                {email.caseId ? (
-                  <Pressable style={styles.secondaryButton} onPress={handleViewCase}>
-                    <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
-                      {t("email.viewCase", { defaultValue: "View case" })}
-                    </Text>
+                    {email?.caseId ? (
+                      <Pressable
+                        style={[
+                          styles.secondaryButton,
+                          {
+                            backgroundColor: theme.dark
+                              ? withOpacity(theme.colors.accent, 0.12)
+                              : withOpacity(theme.colors.accent, 0.06),
+                          },
+                        ]}
+                        onPress={handleViewCase}
+                      >
+                        <View style={styles.buttonContent}>
+                          <IconSymbol name="folder.fill" size={16} color={theme.colors.accent} />
+                          <Text style={[styles.secondaryButtonText, { color: theme.colors.accent }]}>
+                            {t("email.viewCase", { defaultValue: "View case" })}
+                          </Text>
+                        </View>
                   </Pressable>
                 ) : null}
+                    {canReply && (
+                      <Pressable
+                        style={[
+                          styles.primaryButton,
+                          {
+                            backgroundColor: theme.colors.primary,
+                            shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.4 : 0.25),
+                          },
+                        ]}
+                        onPress={() => setReplyVisible(true)}
+                      >
+                        <View style={styles.buttonContent}>
+                          <IconSymbol name="paperplane.fill" size={16} color={theme.colors.onPrimary} />
+                          <Text style={styles.primaryButtonText}>
+                            {t("email.reply", { defaultValue: "Reply" })}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )}
               </View>
             </KeyboardAvoidingView>
 
             {replyVisible && (
               <View style={styles.replyOverlay}>
-                <View style={[styles.replyCard, { backgroundColor: theme.colors.card }]}>
+                    <View
+                      style={[
+                        styles.replyCard,
+                        {
+                          backgroundColor: cardBackground,
+                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.2),
+                        },
+                      ]}
+                    >
                   <View style={styles.replyHeader}>
                     <Text style={[styles.replyTitle, { color: theme.colors.text }]}>
                       {t("email.reply", { defaultValue: "Reply" })}
@@ -377,10 +615,19 @@ export default function EmailDetailScreen() {
                     </Pressable>
                   </View>
                   <TextInput
-                    style={[styles.replyInput, { color: theme.colors.text }]}
+                        style={[
+                          styles.replyInput,
+                          {
+                            color: theme.colors.text,
+                            borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.6 : 0.3),
+                            backgroundColor: theme.dark
+                              ? withOpacity(theme.colors.surfaceAlt, 0.75)
+                              : COLORS.surface,
+                          },
+                        ]}
                     multiline
                     placeholder={t("email.replyPlaceholder", { defaultValue: "Write your reply..." })}
-                    placeholderTextColor={theme.dark ? "#98989D" : "#999"}
+                        placeholderTextColor={withOpacity(theme.colors.text, theme.dark ? 0.45 : 0.4)}
                     value={replyText}
                     onChangeText={setReplyText}
                     autoFocus
@@ -418,193 +665,268 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: SPACING.md,
   },
-  headerButton: {
-    padding: 6,
+  backButton: {
+    marginRight: SPACING.sm,
+  },
+  headerContent: {
+    flex: 1,
+    gap: 4,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.xl,
     fontWeight: "700",
-    flex: 1,
-    textAlign: "center",
-    marginHorizontal: 12,
+  },
+  headerSubtitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "500",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  headerActionButton: {
+    padding: SPACING.sm,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 32,
+    padding: SPACING.xl,
   },
   errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: SPACING.xl,
+    gap: SPACING.md,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.lg,
     textAlign: "center",
-    marginBottom: 16,
   },
   retryButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#2196F3",
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   retryText: {
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: FONT_SIZES.md,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+    paddingTop: SPACING.lg,
+    gap: SPACING.lg,
   },
-  subjectBlock: {
-    marginBottom: 16,
-    gap: 6,
+  heroCard: {
+    borderRadius: 18,
+    padding: SPACING.md,
+    borderWidth: 1,
+    gap: SPACING.sm,
   },
-  subjectText: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  metaText: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 4,
-    flexWrap: "wrap",
-  },
-  directionBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  directionText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  caseBadge: {
+  subjectRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: "#E8F2FF",
+    gap: SPACING.sm,
   },
-  caseBadgeText: {
-    fontSize: 12,
+  subjectText: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: "700",
+    flex: 1,
+  },
+  previewText: {
+    fontSize: FONT_SIZES.md,
+    lineHeight: 20,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.md,
+  },
+  metaDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: withOpacity("#000000", 0.08),
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+  },
+  metaText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: "500",
+  },
+  directionPill: {
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  pillText: {
+    fontSize: FONT_SIZES.xs,
     fontWeight: "600",
-    color: "#2196F3",
+    textTransform: "uppercase",
   },
-  participantBlock: {
-    marginBottom: 16,
+  attachmentsCount: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: "600",
+  },
+  participantCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 20,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    gap: SPACING.md,
+  },
+  participantAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  participantDetails: {
+    flex: 1,
+    gap: 4,
   },
   participantText: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "700",
   },
   participantMeta: {
-    marginTop: 4,
-    fontSize: 12,
+    fontSize: FONT_SIZES.sm,
   },
-  bodyBlock: {
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
+  bodyCard: {
+    borderRadius: 20,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    gap: SPACING.md,
   },
   bodyText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: FONT_SIZES.lg,
+    lineHeight: 26,
   },
-  attachmentsSection: {
-    marginTop: 24,
-    gap: 12,
+  attachmentsCard: {
+    borderRadius: 16,
+    padding: SPACING.md,
+    borderWidth: 1,
+    gap: SPACING.sm,
+  },
+  attachmentsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.md,
     fontWeight: "700",
   },
   attachmentRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
     borderRadius: 12,
-    backgroundColor: "#F5F7FA",
-    gap: 12,
   },
   attachmentIcon: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#EAF4FF",
   },
   attachmentDetails: {
     flex: 1,
     gap: 2,
   },
   attachmentName: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.md,
     fontWeight: "600",
   },
   attachmentMeta: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: FONT_SIZES.sm,
+  },
+  attachmentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  attachmentActionButton: {
+    padding: SPACING.sm,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   actionBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: SPACING.sm,
   },
   primaryButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: 12,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   primaryButtonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: FONT_SIZES.md,
   },
   secondaryButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#2196F3",
+    flex: 1,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonCompact: {
+    flex: undefined,
+    minWidth: 150,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.sm,
   },
   secondaryButtonText: {
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: FONT_SIZES.md,
   },
   replyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: SPACING.lg,
   },
   replyCard: {
     width: "100%",
     maxWidth: 520,
-    borderRadius: 20,
-    padding: 20,
-    gap: 16,
+    borderRadius: 24,
+    padding: SPACING.lg,
+    gap: SPACING.md,
   },
   replyHeader: {
     flexDirection: "row",
@@ -612,16 +934,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   replyTitle: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.xl,
     fontWeight: "700",
   },
   replyInput: {
-    minHeight: 120,
-    maxHeight: 200,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 12,
+    minHeight: 140,
+    maxHeight: 220,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: SPACING.md,
     textAlignVertical: "top",
+    fontSize: FONT_SIZES.md,
+    lineHeight: 24,
   },
 });
 

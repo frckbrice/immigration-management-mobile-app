@@ -96,13 +96,9 @@ export default function HomeScreen() {
       fetchUnreadCount: state.fetchUnreadCount,
     }))
   );
-  const { fetchMessages, unreadEmailTotal, unreadChatTotal } = useMessagesStore(
-    useShallow((state) => ({
-      fetchMessages: state.fetchMessages,
-      unreadEmailTotal: state.unreadEmailTotal,
-      unreadChatTotal: state.unreadChatTotal,
-    }))
-  );
+  const fetchMessages = useMessagesStore((state) => state.fetchMessages);
+  const fetchConversations = useMessagesStore((state) => state.fetchConversations);
+  const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
   const { documents, fetchDocuments } = useDocumentsStore(
     useShallow((state) => ({
       documents: state.documents,
@@ -278,13 +274,17 @@ export default function HomeScreen() {
 
     (async () => {
       try {
-        await Promise.all([
+        const tasks: Array<Promise<unknown>> = [
           fetchCases(),
           fetchUnreadCount(),
           fetchMessages(),
           fetchDocuments(),
           fetchUpcomingAppointment(),
-        ]);
+        ];
+        if (user?.uid) {
+          tasks.push(fetchConversations(user.uid));
+        }
+        await Promise.all(tasks);
       } finally {
         if (isActive) {
           refreshStats(true);
@@ -295,7 +295,7 @@ export default function HomeScreen() {
     return () => {
       isActive = false;
     };
-  }, [isAuthenticated, user?.uid, fetchCases, fetchUnreadCount, fetchMessages, fetchDocuments, fetchUpcomingAppointment, refreshStats]);
+  }, [isAuthenticated, user?.uid, fetchCases, fetchUnreadCount, fetchMessages, fetchConversations, fetchDocuments, fetchUpcomingAppointment, refreshStats]);
 
   const sortedCases = useMemo(() => {
     if (!cases || cases.length === 0) {
@@ -344,10 +344,7 @@ export default function HomeScreen() {
 
   const pendingDocsCount = stats?.pendingDocuments ?? documents.length;
   const activeCasesCount = stats?.activeCases ?? activeCases.length;
-  const newMessagesCount = useMemo(
-    () => unreadEmailTotal + unreadChatTotal,
-    [unreadEmailTotal, unreadChatTotal]
-  );
+  const unreadChatCount = unreadChatTotal;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -365,7 +362,7 @@ export default function HomeScreen() {
     }
     statsRefreshCooldownRef.current = now;
     refreshStats();
-  }, [isAuthenticated, cases.length, documents.length, unreadCount, newMessagesCount, refreshStats]);
+  }, [isAuthenticated, cases.length, documents.length, unreadCount, unreadChatCount, refreshStats]);
 
   const importantUpdatesTitle = t('home.importantUpdates', { defaultValue: 'Important Updates' });
   const paymentDescription = t('home.paymentDescription', { defaultValue: 'Case Processing Fee' });
@@ -652,7 +649,7 @@ export default function HomeScreen() {
               <Text style={[styles.statLabel, { color: colors.muted }]}>
                 {t('home.newMessages')}
               </Text>
-              <Text style={[styles.statValue, { color: colors.primary }]}>{newMessagesCount}</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{unreadChatCount}</Text>
             </View>
           </View>
 

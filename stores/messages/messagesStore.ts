@@ -7,6 +7,7 @@ import type { Message } from '../../lib/types';
 
 const EMAIL_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 const CONVERSATIONS_CACHE_TTL = 60 * 1000; // 1 minute
+const CHAT_MESSAGES_CACHE_TTL = 60 * 1000; // 1 minute
 const MAX_CHAT_MESSAGES = 200;
 
 interface MessagesState {
@@ -14,6 +15,15 @@ interface MessagesState {
   emailInbox: Message[];
   emailSent: Message[];
   chatMessages: ChatMessage[];
+  chatMessagesCache: Record<
+    string,
+    {
+      messages: ChatMessage[];
+      hasMore: boolean;
+      totalCount: number;
+      lastFetchedAt: number;
+    }
+  >;
   conversations: Conversation[];
   unreadChatTotal: number;
   unreadEmailTotal: number;
@@ -40,6 +50,7 @@ interface MessagesState {
       roomId?: string | null;
       clientId?: string | null;
       agentId?: string | null;
+      force?: boolean;
     }
   ) => Promise<{
     roomId: string | null;
@@ -120,6 +131,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   emailInbox: [],
   emailSent: [],
   chatMessages: [],
+  chatMessagesCache: {},
   conversations: [],
   unreadChatTotal: 0,
   unreadEmailTotal: 0,
@@ -266,13 +278,20 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     return unsubscribe;
   },
 
-  loadChatMessages: async ({ caseId, roomId, clientId, agentId }: {
+  loadChatMessages: async ({
+    caseId,
+    roomId,
+    clientId,
+    agentId,
+    force = false,
+  }: {
     caseId: string;
     roomId?: string | null;
     clientId?: string | null;
     agentId?: string | null;
+      force?: boolean;
   }) => {
-    set({ isLoading: true, error: null, currentCaseId: caseId });
+    set({ error: null, currentCaseId: caseId });
     try {
       let resolvedRoomId = roomId || null;
 
@@ -292,6 +311,33 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         }
       }
 
+      const { chatMessagesCache } = get();
+      const cacheKey = resolvedRoomId;
+      const cacheEntry = chatMessagesCache[cacheKey ?? ''];
+      const now = Date.now();
+
+      if (
+        !force &&
+        cacheEntry &&
+        now - cacheEntry.lastFetchedAt < CHAT_MESSAGES_CACHE_TTL
+      ) {
+        set({
+          chatMessages: cacheEntry.messages,
+          currentRoomId: resolvedRoomId,
+          currentCaseId: caseId,
+          isLoading: false,
+        });
+
+        return {
+          roomId: resolvedRoomId,
+          messages: cacheEntry.messages,
+          hasMore: cacheEntry.hasMore,
+          totalCount: cacheEntry.totalCount,
+        };
+      }
+
+      set({ isLoading: true, currentRoomId: resolvedRoomId });
+
       const result = await chatService.loadMessagesForRoom(resolvedRoomId, 50);
 
       logger.info('Loaded chat messages', {
@@ -308,12 +354,21 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           ? sorted.slice(sorted.length - MAX_CHAT_MESSAGES)
           : sorted;
 
-      set({
+      set((state) => ({
         chatMessages: limited,
         currentRoomId: resolvedRoomId,
         currentCaseId: caseId,
         isLoading: false,
-      });
+        chatMessagesCache: {
+          ...state.chatMessagesCache,
+          [resolvedRoomId!]: {
+            messages: limited,
+            hasMore: result.hasMore,
+            totalCount: result.totalCount,
+            lastFetchedAt: Date.now(),
+          },
+        },
+      }));
 
       return { ...result, roomId: resolvedRoomId };
     } catch (error: any) {
@@ -339,7 +394,22 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           combined.length > MAX_CHAT_MESSAGES
             ? combined.slice(combined.length - MAX_CHAT_MESSAGES)
             : combined;
-        return { chatMessages: limited };
+        const existingCache = state.chatMessagesCache[roomId];
+        return {
+          chatMessages: limited,
+          chatMessagesCache: existingCache
+            ? {
+              ...state.chatMessagesCache,
+              [roomId]: {
+                ...existingCache,
+                messages: limited,
+                hasMore: result.hasMore,
+                totalCount: Math.max(existingCache.totalCount, limited.length),
+                lastFetchedAt: Date.now(),
+              },
+            }
+            : state.chatMessagesCache,
+        };
       });
     } catch (error: any) {
       logger.error('Error loading older chat messages', error);
@@ -560,7 +630,24 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         merged = merged.slice(merged.length - MAX_CHAT_MESSAGES);
       }
 
-      return { chatMessages: merged };
+      const roomId = state.currentRoomId;
+      if (!roomId) {
+        return { chatMessages: merged };
+      }
+
+      const existingCache = state.chatMessagesCache[roomId];
+      return {
+        chatMessages: merged,
+        chatMessagesCache: {
+          ...state.chatMessagesCache,
+          [roomId]: {
+            messages: merged,
+            hasMore: existingCache?.hasMore ?? true,
+            totalCount: Math.max(existingCache?.totalCount ?? 0, merged.length),
+            lastFetchedAt: Date.now(),
+          },
+        },
+      };
     });
   },
 
