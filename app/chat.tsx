@@ -15,6 +15,7 @@ import { casesService } from "@/lib/services/casesService";
 import { logger } from "@/lib/utils/logger";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { mergeMessageIntoList, mergeMessagesBatch, sortMessagesAsc } from "@/lib/utils/chatMessages";
 
 const formatServiceTypeLabel = (serviceType?: string) =>
   serviceType
@@ -36,65 +37,6 @@ const normalizeParamValue = (value: string | string[] | undefined) => {
 };
 
 const isValidCaseId = (value?: string | null) => Boolean(value && CASE_UUID_REGEX.test(value));
-
-const sortMessagesAsc = (messages: ChatMessage[]) =>
-  [...messages].sort((a, b) => a.timestamp - b.timestamp);
-
-const mergeMessageIntoList = (messages: ChatMessage[], newMessage: ChatMessage) => {
-  const byIdIndex = messages.findIndex(
-    (m) => m.id === newMessage.id || (newMessage.id && m.tempId === newMessage.id)
-  );
-
-  if (byIdIndex !== -1) {
-    const updated = [...messages];
-    updated[byIdIndex] = newMessage;
-    return sortMessagesAsc(updated);
-  }
-
-  const pendingMatchIndex = messages.findIndex((m) => {
-    if (!m.tempId) {
-      return false;
-    }
-
-    const sameSender = !m.senderId || !newMessage.senderId ? true : m.senderId === newMessage.senderId;
-
-    const sameMessageContent = (m.message || '') === (newMessage.message || '');
-
-    const timestampDelta = Math.abs((m.timestamp || 0) - (newMessage.timestamp || 0));
-
-    const attachmentsComparable =
-      (m.attachments?.length || 0) === (newMessage.attachments?.length || 0);
-
-    return sameSender && sameMessageContent && attachmentsComparable && timestampDelta < 60_000;
-  });
-
-  if (pendingMatchIndex !== -1) {
-    const updated = [...messages];
-    updated[pendingMatchIndex] = {
-      ...newMessage,
-      status: newMessage.status ?? 'sent',
-    };
-    return sortMessagesAsc(updated);
-  }
-
-  const filtered = messages.filter(
-    (m) =>
-      !(
-        m.tempId &&
-        m.message === newMessage.message &&
-        Math.abs(m.timestamp - newMessage.timestamp) < 60_000
-      )
-  );
-
-  return sortMessagesAsc([...filtered, newMessage]);
-};
-
-const mergeMessagesBatch = (messages: ChatMessage[], incoming: ChatMessage[]) => {
-  if (!incoming || incoming.length === 0) {
-    return messages;
-  }
-  return incoming.reduce((acc, message) => mergeMessageIntoList(acc, message), messages);
-};
 
 const findConversationMatch = (
   conversations: Conversation[],

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { messagesService } from '../../lib/services/messagesService';
 import { chatService, ChatMessage, Conversation } from '../../lib/services/chat';
+import { mergeMessageIntoList } from '../../lib/utils/chatMessages';
 import { logger } from '../../lib/utils/logger';
 import type { Message } from '../../lib/types';
 
@@ -553,65 +554,13 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
   addChatMessage: (message: ChatMessage) => {
     set((state) => {
-      const existingIndex = state.chatMessages.findIndex(
-        (m) =>
-          m.id === message.id ||
-          (message.id && m.tempId === message.id) ||
-          (m.tempId && message.tempId && m.tempId === message.tempId) ||
-          (message.tempId && m.id === message.tempId)
-      );
+      let merged = mergeMessageIntoList(state.chatMessages, message);
 
-      let updated: ChatMessage[];
-
-      const pendingMatchIndex =
-        existingIndex === -1
-          ? state.chatMessages.findIndex((m) => {
-            if (!m.tempId) {
-              return false;
-            }
-
-            const sameSender =
-              !m.senderId || !message.senderId ? true : m.senderId === message.senderId;
-
-            const sameMessage = (m.message || '') === (message.message || '');
-
-            const sameAttachments =
-              (m.attachments?.length || 0) === (message.attachments?.length || 0);
-
-            const timestampDiff = Math.abs((m.timestamp || 0) - (message.timestamp || 0));
-
-            return sameSender && sameMessage && sameAttachments && timestampDiff < 60_000;
-          })
-          : -1;
-
-      if (existingIndex !== -1) {
-        updated = [...state.chatMessages];
-        updated[existingIndex] = message;
-      } else if (pendingMatchIndex !== -1) {
-        updated = [...state.chatMessages];
-        updated[pendingMatchIndex] = {
-          ...message,
-          status: message.status ?? 'sent',
-        };
-      } else {
-        const filtered = state.chatMessages.filter(
-          (m) =>
-            !(
-              m.tempId &&
-              message.tempId &&
-              m.tempId === message.tempId &&
-              Math.abs(m.timestamp - message.timestamp) < 60_000
-            )
-        );
-        updated = [...filtered, message];
+      if (merged.length > MAX_CHAT_MESSAGES) {
+        merged = merged.slice(merged.length - MAX_CHAT_MESSAGES);
       }
 
-      updated.sort((a, b) => a.timestamp - b.timestamp);
-      if (updated.length > MAX_CHAT_MESSAGES) {
-        updated = updated.slice(updated.length - MAX_CHAT_MESSAGES);
-      }
-
-      return { chatMessages: updated };
+      return { chatMessages: merged };
     });
   },
 
