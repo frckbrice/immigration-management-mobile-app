@@ -557,13 +557,42 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         (m) =>
           m.id === message.id ||
           (message.id && m.tempId === message.id) ||
-          (m.tempId && message.tempId && m.tempId === message.tempId)
+          (m.tempId && message.tempId && m.tempId === message.tempId) ||
+          (message.tempId && m.id === message.tempId)
       );
 
       let updated: ChatMessage[];
+
+      const pendingMatchIndex =
+        existingIndex === -1
+          ? state.chatMessages.findIndex((m) => {
+            if (!m.tempId) {
+              return false;
+            }
+
+            const sameSender =
+              !m.senderId || !message.senderId ? true : m.senderId === message.senderId;
+
+            const sameMessage = (m.message || '') === (message.message || '');
+
+            const sameAttachments =
+              (m.attachments?.length || 0) === (message.attachments?.length || 0);
+
+            const timestampDiff = Math.abs((m.timestamp || 0) - (message.timestamp || 0));
+
+            return sameSender && sameMessage && sameAttachments && timestampDiff < 60_000;
+          })
+          : -1;
+
       if (existingIndex !== -1) {
         updated = [...state.chatMessages];
         updated[existingIndex] = message;
+      } else if (pendingMatchIndex !== -1) {
+        updated = [...state.chatMessages];
+        updated[pendingMatchIndex] = {
+          ...message,
+          status: message.status ?? 'sent',
+        };
       } else {
         const filtered = state.chatMessages.filter(
           (m) =>
@@ -571,7 +600,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
               m.tempId &&
               message.tempId &&
               m.tempId === message.tempId &&
-              Math.abs(m.timestamp - message.timestamp) < 5000
+              Math.abs(m.timestamp - message.timestamp) < 60_000
             )
         );
         updated = [...filtered, message];

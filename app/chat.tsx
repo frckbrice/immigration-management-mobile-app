@@ -51,12 +51,38 @@ const mergeMessageIntoList = (messages: ChatMessage[], newMessage: ChatMessage) 
     return sortMessagesAsc(updated);
   }
 
+  const pendingMatchIndex = messages.findIndex((m) => {
+    if (!m.tempId) {
+      return false;
+    }
+
+    const sameSender = !m.senderId || !newMessage.senderId ? true : m.senderId === newMessage.senderId;
+
+    const sameMessageContent = (m.message || '') === (newMessage.message || '');
+
+    const timestampDelta = Math.abs((m.timestamp || 0) - (newMessage.timestamp || 0));
+
+    const attachmentsComparable =
+      (m.attachments?.length || 0) === (newMessage.attachments?.length || 0);
+
+    return sameSender && sameMessageContent && attachmentsComparable && timestampDelta < 60_000;
+  });
+
+  if (pendingMatchIndex !== -1) {
+    const updated = [...messages];
+    updated[pendingMatchIndex] = {
+      ...newMessage,
+      status: newMessage.status ?? 'sent',
+    };
+    return sortMessagesAsc(updated);
+  }
+
   const filtered = messages.filter(
     (m) =>
       !(
         m.tempId &&
         m.message === newMessage.message &&
-        Math.abs(m.timestamp - newMessage.timestamp) < 5000
+        Math.abs(m.timestamp - newMessage.timestamp) < 60_000
       )
   );
 
