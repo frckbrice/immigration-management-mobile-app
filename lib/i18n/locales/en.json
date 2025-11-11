@@ -175,7 +175,7 @@
     "priority": "Priority",
     "required": "Required",
     "heroTitle": "Let's set up your case",
-    "heroSubtitle": "Tell us what you need help with and how soon you need it.",
+    "heroSubtitle": "Tell us what you need help with and how soon you need it. tap the card to select.",
     "destination": "Destination Country",
     "destinationHelper": "Where are you planning to travel or settle?",
     "destinationLoading": "Loading destinations...",

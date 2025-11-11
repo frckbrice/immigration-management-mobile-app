@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useMessagesStore } from "@/stores/messages/messagesStore";
@@ -59,6 +60,7 @@ export default function MessagesScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
@@ -248,7 +250,7 @@ export default function MessagesScreen() {
             {
               backgroundColor: cardBackgroundColor,
               borderColor: cardBorderColor,
-              shadowColor: withOpacity(accentColor, theme.dark ? 0.45 : 0.9),
+              shadowColor: 'green',
             },
           ]}
           onPress={() => handleConversationPress(item)}
@@ -259,7 +261,7 @@ export default function MessagesScreen() {
               {
                 backgroundColor: avatarBackground,
                 borderColor: avatarBorderColor,
-                shadowColor: withOpacity(accentColor, theme.dark ? 0.5 : 0.28),
+                shadowColor: 'green',
               },
             ]}
           >
@@ -267,12 +269,13 @@ export default function MessagesScreen() {
               style={[
                 styles.avatar,
                 {
-                  backgroundColor: withOpacity(accentColor, theme.dark ? 0.3 : 0.22),
+                  // backgroundColor: withOpacity(accentColor, theme.dark ? 0.3 : 0.22),
+                  backgroundColor: withOpacity(colors.primary, theme.dark ? 0.3 : 0.6),
                   borderColor: avatarBorderColor,
                 },
               ]}
             >
-              <IconSymbol name="person.fill" size={22} color={accentColor} />
+              <IconSymbol name="person.fill" size={22} color={'white'} />
             </View>
             {isUnread && (
               <View
@@ -328,7 +331,11 @@ export default function MessagesScreen() {
             <Text
               style={[
                 styles.unreadBadgeText,
-                { color: isUnread ? colors.onPrimary : withOpacity(colors.text, 0.82) },
+                {
+                  color: isUnread ? colors.onPrimary : withOpacity(colors.text, 0.82),
+                  // create a card shadow
+                  shadowColor: 'green',
+                },
               ]}
             >
               {isUnread
@@ -511,10 +518,11 @@ export default function MessagesScreen() {
     return fetchMessages(true);
   }, [fetchMessages]);
 
-  const contentPaddingBottom = useMemo(
-    () => insets.bottom + 32,
-    [insets.bottom]
-  );
+  const contentPaddingBottom = useMemo(() => {
+    // Provide ample space so the last items stay above the floating tab bar.
+    // We factor in the actual tab bar height plus extra breathing room.
+    return insets.bottom + Math.max(tabBarHeight, 120) + 160;
+  }, [insets.bottom, tabBarHeight]);
 
   const handleBackPress = useCallback(() => {
     if (router.canGoBack()) {
@@ -896,7 +904,7 @@ export default function MessagesScreen() {
             paddingTop: insets.top,
           },
         ]}
-        edges={["top"]}
+        edges={["top", "bottom"]}
       >
         <View
           pointerEvents="none"
@@ -1056,7 +1064,7 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flex: 1,
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   summaryDivider: {
     paddingLeft: 20,

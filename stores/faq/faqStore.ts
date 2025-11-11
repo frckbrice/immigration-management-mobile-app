@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { faqService, type FAQItem } from '@/lib/services/faqService';
 import { logger } from '@/lib/utils/logger';
+import { faqCache } from '@/lib/services/faqCache';
 
 const STALE_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -29,6 +30,21 @@ export const useFaqStore = create<FaqState>((set, get) => ({
       return faqs;
     }
 
+    if (!force && faqs.length === 0) {
+      const cached = await faqCache.get();
+      if (cached?.items?.length) {
+        set({
+          faqs: cached.items,
+          lastFetchedAt: cached.fetchedAt,
+          isLoading: false,
+          error: null,
+        });
+        if (!isStale) {
+          return cached.items;
+        }
+      }
+    }
+
     set({ isLoading: true, error: null });
 
     try {
@@ -38,6 +54,7 @@ export const useFaqStore = create<FaqState>((set, get) => ({
         lastFetchedAt: Date.now(),
         isLoading: false,
       });
+      await faqCache.set(data);
       return data;
     } catch (error: any) {
       const message = error?.message || 'Unable to load FAQs';
@@ -49,7 +66,10 @@ export const useFaqStore = create<FaqState>((set, get) => ({
 
   setFaqs: (items) => set({ faqs: items, lastFetchedAt: Date.now() }),
 
-  clearCache: () => set({ faqs: [], lastFetchedAt: null }),
+  clearCache: async () => {
+    set({ faqs: [], lastFetchedAt: null });
+    await faqCache.clear();
+  },
 }));
 
 

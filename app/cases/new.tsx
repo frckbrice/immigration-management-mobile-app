@@ -63,6 +63,9 @@ export default function NewCaseScreen() {
     mutedText: theme.dark ? 'rgba(235,235,245,0.7)' : 'rgba(71,85,105,1)',
     elevatedBackground: theme.dark ? 'rgba(37,99,235,0.24)' : 'rgba(37,99,235,0.12)',
     highlightBackground: theme.dark ? 'rgba(37,99,235,0.18)' : 'rgba(37,99,235,0.05)',
+    attentionBackground: theme.dark ? 'rgba(248,113,113,0.22)' : 'rgba(239,68,68,0.12)',
+    attentionBorder: theme.dark ? 'rgba(248,113,113,0.45)' : 'rgba(239,68,68,0.32)',
+    attentionText: theme.dark ? '#fca5a5' : '#b91c1c',
   }), [theme]);
 
   useEffect(() => {
@@ -141,9 +144,22 @@ export default function NewCaseScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                {t('newCase.destination')} <Text style={[styles.sectionRequired, { color: colors.mutedText }]}>{t('newCase.required')}</Text>
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('newCase.destination')}</Text>
+                <View
+                  style={[
+                    styles.sectionRequiredBadge,
+                    {
+                      backgroundColor: colors.attentionBackground,
+                      borderColor: colors.attentionBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.sectionRequiredText, { color: colors.attentionText }]}>
+                    {t('newCase.required')}
+                  </Text>
+                </View>
+              </View>
               <Text style={[styles.sectionSubtitle, { color: colors.mutedText }]}>
                 {t('newCase.destinationHelper')}
               </Text>
@@ -187,37 +203,46 @@ export default function NewCaseScreen() {
                           borderColor: colors.cardBorder,
                           shadowColor: theme.dark ? '#000' : colors.primary,
                         },
-                        isSelected && {
-                          borderColor: colors.primary,
-                          backgroundColor: colors.highlightBackground,
-                          shadowOpacity: theme.dark ? 0.35 : 0.12,
-                          shadowRadius: 18,
-                        },
+                        isSelected && [
+                          styles.destinationCardSelected,
+                          {
+                            borderColor: colors.primary,
+                            backgroundColor: colors.highlightBackground,
+                            shadowOpacity: theme.dark ? 0.35 : 0.12,
+                            shadowRadius: 18,
+                          },
+                        ],
                       ]}
                       onPress={() => setDestinationId(destination.id)}
                     >
-                      <View
-                        style={[
-                          styles.destinationFlag,
-                          { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
-                        ]}
-                      >
-                        <Text
+                      <View style={[styles.destinationInner, isSelected && styles.destinationInnerSelected]}>
+                        <View
                           style={[
-                            styles.destinationFlagText,
-                            { color: isSelected ? theme.colors.background : colors.primary },
+                            styles.destinationFlag,
+                            { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
                           ]}
                         >
-                          {destination.flagEmoji || '🌍'}
-                        </Text>
-                      </View>
-                      <View style={styles.destinationCopy}>
-                        <Text style={[styles.destinationTitle, { color: theme.colors.text }]}>
-                          {destination.name}
-                        </Text>
-                        <Text style={[styles.destinationSubtitle, { color: colors.mutedText }]}>
-                          {destination.description || t('newCase.destinationDefaultDescription', { code: destination.code })}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.destinationFlagText,
+                              { color: isSelected ? theme.colors.background : colors.primary },
+                            ]}
+                          >
+                            {destination.flagEmoji || '🌍'}
+                          </Text>
+                        </View>
+                        <View style={styles.destinationCopy}>
+                          <Text style={[styles.destinationTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                            {destination.name}
+                          </Text>
+                          <Text
+                            style={[styles.destinationSubtitle, { color: colors.mutedText }]}
+                            numberOfLines={2}
+                          >
+                            {destination.description ||
+                              t('newCase.destinationDefaultDescription', { code: destination.code })}
+                          </Text>
+                        </View>
                       </View>
                     </Pressable>
                   );
@@ -228,9 +253,22 @@ export default function NewCaseScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                {t('newCase.serviceType')} <Text style={[styles.sectionRequired, { color: colors.mutedText }]}>{t('newCase.required')}</Text>
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('newCase.serviceType')}</Text>
+                <View
+                  style={[
+                    styles.sectionRequiredBadge,
+                    {
+                      backgroundColor: colors.attentionBackground,
+                      borderColor: colors.attentionBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.sectionRequiredText, { color: colors.attentionText }]}>
+                    {t('newCase.required')}
+                  </Text>
+                </View>
+              </View>
               <Text style={[styles.sectionSubtitle, { color: colors.mutedText }]}>{t('newCase.serviceTypeHelper')}</Text>
             </View>
 
@@ -250,34 +288,39 @@ export default function NewCaseScreen() {
                         borderColor: colors.cardBorder,
                         shadowColor: theme.dark ? '#000' : colors.primary,
                       },
-                      isSelected && {
-                        borderColor: colors.primary,
-                        backgroundColor: colors.highlightBackground,
-                        shadowOpacity: theme.dark ? 0.35 : 0.12,
-                        shadowRadius: 18,
-                      },
+                      isSelected && [
+                        styles.cardOptionSelected,
+                        {
+                          borderColor: colors.primary,
+                          backgroundColor: colors.highlightBackground,
+                          shadowOpacity: theme.dark ? 0.35 : 0.12,
+                          shadowRadius: 18,
+                        },
+                      ],
                     ]}
                     onPress={() => setServiceType(type)}
                   >
-                    <View
-                      style={[
-                        styles.cardIconWrapper,
-                        { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
-                      ]}
-                    >
-                      <IconSymbol
-                        name={SERVICE_ICONS[type]}
-                        size={20}
-                        color={isSelected ? theme.colors.background : colors.primary}
-                      />
-                    </View>
-                    <View style={styles.cardCopy}>
-                      <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-                        {t(`newCase.serviceTypes.${translationKey}.title`)}
-                      </Text>
-                      <Text style={[styles.cardSubtitle, { color: colors.mutedText }]}> 
-                        {t(`newCase.serviceTypes.${translationKey}.description`)}
-                      </Text>
+                    <View style={[styles.cardInner, isSelected && styles.cardInnerSelected]}>
+                      <View
+                        style={[
+                          styles.cardIconWrapper,
+                          { backgroundColor: isSelected ? colors.primary : colors.elevatedBackground },
+                        ]}
+                      >
+                        <IconSymbol
+                          name={SERVICE_ICONS[type] ?? 'doc.text.fill'}
+                          size={20}
+                          color={isSelected ? theme.colors.background : colors.primary}
+                        />
+                      </View>
+                      <View style={styles.cardCopy}>
+                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                          {t(`newCase.serviceTypes.${translationKey}.title`)}
+                        </Text>
+                        <Text style={[styles.cardSubtitle, { color: colors.mutedText }]} numberOfLines={3}>
+                          {t(`newCase.serviceTypes.${translationKey}.description`)}
+                        </Text>
+                      </View>
                     </View>
                   </Pressable>
                 );
@@ -287,9 +330,22 @@ export default function NewCaseScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                {t('newCase.priority')} <Text style={[styles.sectionRequired, { color: colors.mutedText }]}>{t('newCase.required')}</Text>
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('newCase.priority')}</Text>
+                <View
+                  style={[
+                    styles.sectionRequiredBadge,
+                    {
+                      backgroundColor: colors.attentionBackground,
+                      borderColor: colors.attentionBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.sectionRequiredText, { color: colors.attentionText }]}>
+                    {t('newCase.required')}
+                  </Text>
+                </View>
+              </View>
               <Text style={[styles.sectionSubtitle, { color: colors.mutedText }]}>{t('newCase.priorityHelper')}</Text>
             </View>
 
@@ -414,13 +470,27 @@ const styles = StyleSheet.create({
   sectionHeader: {
     gap: 8,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
   },
-  sectionRequired: {
-    fontSize: 14,
-    fontWeight: '500',
+  sectionRequiredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  sectionRequiredText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   sectionSubtitle: {
     fontSize: 14,
@@ -429,29 +499,42 @@ const styles = StyleSheet.create({
   cardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
   },
   cardOption: {
     flexGrow: 1,
-    minWidth: '48%',
+    minWidth: '100%',
     borderRadius: 18,
-    padding: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    gap: 14,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0,
     shadowRadius: 18,
     elevation: 2,
   },
+  cardOptionSelected: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  cardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardInnerSelected: {
+    gap: 12,
+  },
   cardIconWrapper: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardCopy: {
-    gap: 6,
+    flex: 1,
+    gap: 4,
   },
   cardTitle: {
     fontSize: 15,
@@ -495,32 +578,45 @@ const styles = StyleSheet.create({
   destinationGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
   },
   destinationCard: {
     flexGrow: 1,
-    minWidth: '48%',
+    minWidth: '100%',
     borderRadius: 18,
-    padding: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    gap: 12,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0,
     shadowRadius: 18,
     elevation: 2,
   },
+  destinationCardSelected: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  destinationInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  destinationInnerSelected: {
+    gap: 12,
+  },
   destinationFlag: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   destinationFlagText: {
-    fontSize: 22,
+    fontSize: 20,
   },
   destinationCopy: {
-    gap: 6,
+    flex: 1,
+    gap: 4,
   },
   destinationTitle: {
     fontSize: 15,

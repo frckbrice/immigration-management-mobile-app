@@ -3,8 +3,8 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator, RefreshControl, GestureResponderEvent, NativeSyntheticEvent, NativeScrollEvent, Alert } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useDocumentsStore } from "@/stores/documents/documentsStore";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
@@ -147,6 +147,7 @@ const getDocumentIcon = (type: string) => {
 export default function DocumentsScreen() {
   const theme = useAppTheme();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
@@ -155,6 +156,7 @@ export default function DocumentsScreen() {
   const { cases } = useCasesStore();
   const { setScrollDirection, setAtBottom } = useScrollContext();
 
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<ActiveTab>('documents');
   const [searchQuery, setSearchQuery] = useState('');
   const [templateSearch, setTemplateSearch] = useState('');
@@ -185,6 +187,15 @@ export default function DocumentsScreen() {
       return () => clearTimeout(timer);
     }
   }, [error, clearError]);
+
+  useEffect(() => {
+    const tabParam = (params.tab || '').toString().toLowerCase();
+    if (tabParam === 'templates') {
+      setActiveTab('templates');
+    } else if (tabParam === 'downloads') {
+      setActiveTab('downloads');
+    }
+  }, [params.tab]);
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -787,7 +798,11 @@ export default function DocumentsScreen() {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, Platform.OS !== 'ios' && styles.scrollContentWithTabBar]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            Platform.OS !== 'ios' && styles.scrollContentWithTabBar,
+            { paddingBottom: insets.bottom + 160 },
+          ]}
           showsVerticalScrollIndicator={false}
           onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
             const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;

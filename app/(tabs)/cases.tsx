@@ -1,16 +1,18 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, View, Text, TextInput, Platform, ActivityIndicator, FlatList } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Pressable, StyleSheet, View, Text, TextInput, Platform, ActivityIndicator, FlatList, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
-import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { BackButton } from "@/components/BackButton";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
 import { useShallow } from "zustand/react/shallow";
+import { useScrollContext } from "@/contexts/ScrollContext";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useToast } from "@/components/Toast";
 
 type CaseFilter = 'all' | 'active' | 'action-required' | 'complete';
 
@@ -39,7 +41,6 @@ export default function CasesScreen() {
   const colors = useThemeColors();
   const router = useRouter();
   const { t } = useTranslation();
-  const { showAlert } = useBottomSheetAlert();
   const [selectedFilter, setSelectedFilter] = useState<CaseFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { cases, isLoading, error, fetchCases, clearError } = useCasesStore(
@@ -51,14 +52,19 @@ export default function CasesScreen() {
       clearError: state.clearError,
     }))
   );
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const { showAlert } = useBottomSheetAlert();
+  const { showToast } = useToast();
+  const uploadableCases = useMemo(
+    () =>
+      cases.filter((caseItem) => {
+        const status = (caseItem.status || '').toUpperCase();
+        return status !== 'CLOSED' && status !== 'REJECTED' && status !== 'APPROVED';
+      }),
+    [cases],
+  );
+  const { setScrollDirection, setAtBottom } = useScrollContext();
+  const lastScrollYRef = useRef(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filterOptions = useMemo(
     () => [
@@ -71,7 +77,7 @@ export default function CasesScreen() {
   );
 
   const contentPaddingBottom = useMemo(
-    () => insets.bottom + (Platform.OS === 'ios' ? 96 : 112),
+    () => insets.bottom + 160,
     [insets.bottom]
   );
 
@@ -89,7 +95,7 @@ export default function CasesScreen() {
   }, [router]);
 
   const buildFilters = useCallback(() => {
-    const filters: { status?: string; search?: string } = {};
+    const filters: { status?: string } = {};
     if (selectedFilter === 'active') {
       filters.status = 'active';
     } else if (selectedFilter === 'action-required') {
@@ -97,11 +103,8 @@ export default function CasesScreen() {
     } else if (selectedFilter === 'complete') {
       filters.status = 'APPROVED';
     }
-    if (debouncedSearch) {
-      filters.search = debouncedSearch;
-    }
     return filters;
-  }, [selectedFilter, debouncedSearch]);
+  }, [selectedFilter]);
 
   useEffect(() => {
     fetchCases(buildFilters());
@@ -163,40 +166,31 @@ export default function CasesScreen() {
   }, [fetchCases, buildFilters]);
 
   const handleUploadNavigation = useCallback(() => {
+    if (uploadableCases.length === 0) {
+      showToast({
+        title: t('documents.uploadUnavailableTitle', { defaultValue: 'Unable to upload' }),
+        message: t('documents.uploadUnavailableMessage', {
+          defaultValue: 'All of your cases are closed or rejected. Create a new case to upload documents.',
+        }),
+        type: 'info',
+      });
+      showAlert({
+        title: t('documents.uploadUnavailableTitle', { defaultValue: 'Unable to upload' }),
+        message: t('documents.uploadUnavailableMessage', {
+          defaultValue: 'All of your cases are closed or rejected. Create a new case to upload documents.',
+        }),
+        actions: [{ text: t('common.close'), variant: 'primary' }],
+      });
+      return;
+    }
     router.push('/documents/upload');
-  }, [router]);
+  }, [uploadableCases.length, router, showAlert, showToast, t]);
 
   const handleTemplateNavigation = useCallback(() => {
-    router.push('/templates');
+    router.push({ pathname: '/(tabs)/documents', params: { tab: 'templates' } });
   }, [router]);
 
   const handleCasePress = useCallback((caseItem: any) => {
-    const statusKey = normalizeStatus(caseItem.status);
-    if (statusKey !== 'under_review') {
-      showAlert({
-        title: t('cases.chatUnavailableTitle', { defaultValue: 'Chat Not Available' }),
-        message: t('cases.chatUnavailableMessage', { defaultValue: 'Chat will be available once your advisor reviews this case.' }),
-        actions: [{ text: t('common.close'), variant: 'primary' }],
-      });
-      return;
-    }
-
-    if (!caseItem.assignedAgent) {
-      showAlert({
-        title: t('cases.chatAwaitingAgentTitle', { defaultValue: 'Advisor Pending' }),
-        message: t('cases.chatAwaitingAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
-        actions: [{ text: t('common.close'), variant: 'primary' }],
-      });
-      return;
-    }
-
-    router.push({
-      pathname: '/chat',
-      params: { id: caseItem.id, caseId: caseItem.id }
-    });
-  }, [router, showAlert, t]);
-
-  const handleCaseLongPress = useCallback((caseItem: any) => {
     router.push({ pathname: '/case/[id]', params: { id: caseItem.id } });
   }, [router]);
 
@@ -208,7 +202,9 @@ export default function CasesScreen() {
           styles.block,
           {
             backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.45 : 0.16),
+            borderColor: colors.accent,
+            borderWidth: StyleSheet.hairlineWidth,
+            shadowColor: 'green'
           },
         ]}
       >
@@ -319,6 +315,30 @@ export default function CasesScreen() {
     </View>
   ), [colors, theme.dark, searchQuery, t, filterOptions, selectedFilter, handleUploadNavigation, handleTemplateNavigation, error, handleRefresh]);
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const filteredCases = useMemo(() => {
+    if (!normalizedSearch) {
+      return cases;
+    }
+
+    return cases.filter((item) => {
+      const haystacks = [
+        item.referenceNumber,
+        item.displayName,
+        item.serviceType,
+        item.client?.firstName ? `${item.client.firstName} ${item.client.lastName ?? ''}` : '',
+        item.client?.email ?? '',
+        item.assignedAgent ? `${item.assignedAgent.firstName ?? ''} ${item.assignedAgent.lastName ?? ''}` : '',
+        item.assignedAgent?.email ?? '',
+      ]
+        .filter(Boolean)
+        .map((value) => value.toLowerCase());
+
+      return haystacks.some((value) => value.includes(normalizedSearch));
+    });
+  }, [cases, normalizedSearch]);
+
   const listEmptyComponent = useMemo(
     () =>
       isLoading ? (
@@ -333,11 +353,13 @@ export default function CasesScreen() {
               color={theme.dark ? colors.mutedAlt : colors.muted}
             />
             <Text style={[styles.emptyText, { color: colors.muted }]}>
-              {t('cases.noCases')}
+              {normalizedSearch
+                ? t('cases.noMatches', { defaultValue: 'No cases match your search.' })
+                : t('cases.noCases')}
             </Text>
           </View>
       ),
-    [isLoading, colors, theme.dark, t]
+    [isLoading, colors, theme.dark, t, normalizedSearch]
   );
 
   const renderCaseItem = useCallback(({ item }: { item: any }) => {
@@ -354,7 +376,6 @@ export default function CasesScreen() {
           },
         ]}
         onPress={() => handleCasePress(item)}
-        onLongPress={() => handleCaseLongPress(item)}
       >
         <View style={styles.caseHeader}>
           <View style={styles.caseHeaderLeft}>
@@ -419,9 +440,19 @@ export default function CasesScreen() {
         </View>
       </Pressable>
     );
-  }, [colors, theme.dark, getStatusColor, getStatusLabel, handleCasePress, handleCaseLongPress, t]);
+  }, [colors, theme.dark, getStatusColor, getStatusLabel, handleCasePress, t]);
 
   const listFooterComponent = useMemo(() => <View style={{ height: 8 }} />, []);
+
+  useEffect(() => {
+    setAtBottom(true);
+    setScrollDirection(false);
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [setAtBottom, setScrollDirection]);
 
   return (
     <>
@@ -433,7 +464,11 @@ export default function CasesScreen() {
         />
       )}
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}
+        style={[styles.container, {
+          backgroundColor: colors.background,
+          paddingBottom: insets.bottom,
+          paddingTop: insets.top,
+        }]}
         edges={['top']}
       >
         <View style={styles.header}>
@@ -460,7 +495,7 @@ export default function CasesScreen() {
         </View>
 
         <FlatList
-          data={cases}
+          data={filteredCases}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderCaseItem}
           showsVerticalScrollIndicator={false}
@@ -473,6 +508,23 @@ export default function CasesScreen() {
           ListFooterComponent={listFooterComponent}
           refreshing={isLoading && cases.length > 0}
           onRefresh={handleRefresh}
+          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+            if (scrollTimeoutRef.current) {
+              clearTimeout(scrollTimeoutRef.current);
+            }
+            scrollTimeoutRef.current = setTimeout(() => {
+              const currentY = contentOffset.y;
+              const isAtBottom = currentY + layoutMeasurement.height >= contentSize.height - 50;
+              setAtBottom(isAtBottom);
+              const diff = currentY - lastScrollYRef.current;
+              if (Math.abs(diff) > 5) {
+                setScrollDirection(diff > 0);
+                lastScrollYRef.current = currentY;
+              }
+            }, 50);
+          }}
+          scrollEventThrottle={16}
           initialNumToRender={8}
           maxToRenderPerBatch={6}
           windowSize={10}

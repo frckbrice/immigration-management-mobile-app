@@ -17,10 +17,13 @@ import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import * as DocumentPicker from "expo-document-picker";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useToast } from "@/components/Toast";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useDocumentsStore } from "@/stores/documents/documentsStore";
 import { uploadFileToAPI } from "@/lib/services/fileUpload";
 import type { Case } from "@/lib/types";
+import { useThemeColors } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
 
 const DOCUMENT_TYPE_OPTIONS: Array<{
   value: string;
@@ -51,6 +54,8 @@ export default function UploadDocumentScreen() {
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
+  const colors = useThemeColors();
   const cases = useCasesStore((state) => state.cases);
   const casesLoading = useCasesStore((state) => state.isLoading);
   const fetchCases = useCasesStore((state) => state.fetchCases);
@@ -64,6 +69,14 @@ export default function UploadDocumentScreen() {
   const [isPicking, setIsPicking] = useState(false);
 
   const hasRequestedCasesRef = useRef(false);
+  const uploadToastDismissRef = useRef<(() => void) | null>(null);
+  const dismissActiveUploadToast = useCallback(() => {
+    const dismiss = uploadToastDismissRef.current;
+    if (typeof dismiss === "function") {
+      dismiss();
+    }
+    uploadToastDismissRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (hasRequestedCasesRef.current) return;
@@ -81,9 +94,10 @@ export default function UploadDocumentScreen() {
 
   const activeCases = useMemo<Case[]>(
     () =>
-      cases.filter(
-        (item) => item.status !== "CLOSED" && item.status !== "REJECTED" && item.status !== "APPROVED",
-      ),
+      cases.filter((item) => {
+        const status = (item.status || "").toUpperCase();
+        return status !== "CLOSED" && status !== "REJECTED" && status !== "APPROVED";
+      }),
     [cases],
   );
 
@@ -117,6 +131,11 @@ export default function UploadDocumentScreen() {
     return rows;
   }, []);
 
+  const handleClearSelectedFile = useCallback(() => {
+    setSelectedFileName(null);
+    setUploadProgress(null);
+  }, []);
+
   const handleCreateCaseNavigation = useCallback(() => {
     router.push("/cases/new");
   }, [router]);
@@ -137,6 +156,7 @@ export default function UploadDocumentScreen() {
     }
 
     setIsPicking(true);
+    dismissActiveUploadToast();
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
@@ -149,6 +169,7 @@ export default function UploadDocumentScreen() {
       });
 
       if (result.canceled) {
+        dismissActiveUploadToast();
         return;
       }
 
@@ -162,11 +183,30 @@ export default function UploadDocumentScreen() {
           title: t("common.error"),
           message: t("uploadDocument.fileTooLarge", { defaultValue: "File exceeds the 10MB limit." }),
         });
+        showToast({
+          title: t("common.error"),
+          message: t("uploadDocument.fileTooLarge", { defaultValue: "File exceeds the 10MB limit." }),
+          type: "error",
+          duration: 4000,
+        });
         return;
       }
 
       setSelectedFileName(asset.name || t("uploadDocument.unknownFile", { defaultValue: "document" }));
       setUploadProgress(0);
+
+      uploadToastDismissRef.current = showToast({
+        title: t("uploadDocument.uploadStartingTitle", { defaultValue: "Uploading document" }),
+        message:
+          asset.name
+            ? t("uploadDocument.uploadStartingMessage", {
+              defaultValue: "We're uploading \"{{file}}\".",
+              file: asset.name,
+            })
+            : t("uploadDocument.uploadStartingGeneric", { defaultValue: "We're uploading your document." }),
+        type: "info",
+        duration: 3000,
+      });
 
       const uploadResult = await uploadFileToAPI(
         asset.uri,
@@ -181,6 +221,8 @@ export default function UploadDocumentScreen() {
         throw new Error(uploadResult.error || t("errors.generic"));
       }
 
+      dismissActiveUploadToast();
+
       const document = await uploadDocument({
         caseId: selectedCaseId,
         documentType,
@@ -192,29 +234,27 @@ export default function UploadDocumentScreen() {
       });
 
       if (document) {
-        showAlert({
-          title: t("common.success"),
-          message: t("uploadDocument.uploadSuccessMessage", { defaultValue: "Your document has been uploaded." }),
-          actions: [
-            {
-              text: t("common.close"),
-              variant: "primary",
-              onPress: () => router.back(),
-            },
-          ],
-        });
+        // No additional toast; success state is reflected in UI
       }
     } catch (error: any) {
       console.warn("Upload failed", error);
+      dismissActiveUploadToast();
       showAlert({
         title: t("common.error"),
         message: error?.message || t("errors.generic"),
       });
+      showToast({
+        title: t("common.error"),
+        message: error?.message || t("errors.generic"),
+        type: "error",
+        duration: 4000,
+      });
+      handleClearSelectedFile();
     } finally {
       setUploadProgress(null);
       setIsPicking(false);
     }
-  }, [documentType, router, selectedCaseId, showAlert, t, uploadDocument]);
+  }, [documentType, router, selectedCaseId, showAlert, showToast, t, uploadDocument, dismissActiveUploadToast, handleClearSelectedFile]);
 
   return (
     <>
@@ -337,7 +377,11 @@ export default function UploadDocumentScreen() {
                                 ]}
                                 onPress={() => setDocumentType(option.value)}
                               >
-                                <IconSymbol name={option.icon} size={18} color={isActive ? '#2196F3' : (theme.dark ? '#98989D' : '#666')} />
+                                <IconSymbol
+                                  name={option.icon}
+                                  size={20}
+                                  color={isActive ? colors.warning : withOpacity(colors.warning, theme.dark ? 0.55 : 0.45)}
+                                />
                                 <Text style={[styles.typeChipText, { color: isActive ? '#2196F3' : theme.colors.text }]}>
                                   {t(option.labelKey, { defaultValue: option.value.replace(/_/g, ' ') })}
                                 </Text>
@@ -352,11 +396,40 @@ export default function UploadDocumentScreen() {
                 </View>
 
                 {selectedFileName ? (
-                  <View style={[styles.fileSummary, { borderColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-                    <IconSymbol name="doc.fill" size={20} color="#2196F3" />
-                    <Text style={[styles.fileName, { color: theme.colors.text }]} numberOfLines={1}>
-                      {selectedFileName}
-                    </Text>
+                      <View
+                        style={[
+                          styles.fileSummary,
+                          {
+                            backgroundColor: withOpacity(colors.success, theme.dark ? 0.25 : 0.18),
+                            borderColor: withOpacity(colors.success, theme.dark ? 0.55 : 0.32),
+                            shadowColor: withOpacity(colors.success, theme.dark ? 0.8 : 0.5),
+                          },
+                        ]}
+                      >
+                        <View style={[styles.fileSummaryIcon, { backgroundColor: colors.success }]}>
+                          <IconSymbol name="doc.fill" size={20} color={colors.onPrimary} />
+                        </View>
+                        <View style={styles.fileSummaryContent}>
+                          <Text style={[styles.fileName, { color: theme.colors.text }]} numberOfLines={1}>
+                            {selectedFileName}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.fileSummaryHint,
+                              { color: theme.dark ? colors.onPrimary : colors.success },
+                            ]}
+                          >
+                            {t("uploadDocument.uploadedStatus", { defaultValue: "Uploaded to case" })}
+                          </Text>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t("uploadDocument.removeFile", { defaultValue: "Remove file" })}
+                          onPress={handleClearSelectedFile}
+                          style={styles.fileSummaryRemove}
+                        >
+                          <IconSymbol name="xmark" size={18} color={colors.danger} />
+                        </Pressable>
                   </View>
                 ) : null}
 
@@ -533,14 +606,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: Platform.OS === 'android' ? 4 : 0,
+  },
+  fileSummaryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileSummaryContent: {
+    flex: 1,
+    gap: 2,
+  },
+  fileSummaryRemove: {
+    padding: 6,
+    borderRadius: 999,
   },
   fileName: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
+  },
+  fileSummaryHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   progressRow: {
     flexDirection: 'row',

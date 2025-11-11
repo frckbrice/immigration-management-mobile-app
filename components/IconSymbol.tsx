@@ -140,6 +140,15 @@ const MAPPING = {
   "calendar": "event",
   "timer": "timer",
 
+  // Immigration / Services
+  "graduationcap.fill": "school",
+  "briefcase.fill": "work",
+  "person.2.fill": "groups",
+  "airplane.departure": "flight-takeoff",
+  "chart.bar.fill": "bar-chart",
+  "person.crop.rectangle": "badge",
+  "banknote.fill": "monetization-on",
+
   // User & Profile
   "person": "person",
   "person.fill": "person",
@@ -154,6 +163,7 @@ const MAPPING = {
   "square.and.arrow.up": "share",
   "square.and.arrow.down": "download",
   "arrow.up.doc.fill": "upload-file",
+  "arrow.down.doc.fill": "file-download",
   "link": "link",
 
   // Search & Discovery

@@ -1,9 +1,9 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
-import { withOpacity } from '@/styles/theme';
 
 type ToastType = 'info' | 'success' | 'error';
+type ToastDismiss = () => void;
 
 export interface ToastOptions {
   title?: string;
@@ -17,7 +17,7 @@ interface ToastItem extends ToastOptions {
 }
 
 interface ToastContextValue {
-  showToast: (options: ToastOptions) => void;
+  showToast: (options: ToastOptions) => ToastDismiss;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -36,7 +36,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const showToast = useCallback(
-    ({ title, message, type = 'info', duration = 1500 }: ToastOptions) => {
+    ({ title, message, type = 'info', duration = 1500 }: ToastOptions): ToastDismiss => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const toast: ToastItem = { id, title, message, type, duration };
       setToasts((prev) => [...prev, toast]);
@@ -94,38 +94,33 @@ const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, 
     switch (toast.type) {
       case 'success':
         return {
-          backgroundColor: theme.dark ? withOpacity(colors.success, 0.7) : colors.success,
-          borderColor: withOpacity(colors.success, theme.dark ? 0.6 : 0.4),
+          backgroundColor: colors.success,
+          borderColor: colors.success,
         };
       case 'error':
         return {
-          backgroundColor: theme.dark ? withOpacity(colors.danger, 0.4) : colors.danger,
-          borderColor: withOpacity(colors.danger, theme.dark ? 0.65 : 0.45),
+          backgroundColor: colors.danger,
+          borderColor: colors.danger,
         };
       default:
         return {
-          backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-          borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.25),
+          backgroundColor: colors.primary,
+          borderColor: colors.primary,
         };
     }
-  }, [toast.type, colors.success, colors.danger, colors.surface, colors.surfaceElevated, colors.borderStrong, theme.dark]);
+  }, [toast.type, colors.success, colors.danger, colors.primary]);
 
   const textColor = useMemo(() => {
-    switch (toast.type) {
-      case 'success':
-      case 'error':
-        return '#000000';
-      default:
-        return theme.dark ? colors.onSurface : colors.text;
+    if (toast.type === 'success') {
+      return '#FFFFFF';
     }
-  }, [colors.onSurface, colors.text, theme.dark, toast.type]);
+    return colors.onPrimary;
+  }, [colors.onPrimary, toast.type]);
 
   const translateY = animated.interpolate({
     inputRange: [0, 1],
     outputRange: [20, 0],
   });
-
-  const opacity = animated;
 
   return (
     <Animated.View
@@ -133,13 +128,12 @@ const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, 
         styles.toastCard,
         containerStyle,
         {
-          opacity,
           transform: [{ translateY }],
         },
       ]}
     >
-      {toast.title ? <Text style={[styles.toastTitle, { color: 'white' }]}>{toast.title}</Text> : null}
-      <Text style={[styles.toastMessage, { color: 'white' }]}>{toast.message}</Text>
+      {toast.title ? <Text style={[styles.toastTitle, { color: textColor }]}>{toast.title}</Text> : null}
+      <Text style={[styles.toastMessage, { color: textColor }]}>{toast.message}</Text>
     </Animated.View>
   );
 };
