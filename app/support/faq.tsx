@@ -160,10 +160,10 @@ export default function FAQScreen() {
                 <View
                   style={[
                     styles.heroIcon,
-                    { backgroundColor: withOpacity(colors.primary, appTheme.dark ? 0.35 : 0.16) },
+                    { backgroundColor: withOpacity(colors.warning, appTheme.dark ? 0.3 : 0.12) },
                   ]}
                 >
-                  <IconSymbol name="questionmark.circle.fill" size={28} color={colors.onPrimary} />
+                  <IconSymbol name="headphones" size={28} color={colors.warning} />
                 </View>
                 <View style={styles.heroCopy}>
                   <Text style={[styles.heroTitle, { color: colors.text }]}>

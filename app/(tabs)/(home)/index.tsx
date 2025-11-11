@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator } from "react-native";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
@@ -96,9 +96,13 @@ export default function HomeScreen() {
       fetchUnreadCount: state.fetchUnreadCount,
     }))
   );
-  const fetchMessages = useMessagesStore((state) => state.fetchMessages);
-  const fetchConversations = useMessagesStore((state) => state.fetchConversations);
-  const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
+  const { fetchMessages, fetchConversations, unreadChatTotal } = useMessagesStore(
+    useShallow((state) => ({
+      fetchMessages: state.fetchMessages,
+      fetchConversations: state.fetchConversations,
+      unreadChatTotal: state.unreadChatTotal,
+    }))
+  );
   const { documents, fetchDocuments } = useDocumentsStore(
     useShallow((state) => ({
       documents: state.documents,
@@ -221,10 +225,6 @@ export default function HomeScreen() {
     [isAuthenticated]
   );
 
-  useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
-
   useFocusEffect(
     useCallback(() => {
       fetchUpcomingAppointment({ silent: true });
@@ -254,6 +254,44 @@ export default function HomeScreen() {
     };
   }, []);
 
+  const bootstrapData = useCallback(
+    async (userId?: string | null) => {
+      if (!isAuthenticated) {
+        return;
+      }
+
+      const tasks: Array<Promise<unknown>> = [
+        fetchCases(),
+        fetchUnreadCount(),
+        fetchMessages(),
+        fetchDocuments(),
+        fetchUpcomingAppointment(),
+        refreshStats(true),
+      ];
+
+      if (userId) {
+        tasks.push(fetchConversations(userId));
+      }
+
+      const results = await Promise.allSettled(tasks);
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          logger.error('Home bootstrap task failed', result.reason);
+        }
+      });
+    },
+    [
+      isAuthenticated,
+      fetchCases,
+      fetchUnreadCount,
+      fetchMessages,
+      fetchDocuments,
+      fetchUpcomingAppointment,
+      refreshStats,
+      fetchConversations,
+    ]
+  );
+
   useEffect(() => {
     if (__DEV__) {
       console.log('[HomeScreen] Mounted, isAuthenticated:', isAuthenticated);
@@ -270,32 +308,12 @@ export default function HomeScreen() {
     }
 
     bootstrapUserRef.current = user.uid;
-    let isActive = true;
-
-    (async () => {
-      try {
-        const tasks: Array<Promise<unknown>> = [
-          fetchCases(),
-          fetchUnreadCount(),
-          fetchMessages(),
-          fetchDocuments(),
-          fetchUpcomingAppointment(),
-        ];
-        if (user?.uid) {
-          tasks.push(fetchConversations(user.uid));
-        }
-        await Promise.all(tasks);
-      } finally {
-        if (isActive) {
-          refreshStats(true);
-        }
-      }
-    })();
+    bootstrapData(user.uid);
 
     return () => {
-      isActive = false;
+      bootstrapUserRef.current = null;
     };
-  }, [isAuthenticated, user?.uid, fetchCases, fetchUnreadCount, fetchMessages, fetchConversations, fetchDocuments, fetchUpcomingAppointment, refreshStats]);
+  }, [isAuthenticated, user?.uid, bootstrapData]);
 
   const sortedCases = useMemo(() => {
     if (!cases || cases.length === 0) {
@@ -350,6 +368,7 @@ export default function HomeScreen() {
     if (!isAuthenticated) {
       statsUpdateRef.current = false;
       statsRefreshCooldownRef.current = 0;
+      setStats(null);
       return;
     }
     if (!statsUpdateRef.current) {
@@ -444,6 +463,30 @@ export default function HomeScreen() {
 
   const userName = user?.displayName || user?.email?.split('@')[0] || t('home.defaultUserName', { defaultValue: 'User' });
 
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const currentScrollY = event.nativeEvent.contentOffset.y;
+      const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+      const contentHeight = event.nativeEvent.contentSize.height;
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      scrollTimeoutRef.current = setTimeout(() => {
+        const isAtBottom = currentScrollY + scrollViewHeight >= contentHeight - 50;
+        setAtBottom(isAtBottom);
+
+        const scrollDiff = currentScrollY - lastScrollY.current;
+        if (Math.abs(scrollDiff) > 5) {
+          setScrollDirection(scrollDiff > 0);
+          lastScrollY.current = currentScrollY;
+        }
+      }, 50);
+    },
+    [setAtBottom, setScrollDirection]
+  );
+
   return (
     <>
       {Platform.OS === 'ios' && (
@@ -465,36 +508,7 @@ export default function HomeScreen() {
             { paddingBottom: scrollContentPaddingBottom }
           ]}
           showsVerticalScrollIndicator={false}
-          onScroll={(event) => {
-            const currentScrollY = event.nativeEvent.contentOffset.y;
-            const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
-            const contentHeight = event.nativeEvent.contentSize.height;
-
-            // Clear any pending timeout
-            if (scrollTimeoutRef.current) {
-              clearTimeout(scrollTimeoutRef.current);
-            }
-
-            // Debounce state updates to prevent excessive re-renders
-            scrollTimeoutRef.current = setTimeout(() => {
-              // Check if at bottom (with 50px threshold)
-              const isAtBottom = currentScrollY + scrollViewHeight >= contentHeight - 50;
-              setAtBottom(isAtBottom);
-
-              // Determine scroll direction (only update if changed significantly)
-              const scrollDiff = currentScrollY - lastScrollY.current;
-              if (Math.abs(scrollDiff) > 5) { // Only update if scrolled more than 5px
-                if (scrollDiff > 0) {
-                  // Scrolling down
-                  setScrollDirection(true);
-                } else {
-                  // Scrolling up
-                  setScrollDirection(false);
-                }
-                lastScrollY.current = currentScrollY;
-              }
-            }, 50); // Debounce by 50ms
-          }}
+          onScroll={handleScroll}
           scrollEventThrottle={16}
         >
           {/* Header with Greeting and Notification */}

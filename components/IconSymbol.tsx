@@ -82,6 +82,9 @@ const MAPPING = {
   "pause.fill": "pause",
   "stop.fill": "stop",
 
+  // Support & Communication
+  "headphones": "headset-mic",
+
   // System & Settings
   "gear": "settings",
   "gearshape.fill": "settings",

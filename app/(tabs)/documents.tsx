@@ -172,6 +172,7 @@ export default function DocumentsScreen() {
   const clearTemplatesError = useTemplatesStore((state) => state.clearError);
   const [isTemplatesRefreshing, setIsTemplatesRefreshing] = useState(false);
   const [activeTemplateDownloadId, setActiveTemplateDownloadId] = useState<string | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
 
   const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
   const [downloadsLoading, setDownloadsLoading] = useState(false);
@@ -892,11 +893,17 @@ export default function DocumentsScreen() {
                 const documentSize = formatFileSize(document.fileSize);
                 const documentDate = formatDisplayDate(document.uploadDate);
                 const typeColor = documentTypeColors[documentType as keyof typeof documentTypeColors] ?? documentTypeColors.default;
+                const isDeleting = deletingDocumentId === document.id;
 
                 return (
                   <Pressable
                     key={document.id}
-                    style={[styles.documentCard, { backgroundColor: surfaceCard }]}
+                    style={[
+                      styles.documentCard,
+                      { backgroundColor: surfaceCard },
+                      isDeleting && { opacity: 0.5 },
+                    ]}
+                    disabled={isDeleting}
                     onPress={async () => {
                       try {
                         let targetUrl: string | null = document.filePath || null;
@@ -981,6 +988,7 @@ export default function DocumentsScreen() {
                     <View style={styles.documentActions}>
                       <Pressable
                         style={styles.downloadActionButton}
+                        disabled={isDeleting}
                         onPress={async () => {
                           try {
                             const downloaded = await documentsService.downloadDocument(document.id);
@@ -1001,6 +1009,7 @@ export default function DocumentsScreen() {
                       </Pressable>
                       <Pressable
                         style={styles.downloadActionButton}
+                        disabled={isDeleting}
                         onPress={async () => {
                           Alert.alert(
                             t('documents.deleteTitle', { defaultValue: 'Delete document?' }),
@@ -1011,9 +1020,18 @@ export default function DocumentsScreen() {
                                 text: t('common.delete'),
                                 style: 'destructive',
                                 onPress: async () => {
+                                  if (deletingDocumentId) {
+                                    return;
+                                  }
+                                  setDeletingDocumentId(document.id);
                                   try {
                                     await documentsService.deleteDocument(document.id);
-                                    fetchDocuments(buildFilters(), { force: true });
+                                    await fetchDocuments(buildFilters(), { force: true });
+                                    showToast({
+                                      title: t('common.success'),
+                                      message: t('documents.deleteSuccess', { defaultValue: 'Document deleted successfully.' }),
+                                      type: 'success',
+                                    });
                                   } catch (deleteError: any) {
                                     logger.error('Delete document error', deleteError);
                                     showAlert({
@@ -1023,6 +1041,15 @@ export default function DocumentsScreen() {
                                         t('documents.deleteFailed', { defaultValue: 'Unable to delete this document.' }),
                                       actions: [{ text: t('common.close'), variant: 'primary' }],
                                     });
+                                    showToast({
+                                      title: t('common.error'),
+                                      message:
+                                        deleteError?.message ||
+                                        t('documents.deleteFailed', { defaultValue: 'Unable to delete this document.' }),
+                                      type: 'error',
+                                    });
+                                  } finally {
+                                    setDeletingDocumentId(null);
                                   }
                                 },
                               },
@@ -1030,7 +1057,11 @@ export default function DocumentsScreen() {
                           );
                         }}
                       >
-                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                        {isDeleting ? (
+                          <ActivityIndicator size="small" color={colors.danger} />
+                        ) : (
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                        )}
                       </Pressable>
                     </View>
                   </Pressable>

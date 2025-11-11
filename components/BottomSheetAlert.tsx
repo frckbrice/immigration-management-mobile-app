@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetModalProvider, BottomSheetView } from '@gorhom/bottom-sheet';
 import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sheet';
@@ -61,27 +61,22 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
   }, []);
 
   const showAlert = useCallback((opts: BottomSheetAlertOptions) => {
-    setContent({
+    const normalized: BottomSheetAlertOptions = {
       title: opts.title,
       message: opts.message,
       actions: opts.actions && opts.actions.length > 0 ? opts.actions : [{ text: t('common.close') }],
+    };
+
+    setContent(normalized);
+
+    requestAnimationFrame(() => {
+      try {
+        sheetRef.current?.present();
+      } catch (error) {
+        console.warn('Failed to present bottom sheet:', error);
+      }
     });
   }, [t]);
-
-  // Present sheet when content is set
-  useEffect(() => {
-    if (content) {
-      // Use a small delay to ensure ref is attached
-      const timer = setTimeout(() => {
-        try {
-          sheetRef.current?.present();
-        } catch (error) {
-          console.warn('Failed to present bottom sheet:', error);
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [content]);
 
   const backdrop = useCallback((props: any) => (
     <BottomSheetBackdrop
