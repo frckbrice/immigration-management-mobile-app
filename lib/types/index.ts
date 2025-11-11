@@ -178,6 +178,7 @@ export interface UserProfile {
   lastName?: string;
   email: string;
   avatar?: string;
+  profilePicture?: string;
   phone?: string;
   address?: string;
 }

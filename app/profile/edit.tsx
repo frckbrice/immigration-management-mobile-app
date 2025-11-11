@@ -136,7 +136,7 @@ export default function EditProfileScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <BackButton onPress={() => router.back()} />
+              <BackButton onPress={() => router.back()} style={{ marginRight: 12 }} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.editProfile')}</Text>
                 <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>

@@ -27,7 +27,7 @@ export const profileService = {
         throw new Error(response.data.error || 'Failed to fetch profile');
       }
 
-      logger.info('Profile fetched successfully');
+      logger.info('Profile fetched successfully', { profile });
       return profile;
     } catch (error: any) {
       logger.error('Error fetching profile', error);

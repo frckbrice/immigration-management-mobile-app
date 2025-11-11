@@ -15,6 +15,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { uploadFileToAPI } from "@/lib/services/fileUpload";
 import { logger } from "@/lib/utils/logger";
+import { useToast } from "@/components/Toast";
 
 export default function ProfileScreen() {
   const theme = useAppTheme();
@@ -26,7 +27,21 @@ export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const avatarUri = useMemo(() => profile?.avatar || user?.photoURL || null, [profile?.avatar, user?.photoURL]);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const avatarUri = useMemo(() => {
+    if (avatarPreview) {
+      return avatarPreview;
+    }
+
+    return (
+      profile?.profilePicture ||
+      profile?.avatar ||
+      user?.photoURL ||
+      null
+    );
+  }, [avatarPreview, profile?.profilePicture, profile?.avatar, user?.photoURL]);
 
   const uploadAndSave = useCallback(
     async (asset: ImagePicker.ImagePickerAsset) => {
@@ -44,23 +59,27 @@ export default function ProfileScreen() {
         }
 
         await updateProfile({ avatar: uploadResult.url });
-        await fetchProfile();
-
-        Alert.alert(
-          t('common.success'),
-          t('profile.photoUpdated', { defaultValue: 'Profile photo updated successfully.' }),
-        );
+        setAvatarPreview(uploadResult.url);
+        fetchProfile().catch((error) => {
+          logger.warn('Failed to refresh profile after photo upload', error);
+        });
+        showToast({
+          title: t('common.success'),
+          message: t('profile.photoUpdated', { defaultValue: 'Profile photo updated successfully.' }),
+          type: 'success',
+        });
       } catch (error: any) {
         logger.error('Profile photo update failed', error);
-        Alert.alert(
-          t('common.error'),
-          error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to update profile photo.' }),
-        );
+        showToast({
+          title: t('common.error'),
+          message: error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to update profile photo.' }),
+          type: 'error',
+        });
       } finally {
         setIsUploadingPhoto(false);
       }
     },
-    [fetchProfile, t, updateProfile],
+    [fetchProfile, showToast, t, updateProfile],
   );
 
   const pickImage = useCallback(
@@ -72,33 +91,30 @@ export default function ProfileScreen() {
             : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (permissionStatus.status !== 'granted') {
-          Alert.alert(
-            t('profile.noPermissions', { defaultValue: 'Permission needed' }),
-            t('profile.photosPermissionNeeded', {
+          showToast({
+            title: t('profile.noPermissions', { defaultValue: 'Permission needed' }),
+            message: t('profile.photosPermissionNeeded', {
               defaultValue: 'Please grant access in settings to update your profile photo.',
             }),
-            [
-              { text: t('common.cancel'), style: 'cancel' },
-              { text: t('profile.openSettings', { defaultValue: 'Open settings' }), onPress: () => Linking.openSettings() },
-            ],
-          );
+            type: 'error',
+          });
           return;
         }
 
         const pickerResult =
           mode === 'camera'
             ? await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              })
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            })
             : await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              });
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
 
         if (pickerResult.canceled || !pickerResult.assets?.length) {
           return;
@@ -107,10 +123,11 @@ export default function ProfileScreen() {
         await uploadAndSave(pickerResult.assets[0]);
       } catch (error: any) {
         logger.error('Image picker error', error);
-        Alert.alert(
-          t('common.error'),
-          error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to pick an image.' }),
-        );
+        showToast({
+          title: t('common.error'),
+          message: error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to pick an image.' }),
+          type: 'error',
+        });
       }
     },
     [t, uploadAndSave],
@@ -137,6 +154,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  useEffect(() => {
+    if (
+      avatarPreview &&
+      profile?.profilePicture &&
+      profile.profilePicture === avatarPreview
+    ) {
+      setAvatarPreview(null);
+    }
+  }, [avatarPreview, profile?.profilePicture]);
 
   const handleLogout = async () => {
     await logout();
@@ -185,13 +212,13 @@ export default function ProfileScreen() {
                   </View>
                 )}
                 <Pressable
-                  style={styles.avatarEditButton}
+                  style={[styles.avatarEditButton, { marginRight: 10, marginBottom: 10, backgroundColor: '#e7eeff' }]}
                   onPress={() => handleChangeProfilePhoto()}
                   accessibilityRole="button"
                   accessibilityLabel={t('profile.changeProfilePhoto', { defaultValue: 'Change profile photo' })}
                   disabled={isUploadingPhoto}
                 >
-                  <MaterialCommunityIcons name="camera-plus" size={16} color="#fff" />
+                  <MaterialCommunityIcons name="camera-plus" size={20} color={theme.colors.primary} />
                 </Pressable>
               </View>
             </View>
@@ -481,19 +508,21 @@ const styles = StyleSheet.create({
   },
   avatarEditButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    bottom: -4,
+    right: -4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#0B93F6',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
     shadowColor: '#00000033',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   profileName: {
     fontSize: 24,

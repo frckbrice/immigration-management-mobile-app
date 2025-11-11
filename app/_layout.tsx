@@ -15,10 +15,12 @@ import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
 import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
 import { ToastProvider } from "@/components/Toast";
+import { useToast } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
 import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
 import { useSettingsStore } from "@/stores/settings/settingsStore";
+import { presenceService } from "@/lib/services/presenceService";
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -81,6 +83,7 @@ function AppContent() {
     const registerPushToken = useAuthStore((state) => state.registerPushToken);
     const settings = useSettingsStore((state) => state.settings);
     const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+    const { showToast } = useToast();
 
     console.log('[App] AppContent state:', { loaded, isAuthenticated });
 
@@ -101,6 +104,12 @@ function AppContent() {
         // Initialize auth state listener on app start
         initializeAuthListener();
         logger.info('App layout initialized');
+
+        // Initialize presence tracking
+        const cleanupPresence = presenceService.initializePresenceTracking();
+        return () => {
+            cleanupPresence?.();
+        };
     }, []);
 
     useEffect(() => {
@@ -115,7 +124,23 @@ function AppContent() {
 
         const setupNotifications = async () => {
             // Setup notification listeners
-            cleanup = setupNotificationListeners();
+            cleanup = setupNotificationListeners({
+                onNotificationReceived: ({ notification, data }) => {
+                    const title = notification.request.content.title?.trim() || 'New notification';
+                    const body = notification.request.content.body?.trim();
+                    const fallbackMessage =
+                        typeof data?.message === 'string' && data.message.trim().length > 0
+                            ? data.message.trim()
+                            : undefined;
+                    const message = body || fallbackMessage || 'Open the app to view the latest update.';
+
+                    showToast({
+                        title,
+                        message,
+                        duration: 5000,
+                    });
+                },
+            });
 
             // Check for cold start notification
             const lastNotification = await getLastNotificationResponse();
@@ -130,7 +155,7 @@ function AppContent() {
         return () => {
             if (cleanup) cleanup();
         };
-    }, []);
+    }, [showToast]);
 
     // Register push token when authenticated
     useEffect(() => {

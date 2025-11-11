@@ -18,6 +18,7 @@ import { mergeMessageIntoList, mergeMessagesBatch, sortMessagesAsc } from "@/lib
 import SearchField from "@/components/SearchField";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
+import { useRealtimeChatParticipant } from "@/lib/hooks/useRealtimeChat";
 
 const formatServiceTypeLabel = (serviceType?: string) =>
   serviceType
@@ -123,7 +124,7 @@ export default function ChatScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [resolvedCaseId, setResolvedCaseId] = useState<string | null>(initialCaseId || null);
   const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(initialRoomId || null);
-  const [agentInfo, setAgentInfo] = useState<{ id?: string; firebaseId?: string; name?: string; profilePicture?: string; isOnline?: boolean } | null>(null);
+  const [agentInfo, setAgentInfo] = useState<{ id?: string; firebaseId?: string; name?: string; profilePicture?: string } | null>(null);
   const [displayMessages, setDisplayMessages] = useState<ChatMessage[]>([]);
   const lastMessageTimestampRef = useRef<number>(0);
   const chatInitializedRef = useRef(false);
@@ -209,6 +210,35 @@ export default function ChatScreen() {
       ].join('|'),
     [resolvedCaseId, initialRoomId, caseIdParam, paramId, userUid]
   );
+
+  const roomIdForPresence = resolvedRoomId || activeRoomIdRef.current || initialRoomId || null;
+
+  const { isPeerOnline, isPeerTyping, announceTyping, forceResetTyping } = useRealtimeChatParticipant({
+    roomId: roomIdForPresence,
+    peerId: agentInfo?.firebaseId,
+    currentUserId: userUid,
+    enabled: Boolean(roomIdForPresence),
+  });
+
+  const presenceLabel = useMemo(() => {
+    if (isPeerTyping) {
+      return t('chat.typing', { defaultValue: 'Typing…' });
+    }
+    if (isPeerOnline) {
+      return t('chat.online');
+    }
+    return t('chat.offline');
+  }, [isPeerOnline, isPeerTyping, t]);
+
+  const presenceColor = useMemo(() => {
+    if (isPeerTyping) {
+      return colors.warning;
+    }
+    if (isPeerOnline) {
+      return colors.success;
+    }
+    return withOpacity(colors.muted, 0.6);
+  }, [colors.muted, colors.success, colors.warning, isPeerOnline, isPeerTyping]);
 
   useEffect(() => {
     if (!chatMessages || chatMessages.length === 0) {
@@ -486,15 +516,13 @@ export default function ChatScreen() {
               firebaseId: agentFirebaseId || prev?.firebaseId,
               name: agentDisplayName || prev?.name || 'Agent',
               profilePicture: agentProfilePicture ?? prev?.profilePicture,
-              isOnline: prev?.isOnline ?? false,
             };
             if (
               prev &&
               prev.id === next.id &&
               prev.firebaseId === next.firebaseId &&
               prev.name === next.name &&
-              prev.profilePicture === next.profilePicture &&
-              prev.isOnline === next.isOnline
+              prev.profilePicture === next.profilePicture
             ) {
               return prev;
             }
@@ -775,6 +803,8 @@ export default function ChatScreen() {
       return;
     }
 
+    forceResetTyping();
+
     const messageText = message.trim();
     const attachments = selectedAttachments || [];
     const tempId = `temp-${Date.now()}-${Math.random()}`;
@@ -956,7 +986,7 @@ export default function ChatScreen() {
                 style={[
                   styles.onlineIndicator,
                   {
-                    backgroundColor: agentInfo?.isOnline ? colors.success : colors.warning,
+                    backgroundColor: presenceColor,
                     borderColor: theme.dark ? colors.surface : '#fff',
                   },
                 ]}
@@ -969,10 +999,10 @@ export default function ChatScreen() {
               <Text
                 style={[
                   styles.agentStatus,
-                  { color: agentInfo?.isOnline ? colors.success : colors.warning },
+                  { color: presenceColor },
                 ]}
               >
-                {agentInfo?.isOnline ? t('chat.online') : t('chat.offline')}
+                {presenceLabel}
               </Text>
             </View>
           </View>
@@ -1317,7 +1347,10 @@ export default function ChatScreen() {
                 placeholder={t('chat.typeMessage')}
                 placeholderTextColor={withOpacity(colors.text, 0.4)}
                 value={message}
-                onChangeText={setMessage}
+                onChangeText={(text) => {
+                  setMessage(text);
+                  announceTyping(text.trim().length > 0);
+                }}
                 multiline
                 maxLength={500}
               />

@@ -11,6 +11,13 @@ import { logger } from '../utils/logger';
 import { router } from 'expo-router';
 import { apiClient } from '../api/axios';
 
+export interface NotificationListenerOptions {
+  onNotificationReceived?: (payload: {
+    notification: Notifications.Notification;
+    data: NotificationData;
+  }) => void;
+}
+
 // Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -264,7 +271,7 @@ const getChannelIdForType = (type: string): string => {
 /**
  * Setup notification listeners
  */
-export const setupNotificationListeners = () => {
+export const setupNotificationListeners = (options?: NotificationListenerOptions) => {
   // Listen for notifications received while app is open
   const receivedSubscription = addNotificationReceivedListener(
     async (notification) => {
@@ -273,6 +280,11 @@ export const setupNotificationListeners = () => {
         title: notification.request.content.title,
         body: notification.request.content.body,
         type: data.type,
+      });
+
+      options?.onNotificationReceived?.({
+        notification,
+        data,
       });
     }
   );
