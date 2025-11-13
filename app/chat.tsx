@@ -153,6 +153,7 @@ export default function ChatScreen() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'attachments' | 'agent' | 'mine'>('all');
+  const [isSearchToolbarVisible, setIsSearchToolbarVisible] = useState(false);
 
   const conversationsRef = useRef(conversations);
   useEffect(() => {
@@ -790,6 +791,11 @@ export default function ChatScreen() {
   }, [sortedMessages, activeFilter, hasSearchQuery, normalizedSearchQuery, userUid]);
   const isFiltered = activeFilter !== 'all' || hasSearchQuery;
 
+  // Memoized toggle function for search toolbar
+  const toggleSearchToolbar = useCallback(() => {
+    setIsSearchToolbarVisible((prev) => !prev);
+  }, []);
+
   const handleSend = async () => {
     if ((!message.trim() && (!selectedAttachments || selectedAttachments.length === 0)) || !user || !resolvedCaseId) return;
 
@@ -951,7 +957,7 @@ export default function ChatScreen() {
         style={[
           styles.container,
           {
-            backgroundColor: theme.dark ? colors.background : withOpacity(colors.primary, 0.04),
+            backgroundColor: theme.dark ? colors.background : withOpacity('#FFF9C4', 0.25),
           },
         ]}
         edges={['top', 'bottom']}
@@ -1008,18 +1014,14 @@ export default function ChatScreen() {
           </View>
 
           <Pressable
-            style={styles.callButton}
-            onPress={() => {
-              // Open phone dialer with agent contact if available
-              // For now, show an alert - can be enhanced with actual phone number from agentInfo
-              showAlert({
-                title: 'Call Agent',
-                message: 'This feature will initiate a call to your assigned agent. Please contact support for the agent\'s direct number.',
-                actions: [{ text: t('common.close'), variant: 'primary' }]
-              });
-            }}
+            style={styles.searchButton}
+            onPress={toggleSearchToolbar}
           >
-            <IconSymbol name="phone.fill" size={24} color={theme.colors.text} />
+            <IconSymbol
+              name={isSearchToolbarVisible ? "xmark" : "magnifyingglass"}
+              size={24}
+              color={theme.colors.text}
+            />
           </Pressable>
         </View>
 
@@ -1027,7 +1029,7 @@ export default function ChatScreen() {
           style={[
             styles.chatContainer,
             {
-              backgroundColor: theme.dark ? colors.surface : colors.surface,
+              backgroundColor: theme.dark ? colors.surface : withOpacity('#FFF9C4', 0.25),
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.25),
@@ -1038,18 +1040,19 @@ export default function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          <View
-            style={[
-              styles.messagesToolbar,
-              {
-                backgroundColor: theme.dark
-                  ? withOpacity(colors.surfaceElevated, 0.9)
-                  : withOpacity(colors.surfaceAlt, 0.95),
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
-                shadowColor: theme.dark ? '#000000' : withOpacity(colors.warning, 0.45),
-              },
-            ]}
-          >
+          {isSearchToolbarVisible && (
+            <View
+              style={[
+                styles.messagesToolbar,
+                {
+                  backgroundColor: theme.dark
+                    ? withOpacity(colors.surfaceElevated, 0.9)
+                    : withOpacity(colors.surfaceAlt, 0.95),
+                  borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.25),
+                  shadowColor: theme.dark ? '#000000' : withOpacity(colors.warning, 0.45),
+                },
+              ]}
+            >
             <SearchField
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -1136,7 +1139,8 @@ export default function ChatScreen() {
                 </Text>
               </View>
             )}
-          </View>
+            </View>
+          )}
 
           {/* Messages */}
           <FlatList
@@ -1310,7 +1314,7 @@ export default function ChatScreen() {
             style={[
               styles.inputContainer,
               {
-                backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+                backgroundColor: theme.dark ? colors.surfaceElevated : withOpacity('#FFF9C4', 0.25),
                 borderTopColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.2),
                 shadowColor: theme.dark ? '#000000' : withOpacity(colors.primary, 0.25),
               },
@@ -1428,7 +1432,7 @@ const styles = StyleSheet.create({
   agentStatus: {
     fontSize: 12,
   },
-  callButton: {
+  searchButton: {
     padding: 8,
   },
   chatContainer: {

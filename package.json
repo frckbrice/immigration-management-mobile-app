@@ -74,7 +74,7 @@
     "expo-updates": "~29.0.12",
     "expo-web-browser": "^15.0.9",
     "filter-obj": "^6.1.0",
-    "firebase": "^12.5.0",
+    "firebase": "^11.1.0",
     "i18next": "^25.6.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

@@ -237,10 +237,12 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set({ isConversationsLoading: true, conversationsError: null });
     try {
       const conversations = await chatService.loadConversations(userId);
+      // Clear any previous errors and set conversations (even if empty)
       set({
         conversations,
         unreadChatTotal: computeUnreadChatTotal(conversations),
         isConversationsLoading: false,
+        conversationsError: null, // Explicitly clear error on success
         lastConversationsFetchedAt: Date.now(),
         lastConversationsUserId: userId,
       });

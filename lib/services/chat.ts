@@ -1,4 +1,4 @@
-import { database } from '../firebase/config';
+import { database, getDatabaseInstance as getDbInstance } from '../firebase/config';
 import { apiClient } from '../api/axios';
 import {
     ref,
@@ -78,6 +78,16 @@ function getChatRoomId(clientId: string, agentId: string): string {
     return `${sorted[0]}-${sorted[1]}`;
 }
 
+/**
+ * Helper function to get database instance or return null if unavailable
+ * This ensures type safety when database might be null
+ * Uses getDbInstance from config which has retry logic
+ * Returns null instead of throwing to allow graceful degradation
+ */
+function getDatabaseInstance(): ReturnType<typeof getDbInstance> {
+    return getDbInstance();
+}
+
 class ChatService {
 
     private async fetchMessagesForRoom(
@@ -90,7 +100,12 @@ class ChatService {
         totalCount: number;
     }> {
         try {
-            const messagesRef = ref(database, `chats/${roomId}/messages`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database is not available, returning empty messages', { roomId });
+                return { roomId, messages: [], hasMore: false, totalCount: 0 };
+            }
+            const messagesRef = ref(db, `chats/${roomId}/messages`);
 
             let messagesQuery;
             try {
@@ -230,7 +245,11 @@ class ChatService {
 
     private async computeUnreadCount(roomId: string, userId: string): Promise<number> {
         try {
-            const messagesRef = ref(database, `chats/${roomId}/messages`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                return 0;
+            }
+            const messagesRef = ref(db, `chats/${roomId}/messages`);
             const snapshot = await get(messagesRef);
 
             if (!snapshot.exists()) {
@@ -254,7 +273,11 @@ class ChatService {
     // Fetch chat metadata
     async getChatMetadata(roomId: string): Promise<ChatMetadata | null> {
         try {
-            const metadataRef = ref(database, `chats/${roomId}/metadata`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                return null;
+            }
+            const metadataRef = ref(db, `chats/${roomId}/metadata`);
             const snap = await get(metadataRef);
             if (!snap.exists()) return null;
             const raw = snap.val();
@@ -289,7 +312,13 @@ class ChatService {
                 return [];
             }
 
-            const userChatsRef = ref(database, `userChats/${userId}`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, returning empty conversations list', { userId });
+                return [];
+            }
+
+            const userChatsRef = ref(db, `userChats/${userId}`);
             const snapshot = await get(userChatsRef);
 
             if (!snapshot.exists()) {
@@ -334,7 +363,14 @@ class ChatService {
             return () => { };
         }
 
-        const userChatsRef = ref(database, `userChats/${userId}`);
+        const db = getDatabaseInstance();
+        if (!db) {
+            logger.warn('Database not available, returning empty conversations subscription', { userId });
+            callback([]);
+            return () => { };
+        }
+
+        const userChatsRef = ref(db, `userChats/${userId}`);
 
         const listener = onValue(
             userChatsRef,
@@ -355,10 +391,15 @@ class ChatService {
     // Helper method to resolve chat room ID from caseId
     async resolveChatRoomIdFromCase(caseId: string, clientId?: string, agentId?: string): Promise<string | null> {
         try {
+            const db = getDatabaseInstance();
+            if (!db) {
+                return null;
+            }
+
             // If we have both clientId and agentId, try new format first
             if (clientId && agentId) {
                 const newRoomId = getChatRoomId(clientId, agentId);
-                const newMetadataRef = ref(database, `chats/${newRoomId}/metadata`);
+                const newMetadataRef = ref(db, `chats/${newRoomId}/metadata`);
                 const newMetadataSnap = await get(newMetadataRef);
 
                 if (newMetadataSnap.exists()) {
@@ -371,7 +412,7 @@ class ChatService {
             }
 
             // Fallback to old format (caseId as room ID)
-            const oldMetadataRef = ref(database, `chats/${caseId}/metadata`);
+            const oldMetadataRef = ref(db, `chats/${caseId}/metadata`);
             const oldMetadataSnap = await get(oldMetadataRef);
             if (oldMetadataSnap.exists()) {
                 return caseId;
@@ -390,7 +431,11 @@ class ChatService {
                 return null;
             }
 
-            const userChatsRef = ref(database, `userChats/${clientId}`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                return null;
+            }
+            const userChatsRef = ref(db, `userChats/${clientId}`);
             const snapshot = await get(userChatsRef);
             if (!snapshot.exists()) {
                 return null;
@@ -430,13 +475,19 @@ class ChatService {
         agentId?: string
     ): Promise<boolean> {
         try {
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, cannot send message', { caseIdOrRoomId, senderId });
+                return false;
+            }
+
             // Determine the chat room ID
             let chatRoomId: string | null = null;
 
             if (clientId && agentId) {
                 chatRoomId = await this.resolveChatRoomIdFromCase(caseIdOrRoomId, clientId, agentId);
             } else {
-                const caseMetadataRef = ref(database, `chats/${caseIdOrRoomId}/metadata`);
+                const caseMetadataRef = ref(db, `chats/${caseIdOrRoomId}/metadata`);
                 const caseMetadataSnap = await get(caseMetadataRef);
                 if (caseMetadataSnap.exists()) {
                     chatRoomId = caseIdOrRoomId;
@@ -451,14 +502,14 @@ class ChatService {
                 return false;
             }
 
-            const messagesRef = ref(database, `chats/${chatRoomId}/messages`);
+            const messagesRef = ref(db, `chats/${chatRoomId}/messages`);
             const newMessageRef = push(messagesRef);
             const messageId = newMessageRef.key!;
 
             const timestamp = Date.now();
 
             // Ensure metadata exists before writing message
-            const metadataRef = ref(database, `chats/${chatRoomId}/metadata`);
+            const metadataRef = ref(db, `chats/${chatRoomId}/metadata`);
             const existingMetadata = await get(metadataRef);
 
             // Get caseId from metadata if available, otherwise use the parameter
@@ -492,11 +543,11 @@ class ChatService {
                 const { agentId: metadataAgentId, clientId: metadataClientId } = existingMetadata.val().participants;
                 if (metadataAgentId && metadataClientId) {
                     await Promise.all([
-                        update(ref(database, `userChats/${metadataAgentId}/${chatRoomId}`), {
+                        update(ref(db, `userChats/${metadataAgentId}/${chatRoomId}`), {
                             lastMessage: message.substring(0, 100),
                             lastMessageTime: timestamp,
                         }),
-                        update(ref(database, `userChats/${metadataClientId}/${chatRoomId}`), {
+                        update(ref(db, `userChats/${metadataClientId}/${chatRoomId}`), {
                             lastMessage: message.substring(0, 100),
                             lastMessageTime: timestamp,
                         }),
@@ -523,7 +574,12 @@ class ChatService {
         onNewMessage: (message: ChatMessage) => void,
         lastKnownTimestamp?: number
     ): () => void {
-        const messagesRef = ref(database, `chats/${chatRoomId}/messages`);
+        const db = getDatabaseInstance();
+        if (!db) {
+            logger.warn('Database not available, returning no-op subscription', { chatRoomId });
+            return () => { };
+        }
+        const messagesRef = ref(db, `chats/${chatRoomId}/messages`);
 
         const unsubscribe = onChildAdded(
             messagesRef,
@@ -576,6 +632,12 @@ class ChatService {
         totalCount: number;
     }> {
         try {
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, returning empty messages', { caseId });
+                return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
+            }
+
             logger.info('loadInitialMessages from Firebase', { caseId, clientId, agentId });
 
             // Determine existing room ID (prefer client-agent pair, then derived, fallback to caseId)
@@ -585,12 +647,12 @@ class ChatService {
             if (clientId && agentId) {
                 const pairRoomId = getChatRoomId(clientId, agentId);
 
-                const pairMetadataRef = ref(database, `chats/${pairRoomId}/metadata`);
+                const pairMetadataRef = ref(db, `chats/${pairRoomId}/metadata`);
                 const pairMetadataSnap = await get(pairMetadataRef);
                 if (pairMetadataSnap.exists()) {
                     resolvedRoomId = pairRoomId;
                 } else {
-                    const pairMessagesRef = ref(database, `chats/${pairRoomId}/messages`);
+                    const pairMessagesRef = ref(db, `chats/${pairRoomId}/messages`);
                     const pairMessagesSnap = await get(pairMessagesRef);
                     if (pairMessagesSnap.exists()) {
                         resolvedRoomId = pairRoomId;
@@ -601,13 +663,13 @@ class ChatService {
                     const resolvedFromCase = await this.resolveChatRoomIdFromCase(caseId, clientId, agentId);
                     logger.debug('\n\n\n [Chat Service] resolvedFromCase', { resolvedFromCase });
                     if (resolvedFromCase) {
-                        const derivedMetadataRef = ref(database, `chats/${resolvedFromCase}/metadata`);
+                        const derivedMetadataRef = ref(db, `chats/${resolvedFromCase}/metadata`);
                         const derivedMetadataSnap = await get(derivedMetadataRef);
                         logger.debug('\n\n\n [Chat Service] derivedMetadataSnap', { derivedMetadataSnap });
                         if (derivedMetadataSnap.exists()) {
                             resolvedRoomId = resolvedFromCase;
                         } else {
-                            const derivedMessagesRef = ref(database, `chats/${resolvedFromCase}/messages`);
+                            const derivedMessagesRef = ref(db, `chats/${resolvedFromCase}/messages`);
                             const derivedMessagesSnap = await get(derivedMessagesRef);
                             logger.debug('\n\n\n [Chat Service] derivedMessagesSnap', { derivedMessagesSnap });
                             if (derivedMessagesSnap.exists()) {
@@ -619,13 +681,13 @@ class ChatService {
             }
 
             if (!resolvedRoomId) {
-                const legacyMetadataRef = ref(database, `chats/${caseId}/metadata`);
+                const legacyMetadataRef = ref(db, `chats/${caseId}/metadata`);
                 const legacyMetadataSnap = await get(legacyMetadataRef);
                 if (legacyMetadataSnap.exists()) {
                     logger.debug('\n\n\n [Chat Service] legacyMetadataSnap exists', { legacyMetadataSnap });
                     resolvedRoomId = caseId;
                 } else {
-                    const legacyMessagesRef = ref(database, `chats/${caseId}/messages`);
+                    const legacyMessagesRef = ref(db, `chats/${caseId}/messages`);
                     const legacyMessagesSnap = await get(legacyMessagesRef);
                     logger.debug('\n\n\n [Chat Service] legacyMessagesSnap', { legacyMessagesSnap });
                     if (legacyMessagesSnap.exists()) {
@@ -672,7 +734,12 @@ class ChatService {
         hasMore: boolean;
     }> {
         try {
-            const messagesRef = ref(database, `chats/${roomId}/messages`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, returning empty messages', { roomId });
+                return { messages: [], hasMore: false };
+            }
+            const messagesRef = ref(db, `chats/${roomId}/messages`);
 
             let snapshot;
             try {
@@ -738,7 +805,12 @@ class ChatService {
     // Mark messages as read
     async markMessagesAsRead(roomId: string, userId: string): Promise<void> {
         try {
-            const messagesRef = ref(database, `chats/${roomId}/messages`);
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, cannot mark messages as read', { roomId, userId });
+                return;
+            }
+            const messagesRef = ref(db, `chats/${roomId}/messages`);
             const snapshot = await get(messagesRef);
 
             if (!snapshot.exists()) {
@@ -751,7 +823,7 @@ class ChatService {
             snapshot.forEach((msgSnap) => {
                 const msg = msgSnap.val();
                 if (msg.senderId !== userId && !msg.isRead) {
-                    const messageRef = ref(database, `chats/${roomId}/messages/${msgSnap.key}`);
+                    const messageRef = ref(db, `chats/${roomId}/messages/${msgSnap.key}`);
                     updatePromises.push(
                         update(messageRef, { isRead: true }).catch((err: any) => {
                             if (err.code !== 'PERMISSION_DENIED') {
@@ -767,7 +839,7 @@ class ChatService {
 
             await Promise.all(updatePromises);
 
-            const userChatRef = ref(database, `userChats/${userId}/${roomId}`);
+            const userChatRef = ref(db, `userChats/${userId}/${roomId}`);
             try {
                 await update(userChatRef, { unreadCount: 0 });
             } catch (updateError: any) {
@@ -813,9 +885,14 @@ class ChatService {
         agentName: string
     ): Promise<void> {
         try {
+            const db = getDatabaseInstance();
+            if (!db) {
+                logger.warn('Database not available, cannot initialize conversation', { caseId, clientId, agentId });
+                return;
+            }
             // Use client-agent pair for room ID
             const chatRoomId = getChatRoomId(clientId, agentId);
-            const conversationRef = ref(database, `chats/${chatRoomId}/metadata`);
+            const conversationRef = ref(db, `chats/${chatRoomId}/metadata`);
 
             // Check if conversation already exists
             const snapshot = await get(conversationRef);
@@ -874,13 +951,13 @@ class ChatService {
 
                 // Create userChats index entries
                 await Promise.all([
-                    set(ref(database, `userChats/${agentId}/${chatRoomId}`), {
+                    set(ref(db, `userChats/${agentId}/${chatRoomId}`), {
                         chatId: chatRoomId,
                         participantName: clientName,
                         lastMessage: null,
                         lastMessageTime: null,
                     }),
-                    set(ref(database, `userChats/${clientId}/${chatRoomId}`), {
+                    set(ref(db, `userChats/${clientId}/${chatRoomId}`), {
                         chatId: chatRoomId,
                         participantName: agentName,
                         lastMessage: null,

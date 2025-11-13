@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth/authStore';
 import { initializeAuthListener } from '../stores/auth/authStore';
 import { hasCompletedOnboarding } from '../lib/utils/onboarding';
 import { COLORS } from '../lib/constants';
+import { presenceService } from '@/lib/services/presenceService';
 
 console.log('[App] index.tsx loaded');
 
@@ -16,6 +17,12 @@ export default function Index() {
   const authLoading = useAuthStore((state) => state.isLoading);
   const refreshAuth = useAuthStore((state) => state.refreshAuth);
   const refreshAuthRef = useRef(refreshAuth);
+
+  // Temporarily disabled presence tracking to test app functionality
+  // useEffect(() => {
+  //   const cleanup = presenceService.initializePresenceTracking();
+  //   return () => cleanup();
+  // }, []);
 
   useEffect(() => {
     refreshAuthRef.current = refreshAuth;

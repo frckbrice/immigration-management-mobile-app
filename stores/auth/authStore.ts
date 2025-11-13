@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../../lib/firebase/config';
+import { auth, database } from '../../lib/firebase/config';
 import { secureStorage } from '../../lib/storage/secureStorage';
 import { logger } from '../../lib/utils/logger';
 import type { PushNotificationToken } from '../../lib/services/pushNotifications';
@@ -87,6 +87,7 @@ export const useAuthStore = create<AuthState>()(
           // Firebase Auth automatically persists sessions
           // We just need to wait for the auth state to be ready
           return new Promise<void>((resolve) => {
+
             const unsubscribe = onAuthStateChanged(
               auth,
               (firebaseUser) => {

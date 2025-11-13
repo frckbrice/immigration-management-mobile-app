@@ -4,7 +4,14 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { SystemBars } from "react-native-edge-to-edge";
+// Safely import SystemBars with fallback
+let SystemBars: React.ComponentType<{ style: "light" | "dark" }> | null = null;
+try {
+    const edgeToEdgeModule = require("react-native-edge-to-edge");
+    SystemBars = edgeToEdgeModule?.SystemBars || null;
+} catch (error) {
+    console.warn('SystemBars not available, will skip rendering', error);
+}
 import { ThemeProvider } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,6 +28,7 @@ import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
 import { useSettingsStore } from "@/stores/settings/settingsStore";
 import { presenceService } from "@/lib/services/presenceService";
+
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -74,7 +82,17 @@ const queryClient = new QueryClient({
 function AppContent() {
     console.log('[App] AppContent rendering');
 
-    const colorScheme = useColorScheme();
+    // Safely get color scheme with fallback
+    let colorScheme: 'light' | 'dark' | null | undefined = 'light';
+    try {
+        const scheme = useColorScheme();
+        // Handle 'unspecified' and null cases
+        colorScheme = (scheme === 'light' || scheme === 'dark') ? scheme : 'light';
+    } catch (error) {
+        console.warn('Failed to get color scheme, using light as default', error);
+        colorScheme = 'light';
+    }
+
     const [loaded] = useFonts({
         SpaceMono: require("@/assets/fonts/SpaceMono-Regular.ttf"),
     });
@@ -105,11 +123,11 @@ function AppContent() {
         initializeAuthListener();
         logger.info('App layout initialized');
 
-        // Initialize presence tracking
-        const cleanupPresence = presenceService.initializePresenceTracking();
-        return () => {
-            cleanupPresence?.();
-        };
+        // Temporarily disabled presence tracking to test app functionality
+        // const cleanupPresence = presenceService.initializePresenceTracking();
+        // return () => {
+        //     cleanupPresence?.();
+        // };
     }, []);
 
     useEffect(() => {
@@ -175,7 +193,7 @@ function AppContent() {
 
     return (
         <ThemeProvider value={activeTheme}>
-            <SystemBars style={isDarkTheme ? "light" : "dark"} />
+            {SystemBars && <SystemBars style={isDarkTheme ? "light" : "dark"} />}
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="onboarding" />
