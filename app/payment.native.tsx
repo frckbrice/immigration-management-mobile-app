@@ -2,18 +2,21 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StripeProvider, CardField, useStripe } from '@stripe/stripe-react-native';
 import { STRIPE_PUBLISHABLE_KEY, getStripeUrlScheme } from '@/utils/stripeConfig';
 import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
+import { useToast } from '@/components/Toast';
 import { paymentsService } from '@/lib/services/paymentsService';
 import { useAuthStore } from '@/stores/auth/authStore';
 import { logger } from '@/lib/utils/logger';
 
 export default function PaymentScreen() {
   const { showAlert } = useBottomSheetAlert();
+  const { showToast } = useToast();
   const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -41,6 +44,7 @@ export default function PaymentScreen() {
 
     setLoading(true);
 
+    let paymentWasSuccessful = false;
     try {
       logger.info('Creating payment intent', {
         amount,
@@ -93,7 +97,12 @@ export default function PaymentScreen() {
           
           if (verifiedIntent.status === 'succeeded') {
             logger.info('Payment verified as succeeded', { paymentIntentId: paymentIntent.id });
-            setPaymentSuccess(true);
+            paymentWasSuccessful = true;
+            showToast({
+              type: 'success',
+              title: 'Payment Successful',
+              message: `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
+            });
             showAlert({
               title: 'Payment Successful!',
               message: `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
@@ -103,6 +112,11 @@ export default function PaymentScreen() {
             logger.warn('Payment verification returned non-success status', {
               paymentIntentId: paymentIntent.id,
               status: verifiedIntent.status,
+            });
+            showToast({
+              type: 'info',
+              title: 'Payment Processing',
+              message: 'Your payment is being processed. Check your history for updates.',
             });
             showAlert({
               title: 'Payment Processing',
@@ -117,7 +131,12 @@ export default function PaymentScreen() {
             paymentIntentId: paymentIntent.id,
             error: verifyError?.message,
           });
-          setPaymentSuccess(true);
+          paymentWasSuccessful = true;
+          showToast({
+            type: 'success',
+            title: 'Payment Submitted',
+            message: `Your payment of $${amount.toFixed(2)} has been submitted. You will receive a confirmation shortly.`,
+          });
           showAlert({
             title: 'Payment Submitted',
             message: `Your payment of $${amount.toFixed(2)} has been submitted. You will receive a confirmation shortly.`,
@@ -131,6 +150,11 @@ export default function PaymentScreen() {
         amount,
         error: error?.message,
       });
+      showToast({
+        type: 'error',
+        title: 'Payment Error',
+        message: error.message || 'An unexpected error occurred. Please try again.',
+      });
       showAlert({ 
         title: 'Payment Error', 
         message: error.message || 'An unexpected error occurred. Please try again.' 
@@ -139,7 +163,7 @@ export default function PaymentScreen() {
       logger.info('Payment flow finished', {
         referenceNumber,
         amount,
-        success: paymentSuccess,
+        success: paymentWasSuccessful,
       });
       setLoading(false);
     }
@@ -157,14 +181,9 @@ export default function PaymentScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Payment</Text>
-          <View style={styles.backButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
@@ -320,15 +339,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backButton: {
-    padding: 4,
-    width: 32,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   scrollView: {
     flex: 1,

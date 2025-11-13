@@ -1,4 +1,4 @@
-import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { apiClient } from '../api/axios';
 import { logger } from '../utils/logger';
 import { auth } from '../firebase/config';
@@ -6,9 +6,12 @@ import type { UserProfile } from '../types';
 
 interface ApiResponse<T> {
   success: boolean;
+  message?: string;
   data?: T;
   error?: string;
 }
+
+export type ExportDataResponse = ApiResponse<any>;
 
 export const profileService = {
   /**
@@ -24,7 +27,7 @@ export const profileService = {
         throw new Error(response.data.error || 'Failed to fetch profile');
       }
 
-      logger.info('Profile fetched successfully');
+      logger.info('Profile fetched successfully', { profile });
       return profile;
     } catch (error: any) {
       logger.error('Error fetching profile', error);
@@ -94,6 +97,22 @@ export const profileService = {
       logger.info('Password changed successfully');
     } catch (error: any) {
       logger.error('Error changing password', error);
+
+      // Some environments restrict direct password updates via the REST API.
+      // Fall back to the Firebase SDK so users can still change their credentials.
+      if (error?.response?.status === 403) {
+        logger.warn('Falling back to Firebase updatePassword after 403 from /users/password');
+        try {
+          await updatePassword(user, newPassword);
+          logger.info('Password changed via Firebase fallback');
+          return;
+        } catch (firebaseUpdateError: any) {
+          logger.error('Firebase updatePassword fallback failed', firebaseUpdateError);
+          const fallbackMessage = firebaseUpdateError?.message || 'Failed to change password via fallback method.';
+          throw new Error(fallbackMessage);
+        }
+      }
+
       const backendMessage = error?.response?.data?.error;
       throw new Error(backendMessage || error?.message || 'Failed to change password');
     }
@@ -102,11 +121,11 @@ export const profileService = {
   /**
    * Export user data
    */
-  async exportData(): Promise<any> {
+  async exportData(): Promise<ExportDataResponse> {
     try {
       const response = await apiClient.get<ApiResponse<any>>('/users/data-export');
       logger.info('User data exported successfully');
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
       logger.error('Error exporting data', error);
       throw error;

@@ -20,7 +20,29 @@
     "viewAll": "Voir tout",
     "noResults": "Aucun résultat trouvé",
     "retry": "Réessayer",
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "resultsCount": "{{count}} résultat(s)",
+    "validation": "Validation"
+  },
+  "email": {
+    "detailTitle": "Courriel",
+    "loadError": "Impossible de charger ce courriel.",
+    "downloadSuccessTitle": "Téléchargement terminé",
+    "downloadSuccessMessage": "Retrouvez ce fichier dans l'onglet Téléchargements des Documents.",
+    "downloadFailedTitle": "Échec du téléchargement",
+    "downloadFailedMessage": "Impossible de télécharger cette pièce jointe.",
+    "replyNotSupportedTitle": "Réponse impossible",
+    "replyNotSupportedMessage": "Il n'est pas possible de répondre à ce fil de discussion.",
+    "replySentTitle": "Réponse envoyée",
+    "replySentMessage": "Votre message a été transmis à votre conseiller.",
+    "replyFailedTitle": "Échec de l'envoi",
+    "replyFailedMessage": "Impossible d'envoyer cette réponse. Veuillez réessayer plus tard.",
+    "reply": "Répondre",
+    "replyPlaceholder": "Écrivez votre réponse...",
+    "sendReply": "Envoyer",
+    "viewCase": "Voir le dossier",
+    "emptyBody": "Aucun contenu dans ce message.",
+    "attachmentsTitle": "Pièces jointes"
   },
   "auth": {
     "login": "Connexion",
@@ -86,7 +108,10 @@
     "noPendingActionsTitle": "Aucune action requise",
     "noPendingActionsDescription": "Bravo ! Vous êtes à jour.",
     "updatedOn": "Mis à jour le {{date}}",
-    "noCaseForPayment": "Aucun dossier n'est prêt pour le paiement pour le moment."
+    "noCaseForPayment": "Aucun dossier n'est prêt pour le paiement pour le moment.",
+    "appointmentLocation": "Lieu : {{location}}",
+    "appointmentAdvisor": "Conseiller : {{name}}",
+    "appointmentNotes": "Notes : {{notes}}"
   },
   "cases": {
     "title": "Mes dossiers",
@@ -113,7 +138,24 @@
     "chatUnavailableTitle": "Discussion indisponible",
     "chatUnavailableMessage": "La discussion sera disponible lorsque votre conseiller aura examiné ce dossier.",
     "chatAwaitingAgentTitle": "Conseiller en attente",
-    "chatAwaitingAgentMessage": "Un conseiller vous contactera bientôt. La discussion sera ouverte après l'assignation."
+    "chatAwaitingAgentMessage": "Un conseiller vous contactera bientôt. La discussion sera ouverte après l'assignation.",
+    "statusLabels": {
+      "submitted": "Soumis",
+      "under_review": "En révision",
+      "documents_required": "Documents requis",
+      "processing": "En traitement",
+      "approved": "Approuvé",
+      "rejected": "Rejeté",
+      "closed": "Clôturé",
+      "unknown": "Inconnu"
+    },
+    "priority": {
+      "urgent": "Urgente",
+      "high": "Haute",
+      "normal": "Normale",
+      "low": "Basse",
+      "unknown": "Inconnue"
+    }
   },
   "caseDetails": {
     "title": "Détails du dossier",
@@ -132,9 +174,65 @@
     "serviceType": "Type de service",
     "priority": "Priorité",
     "required": "Requis",
+    "heroTitle": "Créons votre dossier",
+    "heroSubtitle": "Indiquez-nous vos besoins et votre échéance.",
+    "destination": "Pays de destination",
+    "destinationHelper": "Où prévoyez-vous de voyager ou de vous installer ?",
+    "destinationLoading": "Chargement des destinations...",
+    "destinationEmpty": "Les destinations ne sont pas disponibles pour le moment.",
+    "destinationError": "Impossible de charger les destinations. Veuillez réessayer.",
+    "destinationRetry": "Actualiser",
+    "destinationDefaultDescription": "Code destination {{code}}",
+    "serviceTypeHelper": "Sélectionnez le service d'immigration qui correspond le mieux à votre situation.",
+    "priorityHelper": "Précisez le niveau d'urgence afin d'adapter notre accompagnement.",
+    "submitCta": "Soumettre le dossier",
     "fillAllFields": "Veuillez remplir tous les champs requis",
     "caseCreated": "Dossier créé avec succès",
-    "caseFailed": "Échec de la création du dossier. Veuillez réessayer."
+    "caseFailed": "Échec de la création du dossier. Veuillez réessayer.",
+    "serviceTypes": {
+      "student_visa": {
+        "title": "Visa étudiant",
+        "description": "Accompagnement pour les admissions académiques, permis d'études et installations universitaires."
+      },
+      "work_permit": {
+        "title": "Permis de travail",
+        "description": "Démarches liées à l'emploi, y compris les renouvellements et les parrainages d'employeurs."
+      },
+      "family_reunification": {
+        "title": "Regroupement familial",
+        "description": "Conseils pour réunir vos proches via des visas pour conjoint ou personnes à charge."
+      },
+      "tourist_visa": {
+        "title": "Visa touristique",
+        "description": "Visas de court séjour pour vacances, événements ou visites de courte durée."
+      },
+      "business_visa": {
+        "title": "Visa d'affaires",
+        "description": "Déplacements professionnels, conférences et besoins d'immigration liés aux investissements."
+      },
+      "permanent_residency": {
+        "title": "Résidence permanente",
+        "description": "Planification à long terme, évaluations d'admissibilité et préparation des dossiers."
+      }
+    },
+    "priorities": {
+      "low": {
+        "title": "Basse",
+        "description": "Calendrier flexible — je planifie à l'avance."
+      },
+      "normal": {
+        "title": "Normale",
+        "description": "Un traitement standard me convient."
+      },
+      "high": {
+        "title": "Haute",
+        "description": "Approche urgente — je souhaite des mises à jour régulières."
+      },
+      "urgent": {
+        "title": "Urgente",
+        "description": "Échéance critique — j'ai besoin d'une assistance immédiate."
+      }
+    }
   },
   "documents": {
     "title": "Documents",
@@ -182,9 +280,20 @@
     "downloadFailedMessage": "Impossible de télécharger ce modèle.",
     "downloadOpenErrorTitle": "Impossible d'ouvrir le fichier",
     "downloadOpenErrorMessage": "Ce fichier ne peut pas être ouvert sur votre appareil.",
+    "tapToDownload": "Appuyez pour télécharger",
     "noTemplates": "Aucun modèle disponible pour le moment.",
     "noDownloads": "Aucun téléchargement pour le moment.",
     "downloadedAt": "Téléchargé le {{date}}",
+    "shareUnavailableTitle": "Partage indisponible",
+    "shareUnavailableMessage": "Impossible d'accéder au fichier téléchargé sur cet appareil. Veuillez le télécharger à nouveau.",
+    "shareUnsupportedMessage": "Le partage n'est pas pris en charge sur cet appareil.",
+    "shareFailedTitle": "Échec du partage",
+    "shareFailedMessage": "Impossible de partager ce fichier pour le moment.",
+    "downloadSuccessTitle": "Modèle téléchargé",
+    "downloadSuccessMessage": "Retrouvez ce modèle dans l'onglet Téléchargements.",
+    "downloadRemovedMessage": "Supprimé des téléchargements.",
+    "downloadRemoveFailedTitle": "Suppression impossible",
+    "downloadRemoveFailedMessage": "Impossible de supprimer ce téléchargement.",
     "noCaseTitle": "Aucun dossier disponible",
     "noCaseMessage": "Créez un dossier avant de téléverser des documents.",
     "searchTemplates": "Rechercher des modèles...",
@@ -212,12 +321,97 @@
     "supportedFormats": "Formats pris en charge",
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
   },
+  "payments": {
+    "history": {
+      "title": "Historique des paiements",
+      "recentPayments": "Paiements récents",
+      "summary": {
+        "totalPaid": "Total payé",
+        "transactions": "Transactions"
+      },
+      "status": {
+        "completed": "Terminé",
+        "pending": "En attente",
+        "failed": "Échoué",
+        "processing": "En cours",
+        "unknown": "Inconnu"
+      },
+      "caseLabel": "Dossier : {{caseNumber}}",
+      "caseUnknown": "N/A",
+      "actions": {
+        "makePayment": "Effectuer un paiement"
+      },
+      "empty": {
+        "title": "Aucun paiement pour le moment",
+        "description": "Votre historique de paiement apparaîtra ici"
+      },
+      "sheet": {
+        "title": "Choisissez un dossier",
+        "subtitle": "Sélectionnez un dossier en attente ou en cours pour continuer.",
+        "secondaryInfo": "Appuyez pour consulter et régler ce dossier.",
+        "empty": {
+          "title": "Tout est à jour !",
+          "subtitle": "Vous n'avez aucun dossier nécessitant un paiement."
+        }
+      },
+      "priorityLabel": "Priorité • {{priority}}"
+    }
+  },
   "messages": {
     "title": "Messages",
+    "subtitle": "Restez en contact avec vos conseillers et suivez les mises à jour.",
     "noMessages": "Aucun message pour le moment",
     "chat": "Chat",
+    "email": "Courriel",
     "newMessage": "Nouveau message",
-    "conversations": "Conversations"
+    "conversations": "Conversations",
+    "inbox": "Boîte de réception",
+    "sent": "Envoyés",
+    "noInboxMessages": "Votre boîte de réception est vide",
+    "noSentMessages": "Aucun message envoyé",
+    "noConversations": "Aucune conversation pour le moment",
+    "agent": "Conseiller",
+    "justNow": "À l'instant",
+    "markAsRead": "Marquer comme lu",
+    "markAsUnread": "Marquer comme non lu",
+    "fromLabel": "De {{name}}",
+    "toLabel": "À {{name}}",
+    "caseLabel": "Dossier {{reference}}",
+    "noSubject": "(Sans objet)",
+    "composeSelectAgent": "Choisir un conseiller",
+    "composeSelectAgentHint": "Sélectionnez le conseiller et le dossier à contacter par e-mail.",
+    "composeDetailsTitle": "Détails du message",
+    "composeDetailsHint": "Ajoutez un objet et un message clairs pour recevoir une réponse rapidement.",
+    "composeSubjectLabel": "Objet",
+    "composeSubjectPlaceholder": "Préparation à l'entretien de visa",
+    "composeBodyLabel": "Message",
+    "composeBodyHelper": "Partagez tout le contexte dont votre conseiller a besoin.",
+    "composeBodyPlaceholder": "Bonjour conseiller,\n\nJe souhaite clarifier les étapes restantes pour ma demande...",
+    "composeCharacterCount": "{{count}} / 4000",
+    "composeSendCta": "Envoyer l'e-mail",
+    "composeNoAgent": "Conseiller en attente",
+    "composeNoAgentEmail": "En attente d'attribution",
+    "composeSelectAgentError": "Sélectionnez un dossier et un conseiller avant d'envoyer votre e-mail.",
+    "composeAdvisorLabel": "Conseiller",
+    "composeAdvisorPlaceholder": "Sélectionner un conseiller",
+    "composeCaseLabel": "Dossier",
+    "composeCasePlaceholder": "Sélectionner un dossier",
+    "composeAgentPickerTitle": "Choisir un conseiller",
+    "composeCasePickerTitle": "Choisir un dossier",
+    "composeAgentCasesCount_one": "{{count}} dossier",
+    "composeAgentCasesCount_other": "{{count}} dossiers",
+    "composeSubjectRequired": "L'objet est obligatoire",
+    "composeBodyTooShort": "Saisissez au moins 10 caractères.",
+    "composeSuccessTitle": "E-mail envoyé",
+    "composeSuccessMessage": "Votre conseiller recevra votre message sous peu.",
+    "composeSendError": "Nous n'avons pas pu envoyer votre e-mail. Veuillez réessayer.",
+    "composeLoadingCases": "Chargement de vos dossiers...",
+    "composeCasesErrorTitle": "Impossible de charger les conseillers",
+    "composeCasesErrorBody": "Nous n'avons pas pu récupérer vos dossiers. Veuillez réessayer.",
+    "composeRetry": "Réessayer",
+    "composeNoCasesTitle": "Aucun conseiller disponible pour le moment",
+    "composeNoCasesDescription": "Lorsqu'un conseiller sera assigné à l'un de vos dossiers, vous pourrez démarrer un courriel directement ici.",
+    "composeGoToCases": "Voir mes dossiers"
   },
   "chat": {
     "title": "Chat",
@@ -258,12 +452,16 @@
   "profile": {
     "title": "Profil et paramètres",
     "editProfile": "Modifier le profil",
+    "editProfileSubtitle": "Mettez à jour vos informations pour que nous puissions rester en contact.",
     "logout": "Se déconnecter",
     "personalInfo": "Informations personnelles",
+    "personalInfoSubtitle": "Tout ce que nous savons sur vous est rassemblé ici.",
     "changePassword": "Changer le mot de passe",
+    "changePasswordSubtitle": "Utilisez un mot de passe fort que vous n'utilisez nulle part ailleurs.",
     "paymentHistory": "Historique des paiements",
     "exportMyData": "Exporter mes données",
     "deleteAccount": "Supprimer le compte",
+    "noChanges": "Aucun changement à enregistrer. Modifiez un champ d'abord.",
     "sections": {
       "accountSettings": "PARAMÈTRES DU COMPTE",
       "preferences": "PRÉFÉRENCES",
@@ -272,12 +470,58 @@
     },
     "name": "Nom",
     "email": "Email",
+    "emailReadOnly": "L'email ne peut pas être modifié",
+    "addEmail": "Ajoutez votre email",
     "phone": "Téléphone",
+    "phonePlaceholder": "Ajoutez un numéro pour un contact rapide",
+    "addPhone": "Ajoutez un numéro de téléphone",
     "address": "Adresse",
+    "addressPlaceholder": "Rue, Ville, Pays",
+    "syncNotice": "Vos mises à jour se synchronisent instantanément sur tous vos appareils.",
     "notifications": "Notifications",
     "pushNotifications": "Notifications push",
     "emailNotifications": "Notifications par email",
+    "notificationsDescription": "Activez les alertes pour les nouveaux messages et les mises à jour de dossier.",
+    "notificationsEnabledMessage": "Vous recevrez désormais des emails et notifications push pour les nouveaux courriels, mises à jour de dossier et messages.",
+    "notificationsDisabledTitle": "Notifications désactivées",
+    "notificationsDisabledMessage": "Les alertes email et push sont coupées. Le compteur de notifications continuera d'indiquer les nouvelles mises à jour.",
+    "notificationsEnableError": "Impossible d'activer les notifications. Vérifiez les autorisations de votre appareil puis réessayez.",
+    "notificationsUpdateError": "Impossible d'enregistrer la préférence de notification. Veuillez réessayer.",
+    "notificationsToggleError": "Impossible de mettre à jour votre préférence de notification pour le moment. Veuillez réessayer plus tard.",
+    "openPreferences": "Thème, langue et notifications",
+    "preferencesRowDescription": "Gérez l'apparence et les paramètres d'alertes depuis un même endroit.",
+    "preferencesTitle": "Thème, langue et notifications",
+    "preferencesSubtitle": "Personnalisez l'interface, choisissez la langue et contrôlez les alertes de notification.",
+    "themeSectionTitle": "Apparence",
+    "languageSectionTitle": "Langue",
+    "notificationSectionTitle": "Notifications",
+    "notificationSectionSubtitle": "Activez les alertes email et push pour les nouveaux messages et mises à jour de dossier.",
+    "theme": "Thème",
+    "themeDescription": "Adaptez le thème au système ou choisissez clair et sombre.",
+    "themePickerTitle": "Choisir un thème",
+    "themePickerSubtitle": "Appliquez instantanément l'apparence de votre choix.",
+    "themeUpdated": "Préférence de thème mise à jour.",
+    "themeUpdateError": "Impossible de mettre à jour la préférence de thème.",
+    "themeOptions": {
+      "system": "S'adapter au système",
+      "light": "Clair",
+      "dark": "Sombre"
+    },
+    "themeSystemDescription": "Suivre automatiquement la préférence de votre appareil.",
+    "themeLightDescription": "Arrière-plan clair avec un fort contraste.",
+    "themeDarkDescription": "Tons assombris plus reposants pour les yeux.",
     "language": "Langue",
+    "languageDescription": "Choisissez la langue utilisée dans l'application.",
+    "languagePickerTitle": "Choisir une langue",
+    "languagePickerSubtitle": "Passez entre l'anglais et le français.",
+    "languageUpdated": "Langue mise à jour avec succès.",
+    "languageUpdateError": "Impossible de changer de langue pour le moment.",
+    "languageOptions": {
+      "en": "English",
+      "fr": "Français"
+    },
+    "languageEnDescription": "Utiliser l'anglais pour les menus et contenus.",
+    "languageFrDescription": "Utiliser le français pour l'ensemble des sections.",
     "english": "Anglais",
     "french": "Français",
     "privacy": "Confidentialité",
@@ -286,7 +530,31 @@
     "version": "Version",
     "help": "Aide et support",
     "contactUs": "Nous contacter",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "faqHeroTitle": "Comment pouvons-nous vous aider aujourd'hui ?",
+    "faqHeroSubtitle": "Parcourez notre base de connaissances ou contactez le support si vous avez besoin d'aide.",
+    "faqSearchPlaceholder": "Rechercher des questions ou des mots-clés",
+    "faqResultsSummary": "Affichage de {{count}} résultat(s)",
+    "faqEmptyDescription": "Essayez un autre mot-clé ou contactez nos spécialistes du support.",
+    "securityHeadline": "Vos données restent protégées",
+    "securityCopy": "Nous utilisons un chiffrement de pointe pour protéger vos informations personnelles.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "passwordHint": "Les mots de passe doivent contenir au moins 8 caractères et inclure des chiffres et des lettres.",
+    "passwordUpdated": "Votre mot de passe a été modifié.",
+    "passwordUpdateFailed": "Échec du changement de mot de passe."
+  },
+  "legal": {
+    "termsHeroTitle": "Consultez nos dernières conditions générales",
+    "termsHeroSubtitle": "Nous tenons ces politiques à jour pour que vous sachiez toujours comment nous collaborons.",
+    "privacyHeroTitle": "La confidentialité est intégrée à chaque fonctionnalité",
+    "privacyHeroSubtitle": "Découvrez comment nous protégeons vos informations et respectons vos choix.",
+    "lastUpdated": "Dernière synchronisation {{date}}",
+    "lastUpdatedUnknown": "Dernière mise à jour récente",
+    "refreshFailed": "Impossible d'actualiser pour le moment. Affichage de la dernière version enregistrée."
+  },
+  "support": {
+    "contactSupport": "Contacter le support"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",

@@ -47,6 +47,50 @@ export interface Case {
   progress: number;
 }
 
+export interface AppointmentCaseReference {
+  id: string;
+  referenceNumber: string;
+  status: CaseStatus | string;
+}
+
+export interface AppointmentAgentSummary {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export interface Appointment {
+  id: string;
+  scheduledAt: string;
+  location?: string | null;
+  notes?: string | null;
+  case: AppointmentCaseReference;
+  assignedAgent?: AppointmentAgentSummary | null;
+  actionUrl?: string | null;
+}
+
+export interface Destination {
+  id: string;
+  name: string;
+  code: string;
+  flagEmoji?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+  displayOrder?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type MessageDirection = 'incoming' | 'outgoing';
+
+export interface EmailAttachment {
+  id?: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+}
+
 export interface Message {
   id: string;
   name: string;
@@ -57,6 +101,20 @@ export interface Message {
   online: boolean;
   userId?: string;
   conversationId?: string;
+  subject?: string | null;
+  preview?: string | null;
+  content?: string | null;
+  direction?: MessageDirection;
+  senderId?: string | null;
+  recipientId?: string | null;
+  caseId?: string | null;
+  caseReference?: string | null;
+  caseServiceType?: string | null;
+  threadId?: string | null;
+  sentAt?: string | null;
+  readAt?: string | null;
+  isRead?: boolean;
+  attachments?: EmailAttachment[];
 }
 
 // ChatMessage is now defined in lib/services/chat.ts to match Firebase structure
@@ -105,11 +163,22 @@ export interface Notification {
   relatedId?: string;
 }
 
+export interface NotificationSettings {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  smsNotifications?: boolean;
+  themePreference?: 'system' | 'light' | 'dark';
+  languagePreference?: 'en' | 'fr';
+}
+
 export interface UserProfile {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   avatar?: string;
+  profilePicture?: string;
   phone?: string;
   address?: string;
 }
@@ -126,6 +195,7 @@ export interface DashboardStats {
 
 export interface CreateCaseRequest {
   serviceType: string;
+  destinationId: string;
   priority?: Priority;
 }
 

@@ -3,31 +3,52 @@ import { documentsService } from '../../lib/services/documentsService';
 import { logger } from '../../lib/utils/logger';
 import type { Document, UploadDocumentRequest } from '../../lib/types';
 
+const DOCUMENTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+type DocumentFilters = {
+  caseId?: string;
+  type?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+interface DocumentsCacheEntry {
+  key: string;
+  documents: Document[];
+  fetchedAt: number;
+}
+
 interface DocumentsState {
   documents: Document[];
   isLoading: boolean;
   error: string | null;
   uploading: boolean;
-  currentFilters: {
-    caseId?: string;
-    type?: string;
-    status?: string;
-    search?: string;
-  } | null;
+  currentFilters: DocumentFilters | null;
+  documentsCache: Record<string, DocumentsCacheEntry>;
 
-  // Actions
-  fetchDocuments: (filters?: {
-    caseId?: string;
-    type?: string;
-    status?: string;
-    search?: string;
-  }) => Promise<void>;
+  fetchDocuments: (filters?: DocumentFilters, options?: { force?: boolean }) => Promise<void>;
   fetchDocumentById: (documentId: string) => Promise<void>;
   uploadDocument: (data: UploadDocumentRequest) => Promise<Document | null>;
   deleteDocument: (documentId: string) => Promise<void>;
   downloadDocument: (documentId: string) => Promise<void>;
   clearError: () => void;
+  clearCache: () => void;
 }
+
+const buildCacheKey = (filters?: DocumentFilters) => {
+  const normalized = {
+    caseId: filters?.caseId ?? 'all',
+    type: filters?.type ?? 'all',
+    status: filters?.status ?? 'all',
+    search: (filters?.search ?? '').trim(),
+    page: filters?.page ?? 1,
+    limit: filters?.limit ?? 20,
+  };
+
+  return JSON.stringify(normalized);
+};
 
 export const useDocumentsStore = create<DocumentsState>((set, get) => ({
   documents: [],
@@ -35,13 +56,42 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
   error: null,
   uploading: false,
   currentFilters: null,
+  documentsCache: {},
 
-  fetchDocuments: async (filters) => {
+  fetchDocuments: async (filters, options) => {
+    const cacheKey = buildCacheKey(filters);
+    const now = Date.now();
+    const shouldUseCache = !options?.force;
+
+    if (shouldUseCache) {
+      const cached = get().documentsCache[cacheKey];
+      if (cached && now - cached.fetchedAt < DOCUMENTS_CACHE_TTL) {
+        set({
+          documents: cached.documents,
+          isLoading: false,
+          error: null,
+          currentFilters: filters || null,
+        });
+        logger.debug('Documents cache hit', { cacheKey, count: cached.documents.length });
+        return;
+      }
+    }
+
     set({ isLoading: true, error: null, currentFilters: filters || null });
     try {
-      const currentFilters = filters || get().currentFilters || undefined;
-      const documents = await documentsService.getDocuments(currentFilters || undefined);
-      set({ documents, isLoading: false });
+      const documents = await documentsService.getDocuments(filters);
+      set((state) => ({
+        documents,
+        isLoading: false,
+        documentsCache: {
+          ...state.documentsCache,
+          [cacheKey]: {
+            key: cacheKey,
+            documents,
+            fetchedAt: now,
+          },
+        },
+      }));
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch documents';
       logger.error('Error fetching documents', error);
@@ -68,6 +118,7 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
       set((state) => ({
         documents: [document, ...state.documents],
         uploading: false,
+        documentsCache: {},
       }));
       return document;
     } catch (error: any) {
@@ -85,6 +136,7 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
       set((state) => ({
         documents: state.documents.filter((d) => d.id !== documentId),
         isLoading: false,
+        documentsCache: {},
       }));
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to delete document';
@@ -107,6 +159,10 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  clearCache: () => {
+    set({ documentsCache: {} });
   },
 }));
 

@@ -1,14 +1,21 @@
 
-import React, { useState, useEffect, useRef } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Switch, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator, Image, Alert } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
+import { BackButton } from "@/components/BackButton";
 import { useProfileStore } from "@/stores/profile/profileStore";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useAppTheme } from "@/lib/hooks/useAppTheme";
 import { type AppThemeColors } from "@/styles/theme";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
+import { uploadFileToAPI } from "@/lib/services/fileUpload";
+import { logger } from "@/lib/utils/logger";
+import { useToast } from "@/components/Toast";
 
 export default function ProfileScreen() {
   const theme = useAppTheme();
@@ -16,14 +23,147 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const { profile, isLoading, fetchProfile } = useProfileStore();
+  const { profile, isLoading, fetchProfile, updateProfile } = useProfileStore();
   const { user, logout } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const avatarUri = useMemo(() => {
+    if (avatarPreview) {
+      return avatarPreview;
+    }
+
+    return (
+      profile?.profilePicture ||
+      profile?.avatar ||
+      user?.photoURL ||
+      null
+    );
+  }, [avatarPreview, profile?.profilePicture, profile?.avatar, user?.photoURL]);
+
+  const uploadAndSave = useCallback(
+    async (asset: ImagePicker.ImagePickerAsset) => {
+      try {
+        setIsUploadingPhoto(true);
+
+        const uploadResult = await uploadFileToAPI(
+          asset.uri,
+          asset.fileName || `profile_${Date.now()}.jpg`,
+          asset.mimeType || 'image/jpeg',
+        );
+
+        if (!uploadResult.success || !uploadResult.url) {
+          throw new Error(uploadResult.error || 'Failed to upload profile photo');
+        }
+
+        await updateProfile({ avatar: uploadResult.url });
+        setAvatarPreview(uploadResult.url);
+        fetchProfile().catch((error) => {
+          logger.warn('Failed to refresh profile after photo upload', error);
+        });
+        showToast({
+          title: t('common.success'),
+          message: t('profile.photoUpdated', { defaultValue: 'Profile photo updated successfully.' }),
+          type: 'success',
+        });
+      } catch (error: any) {
+        logger.error('Profile photo update failed', error);
+        showToast({
+          title: t('common.error'),
+          message: error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to update profile photo.' }),
+          type: 'error',
+        });
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    },
+    [fetchProfile, showToast, t, updateProfile],
+  );
+
+  const pickImage = useCallback(
+    async (mode: 'camera' | 'library') => {
+      try {
+        const permissionStatus =
+          mode === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionStatus.status !== 'granted') {
+          showToast({
+            title: t('profile.noPermissions', { defaultValue: 'Permission needed' }),
+            message: t('profile.photosPermissionNeeded', {
+              defaultValue: 'Please grant access in settings to update your profile photo.',
+            }),
+            type: 'error',
+          });
+          return;
+        }
+
+        const pickerResult =
+          mode === 'camera'
+            ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            })
+            : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+
+        if (pickerResult.canceled || !pickerResult.assets?.length) {
+          return;
+        }
+
+        await uploadAndSave(pickerResult.assets[0]);
+      } catch (error: any) {
+        logger.error('Image picker error', error);
+        showToast({
+          title: t('common.error'),
+          message: error?.message || t('profile.failedToChangePhoto', { defaultValue: 'Unable to pick an image.' }),
+          type: 'error',
+        });
+      }
+    },
+    [t, uploadAndSave],
+  );
+
+  const handleChangeProfilePhoto = useCallback(() => {
+    Alert.alert(
+      t('profile.changeProfilePhoto', { defaultValue: 'Change profile photo' }),
+      t('profile.choosePhotoOption', { defaultValue: 'Choose how to upload a new photo.' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('profile.takePhoto', { defaultValue: 'Take photo' }),
+          onPress: () => pickImage('camera'),
+        },
+        {
+          text: t('profile.chooseFromLibrary', { defaultValue: 'Choose from library' }),
+          onPress: () => pickImage('library'),
+        },
+      ],
+    );
+  }, [pickImage, t]);
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    if (
+      avatarPreview &&
+      profile?.profilePicture &&
+      profile.profilePicture === avatarPreview
+    ) {
+      setAvatarPreview(null);
+    }
+  }, [avatarPreview, profile?.profilePicture]);
 
   const handleLogout = async () => {
     await logout();
@@ -42,14 +182,9 @@ export default function ProfileScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('profile.title')}</Text>
-          <View style={styles.backButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
@@ -64,8 +199,28 @@ export default function ProfileScreen() {
         >
           {/* Profile Card */}
           <View style={[styles.profileCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-            <View style={styles.avatarLarge}>
-              <IconSymbol name="person.fill" size={48} color="#fff" />
+            <View style={styles.avatarWrapper}>
+              <View style={styles.avatarLarge}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                ) : (
+                  <IconSymbol name="person.fill" size={48} color="#fff" />
+                )}
+                {isUploadingPhoto && (
+                  <View style={styles.avatarOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                  </View>
+                )}
+                <Pressable
+                  style={[styles.avatarEditButton, { marginRight: 10, marginBottom: 10, backgroundColor: '#e7eeff' }]}
+                  onPress={() => handleChangeProfilePhoto()}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.changeProfilePhoto', { defaultValue: 'Change profile photo' })}
+                  disabled={isUploadingPhoto}
+                >
+                  <MaterialCommunityIcons name="camera-plus" size={20} color={theme.colors.primary} />
+                </Pressable>
+              </View>
             </View>
             {isLoading ? (
               <ActivityIndicator size="large" color="#2196F3" />
@@ -144,20 +299,23 @@ export default function ProfileScreen() {
               {t('profile.sections.preferences')}
             </Text>
             <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
-              <View style={[styles.menuItem, styles.menuItemFirst, styles.menuItemLast]}>
-                <View style={[styles.menuIcon, { backgroundColor: '#E8F5E9' }]}>
-                  <IconSymbol name="bell.fill" size={20} color="#4CAF50" />
+              <Pressable
+                style={[styles.menuItem, styles.menuItemFirst, styles.menuItemLast]}
+                onPress={() => router.push('/profile/preferences')}
+              >
+                <View style={[styles.menuIcon, { backgroundColor: '#E0F2FE' }]}>
+                  <IconSymbol name="gear" size={20} color={colors.primary} />
                 </View>
-                <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
-                  {t('profile.notifications')}
-                </Text>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={setNotificationsEnabled}
-                  trackColor={{ false: '#767577', true: '#2196F3' }}
-                  thumbColor="#fff"
-                />
-              </View>
+                <View style={styles.menuTextContainer}>
+                  <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
+                    {t('profile.openPreferences', { defaultValue: 'Theme, Language & Notifications' })}
+                  </Text>
+                  <Text style={[styles.menuSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
+                    {t('profile.preferencesRowDescription', { defaultValue: 'Manage appearance, language and notification alerts.' })}
+                  </Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
+              </Pressable>
             </View>
           </View>
 
@@ -294,15 +452,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backButton: {
-    padding: 4,
-    width: 32,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   scrollView: {
     flex: 1,
@@ -325,6 +483,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  avatarWrapper: {
+    marginBottom: 16,
+  },
   avatarLarge: {
     width: 96,
     height: 96,
@@ -332,7 +493,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#00000055',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEditButton: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0B93F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#00000033',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   profileName: {
     fontSize: 24,
@@ -398,10 +588,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  menuTextContainer: {
+    flex: 1,
+    gap: 4,
+  },
   menuTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
+  },
+  menuSubtitle: {
+    fontSize: 12,
   },
   logoutButton: {
     borderRadius: 16,

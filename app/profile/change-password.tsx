@@ -9,6 +9,7 @@ import { profileService } from '@/lib/services/profileService';
 import FormInput from '@/components/FormInput';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useToast } from '@/components/Toast';
+import { BackButton } from '@/components/BackButton';
 
 export default function ChangePasswordScreen() {
   const theme = useTheme();
@@ -24,11 +25,14 @@ export default function ChangePasswordScreen() {
 
   const onChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      showAlert({ title: 'Validation', message: t('validation.required') });
+      showAlert({ title: t('common.validation', { defaultValue: 'Validation' }), message: t('validation.required') });
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert({ title: 'Validation', message: t('validation.passwordsDontMatch') });
+      showAlert({
+        title: t('common.validation', { defaultValue: 'Validation' }),
+        message: t('validation.passwordsDontMatch'),
+      });
       return;
     }
     try {
@@ -43,7 +47,10 @@ export default function ChangePasswordScreen() {
         message: t('profile.passwordUpdated', { defaultValue: 'Your password has been changed.' }),
       });
     } catch (e: any) {
-      showAlert({ title: 'Error', message: e?.message || 'Failed to change password' });
+      showAlert({
+        title: t('common.error'),
+        message: e?.message || t('profile.passwordUpdateFailed', { defaultValue: 'Failed to change password.' }),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -54,28 +61,26 @@ export default function ChangePasswordScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { marginRight: 12 }]} hitSlop={12} onPress={() => router.back()}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.changePassword')}</Text>
                 <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
                   {t('profile.changePasswordSubtitle', { defaultValue: 'Use a strong password that you have not used elsewhere.' })}
                 </Text>
               </View>
-              <View style={styles.headerIcon} />
+              <View style={styles.headerSpacer} />
             </View>
 
             <View
@@ -132,7 +137,7 @@ export default function ChangePasswordScreen() {
           style={[
             styles.actionBar,
             {
-              backgroundColor: theme.dark ? '#000000E6' : '#FFFFFFEE',
+              backgroundColor: theme.dark ? '#000000E6' : 'transparent',
               borderTopColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
               paddingBottom: Math.max(insets.bottom, 16),
             },
@@ -159,7 +164,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 12 : 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  headerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
+  headerSpacer: { width: 40, height: 40 },
   headerTextGroup: { flex: 1, gap: 4 },
   screenTitle: { fontSize: 24, fontWeight: '700', letterSpacing: -0.2 },
   screenSubtitle: { fontSize: 14 },

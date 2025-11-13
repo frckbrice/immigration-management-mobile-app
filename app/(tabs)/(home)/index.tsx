@@ -1,9 +1,10 @@
 
 import React, { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { Stack, useRouter } from "expo-router";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator } from "react-native";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { useCasesStore } from "@/stores/cases/casesStore";
@@ -13,11 +14,15 @@ import { useDocumentsStore } from "@/stores/documents/documentsStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useScrollContext } from "@/contexts/ScrollContext";
 import { dashboardService } from "@/lib/services/dashboardService";
+import { appointmentsService } from "@/lib/services/appointmentsService";
 import { logger } from "@/lib/utils/logger";
-import type { DashboardStats } from "@/lib/types";
+import type { DashboardStats, Case, Appointment } from "@/lib/types";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
+import { useShallow } from "zustand/react/shallow";
+
+const appLogo = require("@/assets/app_logo.png");
 
 const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
 const formatServiceTypeLabel = (serviceType?: string) =>
@@ -28,8 +33,23 @@ const formatServiceTypeLabel = (serviceType?: string) =>
       .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
     : '';
 
+const formatCompactReference = (reference?: string | null) => {
+  if (!reference) {
+    return '';
+  }
+  const trimmed = reference.trim();
+  if (trimmed.length <= 8) {
+    return trimmed;
+  }
+  const prefix = trimmed.slice(0, 3);
+  const suffix = trimmed.slice(-4);
+  return `${prefix}…${suffix}`;
+};
+
 export default function HomeScreen() {
-  console.log('[HomeScreen] Component rendering');
+  if (__DEV__) {
+    console.log('[HomeScreen] Component rendering');
+  }
   const theme = useAppTheme();
   const colors = useThemeColors();
   const surfaceCard = theme.dark ? colors.surfaceElevated : colors.surface;
@@ -50,15 +70,45 @@ export default function HomeScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const lastScrollY = useRef(0);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bootstrapUserRef = useRef<string | null>(null);
+  const statsRefreshCooldownRef = useRef(0);
   const { setScrollDirection, setAtBottom } = useScrollContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [upcomingAppointment, setUpcomingAppointment] = useState<Appointment | null>(null);
+  const [isAppointmentLoading, setIsAppointmentLoading] = useState(false);
   const statsCacheRef = useRef<{ data: DashboardStats | null; fetchedAt: number }>({ data: null, fetchedAt: 0 });
   const statsUpdateRef = useRef(false);
-  const { user, isAuthenticated } = useAuthStore();
-  const { cases, fetchCases } = useCasesStore();
-  const { unreadCount, fetchUnreadCount } = useNotificationsStore();
-  const { messages, fetchMessages } = useMessagesStore();
-  const { documents, fetchDocuments } = useDocumentsStore();
+  const { user, isAuthenticated } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      isAuthenticated: state.isAuthenticated,
+    }))
+  );
+  const { cases, fetchCases } = useCasesStore(
+    useShallow((state) => ({
+      cases: state.cases,
+      fetchCases: state.fetchCases,
+    }))
+  );
+  const { unreadCount, fetchUnreadCount } = useNotificationsStore(
+    useShallow((state) => ({
+      unreadCount: state.unreadCount,
+      fetchUnreadCount: state.fetchUnreadCount,
+    }))
+  );
+  const { fetchMessages, fetchConversations, unreadChatTotal } = useMessagesStore(
+    useShallow((state) => ({
+      fetchMessages: state.fetchMessages,
+      fetchConversations: state.fetchConversations,
+      unreadChatTotal: state.unreadChatTotal,
+    }))
+  );
+  const { documents, fetchDocuments } = useDocumentsStore(
+    useShallow((state) => ({
+      documents: state.documents,
+      fetchDocuments: state.fetchDocuments,
+    }))
+  );
   const { showAlert } = useBottomSheetAlert();
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -76,6 +126,23 @@ export default function HomeScreen() {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+    });
+  };
+
+  const formatAppointmentDateTime = (dateString?: string | null) => {
+    if (!dateString) {
+      return t('common.unknownDate', { defaultValue: 'Unknown date' });
+    }
+    const parsedDate = new Date(dateString);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return t('common.unknownDate', { defaultValue: 'Unknown date' });
+    }
+    return parsedDate.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
     });
   };
 
@@ -129,53 +196,124 @@ export default function HomeScreen() {
     [isAuthenticated]
   );
 
-  useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
+  const fetchUpcomingAppointment = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+
+      if (!isAuthenticated) {
+        setUpcomingAppointment(null);
+        setIsAppointmentLoading(false);
+        return;
+      }
+
+      if (!silent) {
+        setIsAppointmentLoading(true);
+      }
+
+      try {
+        const appointment = await appointmentsService.getUpcoming();
+        setUpcomingAppointment(appointment);
+      } catch (error) {
+        logger.error('Failed to load upcoming appointment', error);
+        setUpcomingAppointment(null);
+      } finally {
+        if (!silent) {
+          setIsAppointmentLoading(false);
+        }
+      }
+    },
+    [isAuthenticated]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUpcomingAppointment({ silent: true });
+    }, [fetchUpcomingAppointment])
+  );
 
   // Helper function to navigate to payment with type safety
   // Platform-specific routes (payment.native.tsx, payment.web.tsx) are resolved at runtime
   const navigateToPayment = (params: { amount: string; description: string; referenceNumber: string }) => {
-    const queryString = Object.entries(params)
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join('&');
-    const route = `/payment?${queryString}`;
     logger.info('Navigating to payment screen', {
-      route,
       referenceNumber: params.referenceNumber,
       amount: params.amount,
     });
-    // Type assertion: platform-specific routes aren't in typed routes but work at runtime
-    router.push(route as typeof route & Parameters<typeof router.push>[0]);
+    router.push({ pathname: '/payment', params });
   };
 
   useEffect(() => {
-    console.log('[HomeScreen] Mounted, isAuthenticated:', isAuthenticated);
-    console.log('[HomeScreen] User:', user?.email || 'No user');
-
-    // Only fetch data if user is authenticated
-    if (isAuthenticated && user) {
-      Promise.all([
-        fetchCases(),
-        fetchUnreadCount(),
-        fetchMessages(),
-        fetchDocuments(),
-      ]).finally(() => {
-        refreshStats(true);
-      });
-    }
-
-    // Initialize: assume we're at bottom when page loads
     setAtBottom(true);
-    setScrollDirection(false); // Not scrolling down initially
+    setScrollDirection(false);
+  }, [setAtBottom, setScrollDirection]);
 
-    // Cleanup timeout on unmount
+  useEffect(() => {
     return () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [isAuthenticated, user, setAtBottom, setScrollDirection, fetchCases, fetchUnreadCount, fetchMessages, fetchDocuments, refreshStats]);
+  }, []);
+
+  const bootstrapData = useCallback(
+    async (userId?: string | null) => {
+      if (!isAuthenticated) {
+        return;
+      }
+
+      const tasks: Array<Promise<unknown>> = [
+        fetchCases(),
+        fetchUnreadCount(),
+        fetchMessages(),
+        fetchDocuments(),
+        fetchUpcomingAppointment(),
+        refreshStats(true),
+      ];
+
+      if (userId) {
+        tasks.push(fetchConversations(userId));
+      }
+
+      const results = await Promise.allSettled(tasks);
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          logger.error('Home bootstrap task failed', result.reason);
+        }
+      });
+    },
+    [
+      isAuthenticated,
+      fetchCases,
+      fetchUnreadCount,
+      fetchMessages,
+      fetchDocuments,
+      fetchUpcomingAppointment,
+      refreshStats,
+      fetchConversations,
+    ]
+  );
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[HomeScreen] Mounted, isAuthenticated:', isAuthenticated);
+      console.log('[HomeScreen] User:', user?.email || 'No user');
+    }
+
+    if (!isAuthenticated || !user?.uid) {
+      bootstrapUserRef.current = null;
+      return;
+    }
+
+    if (bootstrapUserRef.current === user.uid) {
+      return;
+    }
+
+    bootstrapUserRef.current = user.uid;
+    bootstrapData(user.uid);
+
+    return () => {
+      bootstrapUserRef.current = null;
+    };
+  }, [isAuthenticated, user?.uid, bootstrapData]);
 
   const sortedCases = useMemo(() => {
     if (!cases || cases.length === 0) {
@@ -224,19 +362,26 @@ export default function HomeScreen() {
 
   const pendingDocsCount = stats?.pendingDocuments ?? documents.length;
   const activeCasesCount = stats?.activeCases ?? activeCases.length;
-  const newMessagesCount = useMemo(() => messages.filter((m) => m.unread).length, [messages]);
+  const unreadChatCount = unreadChatTotal;
 
   useEffect(() => {
     if (!isAuthenticated) {
       statsUpdateRef.current = false;
+      statsRefreshCooldownRef.current = 0;
+      setStats(null);
       return;
     }
     if (!statsUpdateRef.current) {
       statsUpdateRef.current = true;
       return;
     }
-    refreshStats(true);
-  }, [isAuthenticated, cases.length, documents.length, unreadCount, newMessagesCount, refreshStats]);
+    const now = Date.now();
+    if (now - statsRefreshCooldownRef.current < 60_000) {
+      return;
+    }
+    statsRefreshCooldownRef.current = now;
+    refreshStats();
+  }, [isAuthenticated, cases.length, documents.length, unreadCount, unreadChatCount, refreshStats]);
 
   const importantUpdatesTitle = t('home.importantUpdates', { defaultValue: 'Important Updates' });
   const paymentDescription = t('home.paymentDescription', { defaultValue: 'Case Processing Fee' });
@@ -246,7 +391,7 @@ export default function HomeScreen() {
     ? t('home.caseApprovedTitle', {
       defaultValue: '{{service}} ({{reference}}) Approved',
       service: formatServiceTypeLabel(latestApprovedCase.serviceType),
-      reference: latestApprovedCase.referenceNumber,
+      reference: formatCompactReference(latestApprovedCase.referenceNumber),
     })
     : t('home.noRecentApprovalsTitle', { defaultValue: 'No cases approved yet' });
 
@@ -264,7 +409,7 @@ export default function HomeScreen() {
     ? t('home.pendingActionTitle', {
       defaultValue: 'Action Required: {{service}} ({{reference}})',
       service: formatServiceTypeLabel(upcomingActionCase.serviceType),
-      reference: upcomingActionCase.referenceNumber,
+      reference: formatCompactReference(upcomingActionCase.referenceNumber),
     })
     : t('home.noPendingActionsTitle', { defaultValue: 'No pending actions' });
 
@@ -274,36 +419,73 @@ export default function HomeScreen() {
       date: formatCaseDate(upcomingActionCase.lastUpdated || upcomingActionCase.submissionDate),
     })
     : t('home.noPendingActionsDescription', {
-      defaultValue: 'Great job! You are all caught up.',
+      defaultValue: 'Great job! All your cases are up to date and nothing needs your attention right now.',
     });
-
-  const upcomingAppointment = useMemo(() => {
-    const now = Date.now();
-    const futureCases = sortedCases.filter((caseItem) => {
-      if (!caseItem.estimatedCompletion) return false;
-      const time = new Date(caseItem.estimatedCompletion).getTime();
-      return time > now;
-    });
-
-    futureCases.sort((a, b) => {
-      const timeA = new Date(a.estimatedCompletion || 0).getTime();
-      const timeB = new Date(b.estimatedCompletion || 0).getTime();
-      return timeA - timeB;
-    });
-
-    return futureCases[0] ?? null;
-  }, [sortedCases]);
 
   const nextAppointmentLabel = t('home.nextAppointment', { defaultValue: 'Next Appointment' });
+  const appointmentCaseReference =
+    upcomingAppointment?.case?.referenceNumber ||
+    t('cases.statusUnknown', { defaultValue: 'Unknown case' });
   const nextAppointmentValue = upcomingAppointment
     ? t('home.nextAppointmentValueWithCase', {
-      defaultValue: '{{date}} · {{reference}}',
-      date: formatCaseDate(upcomingAppointment.estimatedCompletion),
-      reference: upcomingAppointment.referenceNumber,
-    })
+        defaultValue: '{{date}} · {{reference}}',
+        date: formatAppointmentDateTime(upcomingAppointment.scheduledAt),
+        reference: appointmentCaseReference,
+      })
     : t('home.noUpcomingAppointments', { defaultValue: 'No upcoming appointments' });
+  const appointmentLocationText = upcomingAppointment?.location
+    ? t('home.appointmentLocation', {
+        defaultValue: 'Location: {{location}}',
+        location: upcomingAppointment.location,
+      })
+    : null;
+  const appointmentAdvisorName = useMemo(() => {
+    if (!upcomingAppointment?.assignedAgent) {
+      return '';
+    }
+    const { firstName, lastName, email } = upcomingAppointment.assignedAgent;
+    const composedName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    return composedName || email || '';
+  }, [upcomingAppointment]);
+  const appointmentAdvisorText =
+    upcomingAppointment?.assignedAgent && appointmentAdvisorName
+      ? t('home.appointmentAdvisor', {
+          defaultValue: 'Advisor: {{name}}',
+          name: appointmentAdvisorName,
+        })
+      : null;
+  const appointmentNotesText = upcomingAppointment?.notes
+    ? t('home.appointmentNotes', {
+        defaultValue: 'Notes: {{notes}}',
+        notes: upcomingAppointment.notes,
+      })
+    : null;
 
   const userName = user?.displayName || user?.email?.split('@')[0] || t('home.defaultUserName', { defaultValue: 'User' });
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const currentScrollY = event.nativeEvent.contentOffset.y;
+      const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+      const contentHeight = event.nativeEvent.contentSize.height;
+
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      scrollTimeoutRef.current = setTimeout(() => {
+        const isAtBottom = currentScrollY + scrollViewHeight >= contentHeight - 50;
+        setAtBottom(isAtBottom);
+
+        const scrollDiff = currentScrollY - lastScrollY.current;
+        if (Math.abs(scrollDiff) > 5) {
+          setScrollDirection(scrollDiff > 0);
+          lastScrollY.current = currentScrollY;
+        }
+      }, 50);
+    },
+    [setAtBottom, setScrollDirection]
+  );
 
   return (
     <>
@@ -326,43 +508,23 @@ export default function HomeScreen() {
             { paddingBottom: scrollContentPaddingBottom }
           ]}
           showsVerticalScrollIndicator={false}
-          onScroll={(event) => {
-            const currentScrollY = event.nativeEvent.contentOffset.y;
-            const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
-            const contentHeight = event.nativeEvent.contentSize.height;
-
-            // Clear any pending timeout
-            if (scrollTimeoutRef.current) {
-              clearTimeout(scrollTimeoutRef.current);
-            }
-
-            // Debounce state updates to prevent excessive re-renders
-            scrollTimeoutRef.current = setTimeout(() => {
-              // Check if at bottom (with 50px threshold)
-              const isAtBottom = currentScrollY + scrollViewHeight >= contentHeight - 50;
-              setAtBottom(isAtBottom);
-
-              // Determine scroll direction (only update if changed significantly)
-              const scrollDiff = currentScrollY - lastScrollY.current;
-              if (Math.abs(scrollDiff) > 5) { // Only update if scrolled more than 5px
-                if (scrollDiff > 0) {
-                  // Scrolling down
-                  setScrollDirection(true);
-                } else {
-                  // Scrolling up
-                  setScrollDirection(false);
-                }
-                lastScrollY.current = currentScrollY;
-              }
-            }, 50); // Debounce by 50ms
-          }}
+          onScroll={handleScroll}
           scrollEventThrottle={16}
         >
           {/* Header with Greeting and Notification */}
           <View style={styles.header}>
             <View style={styles.greetingContainer}>
-              <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-                <IconSymbol name="mail.fill" size={28} color={colors.onPrimary} />
+              <View
+                style={[
+                  styles.logoWrapper,
+                  {
+                    backgroundColor: withOpacity(colors.primary, theme.dark ? 0.2 : 0.12),
+                    borderColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.2),
+                    shadowColor: colors.primary,
+                  },
+                ]}
+              >
+                <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
               </View>
               <View style={styles.greetingTextContainer}>
                 <Text style={[styles.greetingText, { color: colors.muted }]}>
@@ -446,9 +608,39 @@ export default function HomeScreen() {
                 <Text style={[styles.statusSubtitle, { color: colors.muted }]}>
                   {nextAppointmentLabel}
                 </Text>
-                <Text style={[styles.statusTitle, { color: colors.text }]}>
-                  {nextAppointmentValue}
-                </Text>
+                {isAppointmentLoading ? (
+                  <View style={styles.appointmentLoadingRow}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.statusMeta, { color: colors.muted, marginTop: 0 }]}>
+                      {t('common.loading')}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={[styles.statusTitle, { color: colors.text }]}>
+                      {nextAppointmentValue}
+                    </Text>
+                    {appointmentLocationText ? (
+                      <Text style={[styles.statusMeta, { color: colors.mutedAlt }]}>
+                        {appointmentLocationText}
+                      </Text>
+                    ) : null}
+                    {appointmentAdvisorText ? (
+                      <Text style={[styles.statusMeta, { color: colors.mutedAlt }]}>
+                        {appointmentAdvisorText}
+                      </Text>
+                    ) : null}
+                    {appointmentNotesText ? (
+                      <Text
+                        style={[styles.statusMeta, { color: colors.mutedAlt }]}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
+                        {appointmentNotesText}
+                      </Text>
+                    ) : null}
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -471,7 +663,7 @@ export default function HomeScreen() {
               <Text style={[styles.statLabel, { color: colors.muted }]}>
                 {t('home.newMessages')}
               </Text>
-              <Text style={[styles.statValue, { color: colors.primary }]}>{newMessagesCount}</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{unreadChatCount}</Text>
             </View>
           </View>
 
@@ -515,8 +707,9 @@ export default function HomeScreen() {
                   });
                   return;
                 }
+                const amount = deriveCaseAmount(caseForStatusCard);
                 navigateToPayment({
-                  amount: '150.00',
+                  amount: amount.toFixed(2),
                   description: paymentDescription,
                   referenceNumber: caseForStatusCard.referenceNumber,
                 });
@@ -583,6 +776,22 @@ export default function HomeScreen() {
   );
 }
 
+function deriveCaseAmount(caseItem: Case | null): number {
+  if (!caseItem) {
+    return 0;
+  }
+  const baseByPriority: Record<Case['priority'], number> = {
+    URGENT: 1850,
+    HIGH: 1550,
+    NORMAL: 1125,
+    LOW: 850,
+  };
+  const base = baseByPriority[caseItem.priority] ?? 995;
+  const varianceSeed = caseItem.referenceNumber?.charCodeAt(0) || 42;
+  const variance = (varianceSeed % 7) * 25;
+  return base + variance;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -609,13 +818,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  avatarCircle: {
+  logoWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
   greetingTextContainer: {
     flex: 1,
@@ -688,6 +908,12 @@ const styles = StyleSheet.create({
   },
   statusTextContainer: {
     flex: 1,
+  },
+  appointmentLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
   },
   statusSubtitle: {
     fontSize: 14,

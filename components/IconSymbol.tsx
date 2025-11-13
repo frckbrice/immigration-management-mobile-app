@@ -48,6 +48,7 @@ const MAPPING = {
   "minus": "remove",
   "xmark": "close",
   "checkmark": "check",
+  "arrow.down.circle.fill": "download",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
   "checkmark.square.fill": "check-box",
@@ -81,16 +82,24 @@ const MAPPING = {
   "pause.fill": "pause",
   "stop.fill": "stop",
 
+  // Support & Communication
+  "headphones": "headset-mic",
+
   // System & Settings
   "gear": "settings",
   "gearshape.fill": "settings",
   "slider.horizontal.3": "tune",
   "info.circle.fill": "info",
-  "info.circle": "info-outlined",
+  "info.circle": "info-outline",
   "exclamationmark.triangle.fill": "warning",
   "exclamationmark.triangle": "warning-amber",
   "questionmark.circle.fill": "help",
   "questionmark.circle": "help-outline",
+  "paperclip": "attach-file",
+  "paperclip.circle.fill": "attach-file",
+  "paperclip.circle": "attach-file",
+  "globe": "language",
+  "circle.lefthalf.fill": "brightness-6",
 
   // Shapes & Symbols
   "square": "square",
@@ -134,6 +143,15 @@ const MAPPING = {
   "calendar": "event",
   "timer": "timer",
 
+  // Immigration / Services
+  "graduationcap.fill": "school",
+  "briefcase.fill": "work",
+  "person.2.fill": "groups",
+  "airplane.departure": "flight-takeoff",
+  "chart.bar.fill": "bar-chart",
+  "person.crop.rectangle": "badge",
+  "banknote.fill": "monetization-on",
+
   // User & Profile
   "person": "person",
   "person.fill": "person",
@@ -148,6 +166,7 @@ const MAPPING = {
   "square.and.arrow.up": "share",
   "square.and.arrow.down": "download",
   "arrow.up.doc.fill": "upload-file",
+  "arrow.down.doc.fill": "file-download",
   "link": "link",
 
   // Search & Discovery

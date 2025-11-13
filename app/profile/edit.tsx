@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useTheme } from '@react-navigation/native';
 import { useTranslation } from '@/lib/hooks/useTranslation';
 import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
-import { profileService } from '@/lib/services/profileService';
 import type { UserProfile } from '@/lib/types';
 import { IconSymbol } from '@/components/IconSymbol';
+import { BackButton } from '@/components/BackButton';
 import FormInput from '@/components/FormInput';
 import { useToast } from '@/components/Toast';
+import { useProfileStore } from '@/stores/profile/profileStore';
 
 export default function EditProfileScreen() {
   const theme = useTheme();
@@ -18,44 +19,55 @@ export default function EditProfileScreen() {
   const { showAlert } = useBottomSheetAlert();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
+  const profile = useProfileStore((state) => state.profile);
+  const fetchProfile = useProfileStore((state) => state.fetchProfile);
+  const updateProfile = useProfileStore((state) => state.updateProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [initialProfile, setInitialProfile] = useState<UserProfile | null>(null);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const hasRequestedProfile = useRef(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const profile = await profileService.getProfile();
-        setInitialProfile(profile);
-        setName(profile.name || '');
-        setEmail(profile.email || '');
-        setPhone(profile.phone || '');
-        setAddress(profile.address || '');
-      } catch (e) {
-        // non-blocking
-      } finally {
-        setLoading(false);
+    if (!profile) {
+      if (!hasRequestedProfile.current) {
+        hasRequestedProfile.current = true;
+        fetchProfile().finally(() => setLoading(false));
       }
-    })();
-  }, []);
+      return;
+    }
+
+    const nextFirst = profile.firstName || extractFirstName(profile);
+    const nextLast = profile.lastName || extractLastName(profile);
+
+    setInitialProfile(profile);
+    setFirstName(nextFirst);
+    setLastName(nextLast);
+    setEmail(profile.email || '');
+    setPhone(profile.phone || '');
+    setAddress(profile.address || '');
+    setLoading(false);
+  }, [profile, fetchProfile]);
 
   const isDirty = useMemo(() => {
     if (!initialProfile) return false;
     const normalized = {
-      name: name.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       phone: phone.trim(),
       address: address.trim(),
     };
     return (
-      normalized.name !== (initialProfile.name || '') ||
+      normalized.firstName !== (initialProfile.firstName || extractFirstName(initialProfile)) ||
+      normalized.lastName !== (initialProfile.lastName || extractLastName(initialProfile)) ||
       normalized.phone !== (initialProfile.phone || '') ||
       normalized.address !== (initialProfile.address || '')
     );
-  }, [initialProfile, name, phone, address]);
+  }, [initialProfile, firstName, lastName, phone, address]);
 
   const onSave = async () => {
     if (!initialProfile) {
@@ -73,17 +85,24 @@ export default function EditProfileScreen() {
 
     try {
       setSaving(true);
+      const trimmedFirst = firstName.trim();
+      const trimmedLast = lastName.trim();
       const payload: Partial<UserProfile> = {
-        name: name.trim(),
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+        name: buildFullNameFromParts(trimmedFirst, trimmedLast),
         phone: phone.trim(),
         address: address.trim(),
       };
-      const updated = await profileService.updateProfile(payload);
+      const updated = await updateProfile(payload);
+
       setInitialProfile(updated);
-      setName(updated.name || '');
+      setFirstName(updated.firstName || extractFirstName(updated));
+      setLastName(updated.lastName || extractLastName(updated));
       setEmail(updated.email || '');
       setPhone(updated.phone || '');
       setAddress(updated.address || '');
+
       showToast({
         type: 'success',
         title: t('common.success'),
@@ -101,28 +120,30 @@ export default function EditProfileScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, {
+        backgroundColor: theme.colors.background,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { marginRight: 12 }]} onPress={() => router.back()} hitSlop={12}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} style={{ marginRight: 12 }} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.editProfile')}</Text>
                 <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
                   {t('profile.editProfileSubtitle', { defaultValue: 'Update your personal details so we can stay in touch.' })}
                 </Text>
               </View>
-              <View style={styles.headerIcon} />
+              <View style={styles.headerSpacer} />
             </View>
 
             {loading ? (
@@ -133,15 +154,30 @@ export default function EditProfileScreen() {
                 </Text>
               </View>
             ) : (
-                <View style={[styles.card, { backgroundColor: theme.dark ? '#111113' : '#FFFFFF', borderColor: theme.dark ? '#2C2C2E' : '#E2E8F0' }]}
+                <View style={[styles.card, {
+                  backgroundColor: theme.dark ? '#111113' : '#FFFFFF',
+                  borderColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
+                  paddingBottom: insets.bottom,
+                }]}
                 >
-                  <FormInput
-                    label={t('profile.name')}
-                    placeholder={t('profile.name')}
-                    value={name}
-                    onChangeText={setName}
-                    autoCapitalize="words"
-                  />
+                  <View style={[styles.nameRow, { paddingTop: insets.top }]}>
+                    <FormInput
+                      label={t('profile.firstName', { defaultValue: 'First Name' })}
+                      placeholder={t('profile.firstName', { defaultValue: 'First Name' })}
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      autoCapitalize="words"
+                      containerStyle={styles.nameField}
+                    />
+                    <FormInput
+                      label={t('profile.lastName', { defaultValue: 'Last Name' })}
+                      placeholder={t('profile.lastName', { defaultValue: 'Last Name' })}
+                      value={lastName}
+                      onChangeText={setLastName}
+                      autoCapitalize="words"
+                      containerStyle={styles.nameField}
+                    />
+                  </View>
                   <FormInput
                     label={t('profile.email')}
                     placeholder={t('profile.email')}
@@ -181,9 +217,9 @@ export default function EditProfileScreen() {
           style={[
             styles.actionBar,
             {
-              backgroundColor: theme.dark ? '#000000E6' : '#FFFFFFEE',
+              backgroundColor: theme.dark ? '#000000E6' : 'transparent',
               borderTopColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
-              paddingBottom: Math.max(insets.bottom, 16),
+              // paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >
@@ -214,19 +250,24 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  nameField: {
+    flex: 1,
+    minWidth: '48%',
+  },
   scrollContent: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 12 : 20 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
   },
-  headerIcon: {
+  headerSpacer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   headerTextGroup: {
     flex: 1,
@@ -310,5 +351,22 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 });
+
+function buildFullNameFromParts(first: string, last: string) {
+  return [first, last].map((part) => part.trim()).filter(Boolean).join(' ');
+}
+
+function extractFirstName(profile: UserProfile) {
+  if (profile.firstName) return profile.firstName;
+  if (!profile.name) return '';
+  return profile.name.split(' ')[0] || '';
+}
+
+function extractLastName(profile: UserProfile) {
+  if (profile.lastName) return profile.lastName;
+  if (!profile.name) return '';
+  const parts = profile.name.split(' ');
+  return parts.length > 1 ? parts.slice(1).join(' ') : '';
+}
 
 

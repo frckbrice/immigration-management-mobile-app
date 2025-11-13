@@ -8,6 +8,7 @@ import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
 import { withOpacity } from '@/styles/theme';
+import { useMessagesStore } from '@/stores/messages/messagesStore';
 
 const TAB_ITEMS: TabBarItem[] = [
   {
@@ -55,6 +56,16 @@ const TAB_ITEMS: TabBarItem[] = [
 export default function TabLayout() {
   const theme = useAppTheme();
   const colors = theme.colors;
+  const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
+  const totalUnreadMessages = unreadChatTotal;
+  const tabBadges = useMemo<Record<string, number>>(
+    () => ({
+      messages: totalUnreadMessages,
+      'messages': totalUnreadMessages,
+      '/(tabs)/messages': totalUnreadMessages,
+    }),
+    [totalUnreadMessages]
+  );
 
   const elevatedWrapperStyle = useMemo<ViewStyle>(() => {
     const base: ViewStyle = {
@@ -89,6 +100,8 @@ export default function TabLayout() {
       <View style={[styles.customTabWrapper, elevatedWrapperStyle]}>
         {TAB_ITEMS.map((tab) => {
           const isActive = tab.routeName === focusedRouteName;
+          const badgeKey = tab.routeName ?? tab.name ?? tab.route;
+          const badgeCount = badgeKey ? tabBadges[badgeKey] ?? 0 : 0;
           return (
             <Pressable
               key={tab.route}
@@ -103,11 +116,20 @@ export default function TabLayout() {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
-              <IconSymbol
-                name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
-                size={24}
-                color={isActive ? colors.primary : colors.muted}
-              />
+              <View style={styles.iconWrapper}>
+                <IconSymbol
+                  name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
+                  size={24}
+                  color={isActive ? colors.primary : colors.muted}
+                />
+                {badgeCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 style={[styles.customTabLabel, { color: isActive ? colors.primary : colors.muted }]}
               >
@@ -118,12 +140,19 @@ export default function TabLayout() {
         })}
       </View>
     </SafeAreaView>
-  ), [colors.muted, colors.primary, elevatedWrapperStyle]);
+  ), [colors.muted, colors.primary, elevatedWrapperStyle, tabBadges]);
 
   const renderTabBar = useCallback((props: BottomTabBarProps) => {
     const focusedRouteName = props.state.routeNames[props.state.index];
 
-    if (focusedRouteName === '(home)' || focusedRouteName === 'profile') {
+    if (
+      focusedRouteName === '(home)' ||
+      focusedRouteName === 'profile' ||
+      focusedRouteName === 'messages' ||
+      focusedRouteName === 'documents' ||
+      focusedRouteName === 'cases' ||
+      focusedRouteName === '/(tabs)/cases'
+    ) {
       return renderCustomTabBar(props, focusedRouteName);
     }
 
@@ -132,6 +161,7 @@ export default function TabLayout() {
         tabs={TAB_ITEMS}
         containerWidth={Dimensions.get('window').width - 40}
         activeRouteName={focusedRouteName}
+        badges={tabBadges}
         onTabPress={(tab) => {
           if (tab.routeName) {
             props.navigation.navigate(tab.routeName as never);
@@ -141,7 +171,7 @@ export default function TabLayout() {
         }}
       />
     );
-  }, [renderCustomTabBar]);
+  }, [renderCustomTabBar, tabBadges]);
 
   return (
     <Tabs
@@ -257,6 +287,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     backgroundColor: 'transparent',
+  },
+  iconWrapper: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   tabLabel: {
     fontSize: 12,

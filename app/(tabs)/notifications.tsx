@@ -4,6 +4,7 @@ import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndica
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
 import { Stack, useRouter } from "expo-router";
 import { useNotificationsStore } from "@/stores/notifications/notificationsStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
@@ -147,12 +148,7 @@ export default function NotificationsScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <IconSymbol name="chevron.left" size={24} color={theme.colors.text} />
-          </Pressable>
+          <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('notifications.title')}</Text>
           <Pressable onPress={handleMarkAllAsRead}>
             <Text style={styles.markReadText}>{t('notifications.markAllRead')}</Text>
@@ -324,9 +320,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  backButton: {
-    padding: 4,
   },
   headerTitle: {
     fontSize: 20,

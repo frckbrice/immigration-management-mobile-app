@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -10,33 +10,64 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useToast } from '@/components/Toast';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
 import { withOpacity } from '@/styles/theme';
+import { BackButton } from '@/components/BackButton';
+import { useAuthStore } from '@/stores/auth/authStore';
 
 export default function ContactSupportScreen() {
   const theme = useAppTheme();
   const colors = theme.colors;
-  const cardBackground = theme.dark ? colors.surfaceElevated : colors.surface;
-  const subtleBackground = theme.dark ? colors.surfaceAlt : colors.surfaceAlt;
-  const headerBackground = useMemo(
-    () => withOpacity(colors.primary, theme.dark ? 0.22 : 0.12),
-    [colors.primary, theme.dark]
-  );
+  const mutedTextColor = theme.dark ? withOpacity(colors.text, 0.7) : withOpacity(colors.text, 0.65);
+  const cardBackground = theme.dark ? withOpacity(colors.surfaceElevated, 0.95) : withOpacity(colors.surface, 0.98);
+  const cardBorderColor = withOpacity(colors.primary, theme.dark ? 0.45 : 0.7);
+  const cardShadowColor = withOpacity(colors.primary, theme.dark ? 0.5 : 0.8);
+  const quickLinkBackground = withOpacity(colors.accent, theme.dark ? 0.22 : 0.12);
+  const quickLinkBorderColor = withOpacity(colors.accent, theme.dark ? 0.45 : 0.2);
   const { t } = useTranslation();
   const router = useRouter();
   const { showAlert } = useBottomSheetAlert();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async () => {
-    if (!subject.trim() || !message.trim()) {
-      showAlert({ title: 'Validation', message: 'Please provide subject and message' });
+    const trimmedSubject = subject.trim();
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) {
+      showAlert({
+        title: t('common.error'),
+        message: t('support.messageRequired', { defaultValue: 'Please provide a message so we can assist you.' }),
+      });
       return;
     }
+
+    const derivedEmail = user?.email?.trim() ?? '';
+    if (!derivedEmail) {
+      showAlert({
+        title: t('common.error'),
+        message: t('support.missingEmail', { defaultValue: 'We could not find an email address on your account. Please update your profile and try again.' }),
+      });
+      return;
+    }
+
+    const derivedName =
+      user?.displayName?.trim() ||
+      (derivedEmail ? derivedEmail.split('@')[0] : t('support.unknownUser', { defaultValue: 'Customer' }));
+
+    const derivedPhone = user?.phoneNumber?.trim();
+
     try {
       setSubmitting(true);
-      await supportService.sendContact(subject.trim(), message.trim());
+      await supportService.sendContact({
+        name: derivedName,
+        email: derivedEmail,
+        phone: derivedPhone || undefined,
+        subject: trimmedSubject || undefined,
+        message: trimmedMessage,
+      });
       setSubject('');
       setMessage('');
       showToast({
@@ -68,19 +99,17 @@ export default function ContactSupportScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <Pressable style={[styles.headerIcon, { backgroundColor: headerBackground }]} hitSlop={10} onPress={() => router.back()}>
-                <IconSymbol name="chevron.left" size={22} color={theme.colors.text} />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
               <View style={styles.headerCopy}>
                 <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile.contactUs')}</Text>
-                <Text style={[styles.subtitle, { color: colors.muted }]}>
+                <Text style={[styles.subtitle, { color: mutedTextColor }]}>
                   {t('support.contactSubtitle', { defaultValue: 'We usually respond within one business day.' })}
                 </Text>
               </View>
-              <View style={[styles.headerIcon, { backgroundColor: 'transparent' }]} />
+              <View style={styles.headerSpacer} />
             </View>
 
-            <View style={[styles.card, { backgroundColor: cardBackground, borderColor: colors.border, shadowColor: colors.backdrop }]}
+            <View style={[styles.card, { backgroundColor: cardBackground, borderColor: cardBorderColor, shadowColor: cardShadowColor }]}
             >
               <FormInput
                 label={t('support.subject', { defaultValue: 'Subject' })}
@@ -101,16 +130,22 @@ export default function ContactSupportScreen() {
               />
 
               <View style={styles.metaRow}>
-                <IconSymbol name="envelope.open.fill" size={18} color={colors.muted} />
-                <Text style={[styles.metaText, { color: colors.muted }]}>
+                <IconSymbol name="envelope.open.fill" size={18} color={colors.primary} />
+                <Text style={[styles.metaText, { color: mutedTextColor }]}>
                   {t('support.contactHint', { defaultValue: 'Attach order numbers or case IDs when relevant to speed things up.' })}
                 </Text>
               </View>
             </View>
 
-            <View style={[styles.quickLinks, { backgroundColor: subtleBackground, borderColor: colors.border }]}>
-              <IconSymbol name="questionmark.circle" size={20} color={colors.accent} />
-              <Text style={[styles.quickLinkText, { color: colors.text }]}>
+            <View style={[styles.quickLinks, {
+              backgroundColor: quickLinkBackground,
+              borderColor: quickLinkBorderColor,
+              shadowColor: cardShadowColor,
+              padding: 30,
+              borderRadius: 18,
+            }]}>
+              <IconSymbol name="doc.text.fill" size={20} color={colors.accent} />
+              <Text style={[styles.quickLinkText, { color: colors.text, }]}>
                 {t('support.faqPrompt', { defaultValue: 'Need quick answers? Visit the FAQ before sending a message.' })}
               </Text>
               <Pressable onPress={() => router.push('/support/faq')}>
@@ -125,12 +160,12 @@ export default function ContactSupportScreen() {
             styles.footerBar,
             {
               backgroundColor: cardBackground,
-              borderTopColor: colors.border,
+              borderTopColor: cardBorderColor,
               paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >
-          <Pressable style={[styles.secondaryButton, { borderColor: colors.border }]} onPress={() => router.back()} disabled={submitting}>
+          <Pressable style={[styles.secondaryButton, { borderColor: cardBorderColor }]} onPress={() => router.back()} disabled={submitting}>
             <Text style={[styles.secondaryText, { color: colors.text }]}>{t('common.cancel')}</Text>
           </Pressable>
           <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]} onPress={onSubmit} disabled={submitting}>
@@ -147,7 +182,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerSpacer: { width: 40, height: 40 },
   headerCopy: { flex: 1, gap: 4 },
   title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.2 },
   subtitle: { fontSize: 14 },
@@ -171,6 +206,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 16,
+    elevation: 2,
   },
   quickLinkText: { fontSize: 14, flex: 1, lineHeight: 20 },
   quickLinkAction: { fontSize: 14, fontWeight: '700' },

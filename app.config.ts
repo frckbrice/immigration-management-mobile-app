@@ -13,7 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#000000',
+    backgroundColor: '#e7eeff',
   },
   ios: {
     supportsTablet: true,
@@ -25,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/icon.png',
-      backgroundColor: '#000000',
+      backgroundColor: '#e7eeff',
     },
     edgeToEdgeEnabled: true,
     package: 'com.ubuntu.patrickagency',
@@ -37,6 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.POST_NOTIFICATIONS',
       'android.permission.RECEIVE_BOOT_COMPLETED',
       'com.google.android.c2dm.permission.RECEIVE',
+      "CAMERA", "RECORD_AUDIO", "INTERNET", "WAKE_LOCK"
     ],
   },
   web: {
@@ -65,6 +66,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         enableGooglePay: false,
       },
     ],
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#e7eeff',
+        image: './assets/splash-icon.png',
+        resizeMode: 'contain',
+      },
+    ]
   ],
   experiments: {
     typedRoutes: true,

@@ -1,7 +1,11 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useAppTheme } from '@/lib/hooks/useAppTheme';
+import { withOpacity } from '@/styles/theme';
 
 type ToastType = 'info' | 'success' | 'error';
+type ToastDismiss = () => void;
 
 export interface ToastOptions {
   title?: string;
@@ -12,10 +16,12 @@ export interface ToastOptions {
 
 interface ToastItem extends ToastOptions {
   id: string;
+  exiting: boolean;
+  duration: number;
 }
 
 interface ToastContextValue {
-  showToast: (options: ToastOptions) => void;
+  showToast: (options: ToastOptions) => ToastDismiss;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -26,29 +32,41 @@ export const useToast = (): ToastContextValue => {
   return ctx;
 };
 
+const TOAST_DURATION_DEFAULT = 2500;
+const TOAST_IN_DURATION = 220;
+const TOAST_OUT_DURATION = 200;
+
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const removeToast = useCallback((id: string) => {
+  const finalizeRemove = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  const markExiting = useCallback((id: string) => {
+    setToasts((prev) =>
+      prev.map((toast) => (toast.id === id ? { ...toast, exiting: true } : toast)),
+    );
+  }, []);
+
   const showToast = useCallback(
-    ({ title, message, type = 'info', duration = 2800 }: ToastOptions) => {
+    ({ title, message, type = 'info', duration = TOAST_DURATION_DEFAULT }: ToastOptions): ToastDismiss => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const toast: ToastItem = { id, title, message, type, duration };
-      setToasts((prev) => [...prev, toast]);
+      setToasts((prev) => [
+        ...prev,
+        { id, title, message, type, duration, exiting: false },
+      ]);
 
       const timeout = setTimeout(() => {
-        removeToast(id);
+        markExiting(id);
       }, duration);
 
       return () => {
         clearTimeout(timeout);
-        removeToast(id);
+        markExiting(id);
       };
     },
-    [removeToast],
+    [markExiting],
   );
 
   const value = useMemo(() => ({ showToast }), [showToast]);
@@ -56,75 +74,87 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <View pointerEvents="box-none" style={styles.toastHost}>
+      <View pointerEvents="box-none" style={styles.host}>
         {toasts.map((toast) => (
-          <ToastCard key={toast.id} toast={toast} onHide={() => removeToast(toast.id)} />
+          <ToastCard key={toast.id} toast={toast} onFinished={() => finalizeRemove(toast.id)} />
         ))}
       </View>
     </ToastContext.Provider>
   );
 };
 
-const ToastCard: React.FC<{ toast: ToastItem; onHide: () => void }> = ({ toast, onHide }) => {
-  const animated = useRef(new Animated.Value(0)).current;
+const ToastCard: React.FC<{ toast: ToastItem; onFinished: () => void }> = ({ toast, onFinished }) => {
+  const theme = useAppTheme();
+  const colors = theme.colors;
+  const translateY = useSharedValue(16);
+  const opacity = useSharedValue(0);
 
-  React.useEffect(() => {
-    Animated.timing(animated, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+  useEffect(() => {
+    translateY.value = withTiming(0, { duration: TOAST_IN_DURATION, easing: Easing.out(Easing.cubic) });
+    opacity.value = withTiming(1, { duration: TOAST_IN_DURATION });
+  }, [opacity, translateY]);
 
-    return () => {
-      Animated.timing(animated, {
-        toValue: 0,
-        duration: 180,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }).start(onHide);
-    };
-  }, [animated, onHide]);
+  useEffect(() => {
+    if (!toast.exiting) {
+      return;
+    }
 
-  const containerStyle = useMemo(() => {
+    translateY.value = withTiming(
+      -12,
+      { duration: TOAST_OUT_DURATION, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) {
+          runOnJS(onFinished)();
+        }
+      },
+    );
+    opacity.value = withTiming(0, { duration: TOAST_OUT_DURATION });
+  }, [opacity, onFinished, toast.exiting, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: translateY.value,
+      },
+    ],
+    opacity: opacity.value,
+  }));
+
+  const { backgroundColor, borderColor, textColor } = useMemo(() => {
     switch (toast.type) {
       case 'success':
-        return { backgroundColor: '#063B1B', borderColor: '#22C55E' };
+        return {
+          backgroundColor: '#13dd6e',
+          borderColor: 'transparent',
+          textColor: '#FFFFFF',
+        };
       case 'error':
-        return { backgroundColor: '#3C0D0D', borderColor: '#F87171' };
+        return {
+          backgroundColor: '#FCA5A5',
+          borderColor: 'transparent',
+          textColor: '#FFFFFF',
+        };
       default:
-        return { backgroundColor: '#0C1D33', borderColor: '#60A5FA' };
+        return {
+          backgroundColor: colors.primary,
+          borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.85),
+          textColor: colors.onPrimary,
+        };
     }
-  }, [toast.type]);
-
-  const translateY = animated.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0],
-  });
-
-  const opacity = animated;
+  }, [colors.onPrimary, colors.primary, theme.dark, toast.type]);
 
   return (
-    <Animated.View
-      style={[
-        styles.toastCard,
-        containerStyle,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
-      {toast.title ? <Text style={styles.toastTitle}>{toast.title}</Text> : null}
-      <Text style={styles.toastMessage}>{toast.message}</Text>
+    <Animated.View style={[styles.toast, animatedStyle, { backgroundColor, borderColor }]}>
+      {toast.title ? <Text style={[styles.toastTitle, { color: textColor }]}>{toast.title}</Text> : null}
+      <Text style={[styles.toastMessage, { color: textColor }]}>{toast.message}</Text>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  toastHost: {
+  host: {
     position: 'absolute',
-    top: 50,
+    top: 40,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -132,28 +162,27 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     elevation: 1000,
   },
-  toastCard: {
+  toast: {
+    maxWidth: 420,
     width: '100%',
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 18,
     marginBottom: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
   },
   toastTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     marginBottom: 4,
   },
   toastMessage: {
     fontSize: 14,
-    color: '#E2E8F0',
     lineHeight: 18,
   },
 });

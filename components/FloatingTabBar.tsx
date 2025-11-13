@@ -38,6 +38,7 @@ interface FloatingTabBarProps {
   borderRadius?: number;
   bottomMargin?: number;
   activeRouteName?: string;
+  badges?: Record<string, number>;
   onTabPress?: (tab: TabBarItem) => void;
 }
 
@@ -49,6 +50,7 @@ export default function FloatingTabBar({
   borderRadius = 25,
   bottomMargin,
   activeRouteName,
+  badges,
   onTabPress,
 }: FloatingTabBarProps) {
   const router = useRouter();
@@ -278,6 +280,8 @@ export default function FloatingTabBar({
           <View style={styles.tabsContainer}>
             {tabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
+              const badgeKey = tab.routeName ?? tab.name ?? tab.route;
+              const badgeCount = (badgeKey && badges?.[badgeKey]) || 0;
 
               return (
                 <TouchableOpacity
@@ -287,11 +291,20 @@ export default function FloatingTabBar({
                   activeOpacity={0.7}
                 >
                   <View style={styles.tabContent}>
-                    <IconSymbol
-                      name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
-                      size={24}
-                      color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#8E8E93')}
-                    />
+                    <View style={styles.iconWrapper}>
+                      <IconSymbol
+                        name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
+                        size={24}
+                        color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#8E8E93')}
+                      />
+                      {badgeCount > 0 && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text
                       style={[
                         styles.tabLabel,
@@ -360,11 +373,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
+  iconWrapper: {
+    position: 'relative',
+  },
   tabLabel: {
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
     backgroundColor: 'transparent',
     // Dynamic styling applied in component
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

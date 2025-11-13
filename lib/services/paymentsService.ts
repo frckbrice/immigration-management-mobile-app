@@ -34,7 +34,11 @@ export const paymentsService = {
       return res.data.data;
     } catch (error: any) {
       logger.error('createPaymentIntent failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to create payment intent');
+      const message = error?.response?.data?.error || error?.message || 'Unable to create payment intent';
+      if (message.toLowerCase().includes('stripe') && message.toLowerCase().includes('not configured')) {
+        throw new Error('Payments are not yet configured. Please contact support.');
+      }
+      throw new Error(message);
     }
   },
 

@@ -8,6 +8,39 @@ const getAuthStore = () => {
     return require('../../stores/auth/authStore').useAuthStore;
 };
 
+const REFRESH_AUTH_COOLDOWN_MS = 60 * 1000;
+let lastRefreshAuthAttempt = 0;
+let refreshAuthInFlight: Promise<void> | null = null;
+
+const invokeRefreshAuth = async (): Promise<void> => {
+    if (refreshAuthInFlight) {
+        return refreshAuthInFlight;
+    }
+
+    const now = Date.now();
+    if (now - lastRefreshAuthAttempt < REFRESH_AUTH_COOLDOWN_MS) {
+        logger.warn('[Axios] Skipping refreshAuth retry due to cooldown window');
+        return Promise.reject(new Error('[Axios] refreshAuth throttled'));
+    }
+
+    lastRefreshAuthAttempt = now;
+    const authStore = getAuthStore().getState();
+
+    const refreshPromise = authStore
+        .refreshAuth()
+        .catch((error: any) => {
+            logger.error('[Axios] Error refreshing auth', error);
+            throw error;
+        })
+        .finally(() => {
+            refreshAuthInFlight = null;
+        });
+
+    refreshAuthInFlight = refreshPromise;
+
+    return refreshPromise;
+};
+
 // Get API URL from environment or config
 // Priority: expo extra.apiUrl → explicit PROD/DEV envs → localhost
 const isProduction = process.env.NODE_ENV === 'production';
@@ -18,12 +51,18 @@ const envSelectedApi = isProduction
     ? (PROD_API || DEV_API)
     : (DEV_API || PROD_API);
 
-const API_BASE_URL =
-    Constants.expoConfig?.extra?.apiUrl ||
-    envSelectedApi ||
-    'http://localhost:3000/api';
+const candidateApiUrls = [
+    // Constants.expoConfig?.extra?.apiUrl,
+    // envSelectedApi,
+    // process.env.EXPO_PUBLIC_API_FALLBACK_URL,
+    // 'http://192.168.43.4:3000/api',
+    'http://172.20.10.10:3000/api',
+    'http://localhost:3000/api',
+];
 
-// const API_BASE_URL = 'http://172.20.10.10:3000/api';
+const API_BASE_URL =
+    candidateApiUrls.find((url) => typeof url === 'string' && url.length > 0) ||
+    'http://localhost:3000/api';
 
 logger.info('API Client initialized', { baseURL: API_BASE_URL });
 
@@ -43,10 +82,17 @@ apiClient.interceptors.request.use(
             const user = auth.currentUser;
             if (user) {
                 try {
-                    const token = await user.getIdToken();
+                    // Don't force refresh on every request - only get current token
+                    // Force refresh only happens in response interceptor when we get 401
+                    const token = await user.getIdToken(false);
                     config.headers.Authorization = `Bearer ${token}`;
                     return config;
-                } catch (firebaseError) {
+                } catch (firebaseError: any) {
+                    // If quota exceeded, don't retry
+                    if (firebaseError?.code === 'auth/quota-exceeded') {
+                        logger.error('Token quota exceeded in request interceptor - skipping token', firebaseError);
+                        return config;
+                    }
                     logger.warn('Failed to get Firebase token, trying auth store', firebaseError);
                     // Fall through to auth store
                 }
@@ -56,9 +102,15 @@ apiClient.interceptors.request.use(
             const authStore = getAuthStore().getState();
             if (authStore.user) {
                 try {
-                    const token = await authStore.user.getIdToken();
+                    // Don't force refresh - use cached token
+                    const token = await authStore.user.getIdToken(false);
                     config.headers.Authorization = `Bearer ${token}`;
-                } catch (error) {
+                } catch (error: any) {
+                    // If quota exceeded, don't retry
+                    if (error?.code === 'auth/quota-exceeded') {
+                        logger.error('Token quota exceeded in request interceptor - skipping token', error);
+                        return config;
+                    }
                     logger.warn('Failed to get token from auth store user', error);
                 }
             }
@@ -126,6 +178,12 @@ apiClient.interceptors.response.use(
                 url.includes('/users/push-token') ||
                 url.includes('/auth/');
 
+            // If request is marked to stop retrying, reject immediately
+            if (originalRequest._stopRetry) {
+                logger.warn('401 received but retries are disabled - rejecting immediately');
+                return Promise.reject(error);
+            }
+
             // If we already retried multiple times, log out (unless it's an auth endpoint)
             const retryCount = originalRequest._retryCount || 0;
             if (retryCount >= 2 && !isAuthEndpoint) {
@@ -140,7 +198,7 @@ apiClient.interceptors.response.use(
                 } else {
                     logger.info('User has stored credentials - attempting refreshAuth before logout');
                     try {
-                        await authStore.refreshAuth();
+                        await invokeRefreshAuth();
                         // If refreshAuth succeeded, retry the request one more time
                         const refreshedUser = auth.currentUser;
                         if (refreshedUser) {
@@ -175,37 +233,22 @@ apiClient.interceptors.response.use(
                         try {
                             return await apiClient(originalRequest);
                         } catch (retryError: any) {
-                            // If retry also returns 401, try refreshAuth before giving up
-                            if (retryError?.response?.status === 401 && !isAuthEndpoint) {
-                                logger.warn('401 persisted after token refresh - trying refreshAuth');
-                                const authStore = getAuthStore().getState();
-                                try {
-                                    await authStore.refreshAuth();
-                                    // Try one more time with refreshed auth
-                                    const refreshedUser = auth.currentUser;
-                                    if (refreshedUser) {
-                                        const newToken = await refreshedUser.getIdToken(true);
-                                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                                        originalRequest._retryCount = 0; // Reset count
-                                        return await apiClient(originalRequest);
-                                    }
-                                } catch (refreshError) {
-                                    logger.warn('refreshAuth failed after retry 401', refreshError);
-                                }
-
-                                // Only logout if we've exhausted all retries
-                                if (originalRequest._retryCount >= 2 && !isAuthEndpoint) {
-                                    logger.warn('401 persisted after all retries - logging out user');
-                                    const logout = authStore.logout;
-                                    await logout();
-                                }
+                            // If retry also returns 401, don't retry again to prevent infinite loop
+                            if (retryError?.response?.status === 401) {
+                                logger.warn('401 persisted after token refresh - stopping retries to prevent loop');
+                                // Mark request to prevent further retries
+                                originalRequest._stopRetry = true;
                             }
                             return Promise.reject(retryError);
                         }
                     } catch (getIdTokenError: any) {
-                        // Firebase network error - don't retry, just fail fast
-                        if (getIdTokenError?.code === 'auth/network-request-failed') {
-                            logger.error('Firebase network error during token refresh - not retrying', getIdTokenError);
+                        // Check for quota-exceeded or other fatal errors - stop retrying immediately
+                        if (getIdTokenError?.code === 'auth/quota-exceeded' || 
+                            getIdTokenError?.code === 'auth/network-request-failed' ||
+                            getIdTokenError?.message?.includes('quota-exceeded')) {
+                            logger.error('Firebase quota exceeded or network error - stopping retries immediately', getIdTokenError);
+                            // Mark request to prevent further retries
+                            originalRequest._stopRetry = true;
                             return Promise.reject(error);
                         }
                         throw getIdTokenError;
@@ -216,24 +259,39 @@ apiClient.interceptors.response.use(
                     const authStore = getAuthStore().getState();
 
                     try {
-                        await authStore.refreshAuth();
+                        await invokeRefreshAuth();
                         const refreshedUser = auth.currentUser;
 
                         if (refreshedUser) {
                             // Got Firebase user after refreshAuth - retry request
-                            const token = await refreshedUser.getIdToken(true);
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
-                            originalRequest._retryCount = 0; // Reset count
-
                             try {
-                                return await apiClient(originalRequest);
-                            } catch (retryError: any) {
-                                if (retryError?.response?.status === 401 && !isAuthEndpoint && originalRequest._retryCount >= 2) {
-                                    logger.warn('401 persisted after refreshAuth - logging out user');
-                                    const logout = authStore.logout;
-                                    await logout();
+                                const token = await refreshedUser.getIdToken(true);
+                                originalRequest.headers.Authorization = `Bearer ${token}`;
+                                originalRequest._retryCount = 0; // Reset count
+
+                                try {
+                                    return await apiClient(originalRequest);
+                                } catch (retryError: any) {
+                                    // Stop retrying if we get another 401
+                                    if (retryError?.response?.status === 401) {
+                                        originalRequest._stopRetry = true;
+                                        if (!isAuthEndpoint && originalRequest._retryCount >= 2) {
+                                            logger.warn('401 persisted after refreshAuth - logging out user');
+                                            const logout = authStore.logout;
+                                            await logout();
+                                        }
+                                    }
+                                    return Promise.reject(retryError);
                                 }
-                                return Promise.reject(retryError);
+                            } catch (tokenError: any) {
+                                // Check for quota-exceeded - stop retrying immediately
+                                if (tokenError?.code === 'auth/quota-exceeded' || 
+                                    tokenError?.message?.includes('quota-exceeded')) {
+                                    logger.error('Token refresh quota exceeded - stopping retries', tokenError);
+                                    originalRequest._stopRetry = true;
+                                    return Promise.reject(error);
+                                }
+                                throw tokenError;
                             }
                         } else {
                             // refreshAuth couldn't restore auth
@@ -242,39 +300,72 @@ apiClient.interceptors.response.use(
                                 const logout = authStore.logout;
                                 await logout();
                             }
+                            originalRequest._stopRetry = true;
                             return Promise.reject(error);
                         }
-                    } catch (refreshError) {
+                    } catch (refreshError: any) {
                         logger.error('refreshAuth failed during 401 handling', refreshError);
+                        // Check for quota-exceeded - stop retrying immediately
+                        if (refreshError?.code === 'auth/quota-exceeded' || 
+                            refreshError?.message?.includes('quota-exceeded')) {
+                            logger.error('Refresh auth quota exceeded - stopping all retries', refreshError);
+                            originalRequest._stopRetry = true;
+                            return Promise.reject(error);
+                        }
                         if (!isAuthEndpoint && originalRequest._retryCount >= 2) {
                             logger.error('Token refresh failed - logging out user after retries');
                             const logout = authStore.logout;
                             await logout();
                         }
+                        originalRequest._stopRetry = true;
                         return Promise.reject(error);
                     }
                 }
-            } catch (refreshError) {
+            } catch (refreshError: any) {
                 logger.error('Token refresh failed during 401 handling', refreshError);
+                // Check for quota-exceeded - stop retrying immediately
+                if (refreshError?.code === 'auth/quota-exceeded' || 
+                    refreshError?.message?.includes('quota-exceeded')) {
+                    logger.error('Token refresh quota exceeded - stopping all retries', refreshError);
+                    originalRequest._stopRetry = true;
+                    return Promise.reject(error);
+                }
+                
                 if (!isAuthEndpoint) {
-                    try {
-                        const authStore = getAuthStore().getState();
-                        await authStore.refreshAuth();
+                    // Only try one more refreshAuth if we haven't exceeded retries
+                    if (originalRequest._retryCount < 2) {
+                        try {
+                            const authStore = getAuthStore().getState();
+                            await invokeRefreshAuth();
 
-                        const refreshedUser = auth.currentUser;
-                        if (refreshedUser) {
-                            const token = await refreshedUser.getIdToken(true);
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
-                            originalRequest._retryCount = 0;
-                            return await apiClient(originalRequest);
+                            const refreshedUser = auth.currentUser;
+                            if (refreshedUser) {
+                                try {
+                                    const token = await refreshedUser.getIdToken(true);
+                                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                                    originalRequest._retryCount = 0;
+                                    return await apiClient(originalRequest);
+                                } catch (tokenError: any) {
+                                    if (tokenError?.code === 'auth/quota-exceeded') {
+                                        originalRequest._stopRetry = true;
+                                        return Promise.reject(error);
+                                    }
+                                    throw tokenError;
+                                }
+                            }
+                        } catch (finalError: any) {
+                            logger.error('Final refreshAuth attempt failed', finalError);
+                            if (finalError?.code === 'auth/quota-exceeded') {
+                                originalRequest._stopRetry = true;
+                                return Promise.reject(error);
+                            }
                         }
-                    } catch (finalError) {
-                        logger.error('Final refreshAuth attempt failed', finalError);
                     }
 
                     // Only logout if we've truly exhausted all options
                     if (originalRequest._retryCount >= 2) {
                         logger.error('All token refresh attempts failed - logging out user');
+                        originalRequest._stopRetry = true;
                         try {
                             await auth.signOut();
                         } catch (signOutError) {
@@ -284,6 +375,7 @@ apiClient.interceptors.response.use(
                         await logout();
                     }
                 }
+                originalRequest._stopRetry = true;
                 return Promise.reject(error);
             }
         }

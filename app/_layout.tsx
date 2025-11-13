@@ -4,7 +4,14 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { SystemBars } from "react-native-edge-to-edge";
+// Safely import SystemBars with fallback
+let SystemBars: React.ComponentType<{ style: "light" | "dark" }> | null = null;
+try {
+    const edgeToEdgeModule = require("react-native-edge-to-edge");
+    SystemBars = edgeToEdgeModule?.SystemBars || null;
+} catch (error) {
+    console.warn('SystemBars not available, will skip rendering', error);
+}
 import { ThemeProvider } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,9 +22,13 @@ import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
 import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
 import { ToastProvider } from "@/components/Toast";
+import { useToast } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
 import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
+import { useSettingsStore } from "@/stores/settings/settingsStore";
+import { presenceService } from "@/lib/services/presenceService";
+
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -71,13 +82,26 @@ const queryClient = new QueryClient({
 function AppContent() {
     console.log('[App] AppContent rendering');
 
-    const colorScheme = useColorScheme();
+    // Safely get color scheme with fallback
+    let colorScheme: 'light' | 'dark' | null | undefined = 'light';
+    try {
+        const scheme = useColorScheme();
+        // Handle 'unspecified' and null cases
+        colorScheme = (scheme === 'light' || scheme === 'dark') ? scheme : 'light';
+    } catch (error) {
+        console.warn('Failed to get color scheme, using light as default', error);
+        colorScheme = 'light';
+    }
+
     const [loaded] = useFonts({
         SpaceMono: require("@/assets/fonts/SpaceMono-Regular.ttf"),
     });
 
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const registerPushToken = useAuthStore((state) => state.registerPushToken);
+    const settings = useSettingsStore((state) => state.settings);
+    const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+    const { showToast } = useToast();
 
     console.log('[App] AppContent state:', { loaded, isAuthenticated });
 
@@ -98,7 +122,19 @@ function AppContent() {
         // Initialize auth state listener on app start
         initializeAuthListener();
         logger.info('App layout initialized');
+
+        // Temporarily disabled presence tracking to test app functionality
+        // const cleanupPresence = presenceService.initializePresenceTracking();
+        // return () => {
+        //     cleanupPresence?.();
+        // };
     }, []);
+
+    useEffect(() => {
+        if (!settings) {
+            fetchSettings();
+        }
+    }, [settings, fetchSettings]);
 
     // Setup push notifications
     useEffect(() => {
@@ -106,7 +142,23 @@ function AppContent() {
 
         const setupNotifications = async () => {
             // Setup notification listeners
-            cleanup = setupNotificationListeners();
+            cleanup = setupNotificationListeners({
+                onNotificationReceived: ({ notification, data }) => {
+                    const title = notification.request.content.title?.trim() || 'New notification';
+                    const body = notification.request.content.body?.trim();
+                    const fallbackMessage =
+                        typeof data?.message === 'string' && data.message.trim().length > 0
+                            ? data.message.trim()
+                            : undefined;
+                    const message = body || fallbackMessage || 'Open the app to view the latest update.';
+
+                    showToast({
+                        title,
+                        message,
+                        duration: 5000,
+                    });
+                },
+            });
 
             // Check for cold start notification
             const lastNotification = await getLastNotificationResponse();
@@ -121,7 +173,7 @@ function AppContent() {
         return () => {
             if (cleanup) cleanup();
         };
-    }, []);
+    }, [showToast]);
 
     // Register push token when authenticated
     useEffect(() => {
@@ -134,9 +186,14 @@ function AppContent() {
     }, [isAuthenticated, registerPushToken]);
 
     // Render app even if fonts haven't loaded yet (they'll load asynchronously)
+    const themePreference = settings?.themePreference ?? 'system';
+    const resolvedTheme = themePreference === 'system' ? colorScheme ?? 'light' : themePreference;
+    const isDarkTheme = resolvedTheme === 'dark';
+    const activeTheme = isDarkTheme ? themes.dark : themes.light;
+
     return (
-        <ThemeProvider value={colorScheme === "dark" ? themes.dark : themes.light}>
-            <SystemBars style={colorScheme === "dark" ? "light" : "dark"} />
+        <ThemeProvider value={activeTheme}>
+            {SystemBars && <SystemBars style={isDarkTheme ? "light" : "dark"} />}
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="onboarding" />

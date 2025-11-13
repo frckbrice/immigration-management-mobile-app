@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Redirect, useRouter } from 'expo-router';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useAuthStore } from '../stores/auth/authStore';
 import { initializeAuthListener } from '../stores/auth/authStore';
 import { hasCompletedOnboarding } from '../lib/utils/onboarding';
 import { COLORS } from '../lib/constants';
+import { presenceService } from '@/lib/services/presenceService';
 
 console.log('[App] index.tsx loaded');
 
@@ -12,14 +13,34 @@ export default function Index() {
   console.log('[App] Index component rendering');
   const router = useRouter();
 
-  const { isAuthenticated, isLoading: authLoading, refreshAuth } = useAuthStore();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const authLoading = useAuthStore((state) => state.isLoading);
+  const refreshAuth = useAuthStore((state) => state.refreshAuth);
+  const refreshAuthRef = useRef(refreshAuth);
+
+  // Temporarily disabled presence tracking to test app functionality
+  // useEffect(() => {
+  //   const cleanup = presenceService.initializePresenceTracking();
+  //   return () => cleanup();
+  // }, []);
+
+  useEffect(() => {
+    refreshAuthRef.current = refreshAuth;
+  }, [refreshAuth]);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
     null
   );
   const [error, setError] = useState<string | null>(null);
 
   // Initialize auth and check onboarding
+  const initRef = useRef(false);
+
   useEffect(() => {
+    if (initRef.current) {
+      return;
+    }
+    initRef.current = true;
+
     console.log('[App] Index useEffect running');
 
     try {
@@ -27,7 +48,7 @@ export default function Index() {
       initializeAuthListener();
 
       // Refresh auth state on mount
-      refreshAuth();
+      refreshAuthRef.current();
 
       // Check onboarding status
       const checkOnboarding = async () => {
@@ -47,7 +68,7 @@ export default function Index() {
       console.error('[App] Index initialization error:', err);
       setError(err instanceof Error ? err.message : 'Initialization failed');
     }
-  }, [refreshAuth]);
+  }, []);
 
   // Navigate based on state - must be after all other hooks
   useEffect(() => {
