@@ -234,7 +234,16 @@ export default function UploadDocumentScreen() {
       });
 
       if (document) {
-        // No additional toast; success state is reflected in UI
+        // Show success toast with proper type
+        showToast({
+          title: t("uploadDocument.uploadSuccessTitle", { defaultValue: "Document uploaded" }),
+          message: t("uploadDocument.uploadSuccessMessage", {
+            defaultValue: "Your document has been uploaded successfully.",
+            file: asset.name || "document"
+          }),
+          type: "success",
+          duration: 3000,
+        });
       }
     } catch (error: any) {
       console.warn("Upload failed", error);

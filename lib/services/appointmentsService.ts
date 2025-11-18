@@ -52,9 +52,18 @@ export const appointmentsService = {
         scheduledAt: appointment.scheduledAt,
       });
       return appointment;
-    } catch (error) {
-      logger.error('Failed to fetch upcoming appointment', error);
-      throw error;
+    } catch (error: any) {
+      // Handle 404 as "no appointment found" rather than an error
+      if (error?.response?.status === 404) {
+        logger.info('Upcoming appointments endpoint not found or no appointment available');
+        return null;
+      }
+      // For other errors, log but don't throw - return null gracefully
+      logger.warn('Failed to fetch upcoming appointment', {
+        status: error?.response?.status,
+        message: error?.message,
+      });
+      return null;
     }
   },
 };

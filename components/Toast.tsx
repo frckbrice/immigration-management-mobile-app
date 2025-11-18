@@ -135,13 +135,14 @@ const ToastCard: React.FC<{ toast: ToastItem; onFinished: () => void }> = ({ toa
           textColor: '#FFFFFF',
         };
       default:
+        // Info toast: use white text on primary background for better readability
         return {
           backgroundColor: colors.primary,
           borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.85),
-          textColor: colors.onPrimary,
+          textColor: '#FFFFFF',
         };
     }
-  }, [colors.onPrimary, colors.primary, theme.dark, toast.type]);
+  }, [colors.primary, theme.dark, toast.type]);
 
   return (
     <Animated.View style={[styles.toast, animatedStyle, { backgroundColor, borderColor }]}>

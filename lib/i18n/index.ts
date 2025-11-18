@@ -19,14 +19,27 @@ const getDeviceLanguage = (): string => {
   return 'en';
 };
 
-const deviceLanguage = getDeviceLanguage();
+// Get stored language preference synchronously (with fallback)
+const getStoredLanguage = (): string => {
+  try {
+    // Use synchronous getItemSync if available, otherwise default to device language
+    // Note: AsyncStorage doesn't have sync methods, so we'll initialize with device language
+    // and update asynchronously
+    return getDeviceLanguage();
+  } catch (error) {
+    return getDeviceLanguage();
+  }
+};
 
-// Initialize i18n synchronously with device language
+const deviceLanguage = getDeviceLanguage();
+const initialLanguage = getStoredLanguage();
+
+// Initialize i18n synchronously with device language (will be updated if stored preference differs)
 i18n
   .use(initReactI18next)
   .init({
     compatibilityJSON: 'v4',
-    lng: deviceLanguage,
+    lng: initialLanguage,
     fallbackLng: 'en',
     resources: {
       en: { translation: en },
@@ -35,17 +48,22 @@ i18n
     interpolation: { escapeValue: false },
   });
 
-// Update language from stored preference if available (async, non-blocking)
-AsyncStorage.getItem('language_preference')
-  .then((storedLanguage) => {
+// Update language from stored preference immediately (async, but runs before most components mount)
+// This ensures the language is set correctly before pages render
+(async () => {
+  try {
+    const storedLanguage = await AsyncStorage.getItem('language_preference');
     if (storedLanguage === 'en' || storedLanguage === 'fr') {
-      i18n.changeLanguage(storedLanguage);
+      // Only change if different from current to avoid unnecessary updates
+      if (i18n.language !== storedLanguage) {
+        await i18n.changeLanguage(storedLanguage);
+      }
     }
-  })
-  .catch((error) => {
+  } catch (error) {
     // Silently fail - device language is already set
     console.debug('Could not load stored language preference:', error);
-  });
+  }
+})();
 
 export default i18n;
 

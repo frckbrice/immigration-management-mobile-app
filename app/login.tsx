@@ -1,9 +1,9 @@
 
-import React, { useState, useRef } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, Image, Alert, ActivityIndicator, KeyboardAvoidingView } from "react-native";
+import React, { useState, useRef, useEffect } from "react";
+import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Keyboard } from "react-native";
 import FormInput from "@/components/FormInput";
 import { useTheme } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const { showAlert } = useBottomSheetAlert();
   const scrollViewRef = useRef<ScrollView>(null);
   const passwordInputRef = useRef<TextInput>(null);
-
+  const insets = useSafeAreaInsets();
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       showAlert({ title: t('common.error'), message: t('validation.required') });
@@ -87,13 +87,13 @@ export default function LoginScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
           <ScrollView 
             ref={scrollViewRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 100) }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
@@ -134,7 +134,8 @@ export default function LoginScreen() {
           />
 
           {/* Password Input */}
-          <FormInput
+            <View style={styles.passwordContainer}> 
+              <FormInput
             ref={passwordInputRef}
             label={t('auth.password')}
             placeholder={t('auth.enterPassword')}
@@ -146,12 +147,22 @@ export default function LoginScreen() {
             returnKeyType="done"
             textContentType="password"
             onSubmitEditing={() => passwordInputRef.current?.blur()}
+                onFocus={() => {
+                  // Small scroll adjustment when password field is focused
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({
+                      y: 50, // Small scroll amount - just enough space to type
+                      animated: true,
+                    });
+                  }, 100);
+                }}
             labelRight={(
               <Pressable onPress={() => router.push('/forgot-password')} hitSlop={8}>
                 <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
               </Pressable>
             )}
           />
+            </View>
 
           {/* Login Button */}
           <Pressable 
@@ -195,8 +206,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 40,
-    paddingBottom: 40, // Reduced padding, KeyboardAvoidingView handles the rest
+    paddingBottom: 100, // Extra padding for keyboard
     flexGrow: 1,
+  },
+  passwordContainer: {
+    marginBottom: 16,
   },
   logoContainer: {
     alignItems: 'center',

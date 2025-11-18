@@ -270,11 +270,15 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       set({
         conversations,
         unreadChatTotal: computeUnreadChatTotal(conversations),
-        conversationsError: null,
+        conversationsError: null, // Clear error on successful update
         lastConversationsFetchedAt: Date.now(),
         lastConversationsUserId: userId,
       });
     });
+
+    // Note: Permission errors are now handled gracefully in chatService
+    // The callback will receive an empty array if permission is denied
+    // This prevents the app from crashing while still logging the issue
 
     set({ unsubscribeConversations: unsubscribe });
     return unsubscribe;

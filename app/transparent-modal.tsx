@@ -2,16 +2,18 @@ import { StyleSheet, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { GlassView } from 'expo-glass-effect';
 import { useTheme } from '@react-navigation/native';
+import { useTranslation } from '@/lib/hooks/useTranslation';
 
 export default function TransparentModal() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Pressable style={styles.backdrop} onPress={() => router.back()}>
       <Pressable onPress={(e) => e.stopPropagation()}>
         <GlassView style={styles.modal} glassEffectStyle="regular">
-          <Text style={[styles.title, { color: theme.colors.text }]}>Transparent Modal</Text>
-          <Text style={[styles.text, { color: theme.colors.text }]}>Tap outside to dismiss</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>{t('modals.transparentModal')}</Text>
+          <Text style={[styles.text, { color: theme.colors.text }]}>{t('modals.transparentModalDescription')}</Text>
         </GlassView>
       </Pressable>
     </Pressable>

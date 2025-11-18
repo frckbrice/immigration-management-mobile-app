@@ -9,8 +9,11 @@ import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useDestinationsStore } from "@/stores/destinations/destinationsStore";
+import { useSubscriptionStore } from "@/stores/subscription/subscriptionStore";
+import { useAuthStore } from "@/stores/auth/authStore";
 import { useToast } from "@/components/Toast";
 import { BackButton } from "@/components/BackButton";
+import { logger } from "@/lib/utils/logger";
 
 const PRIORITY_ACCENTS: Record<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT', string> = {
   LOW: "#38bdf8",
@@ -48,12 +51,28 @@ export default function NewCaseScreen() {
   const [destinationId, setDestinationId] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const { createCase, isLoading } = useCasesStore();
+
+  // Debug: Log state changes
+  useEffect(() => {
+    logger.debug('Case form state', { serviceType, destinationId, priority, isLoading });
+  }, [serviceType, destinationId, priority, isLoading]);
+
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuthStore();
+  const subscriptionStore = useSubscriptionStore();
+  const { subscriptionStatus, checkSubscriptionStatus, isLoading: subscriptionLoading, lastChecked } = subscriptionStore;
 
   const destinations = useDestinationsStore((state) => state.destinations);
   const destinationsLoading = useDestinationsStore((state) => state.isLoading);
   const destinationsError = useDestinationsStore((state) => state.error);
   const fetchDestinations = useDestinationsStore((state) => state.fetchDestinations);
+
+  // Check subscription status on mount and when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkSubscriptionStatus();
+    }
+  }, [isAuthenticated, checkSubscriptionStatus]);
 
   const colors = useMemo(() => ({
     primary: theme.colors.primary ?? '#2563EB',
@@ -81,35 +100,191 @@ export default function NewCaseScreen() {
   }, [destinations, destinationId]);
 
   const handleSubmit = async () => {
+    logger.info('handleSubmit called', { serviceType, destinationId, priority, isLoading });
+
     if (!serviceType || !destinationId) {
-      showAlert({ title: t('common.error'), message: t('newCase.fillAllFields') });
+      logger.warn('Missing required fields', { serviceType, destinationId });
+      showAlert({
+        title: t('common.error'),
+        message: t('newCase.fillAllFields'),
+        actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+      });
       return;
     }
 
-    const newCase = await createCase({
-      serviceType,
-      destinationId,
-      priority,
-    });
+    // Check payment status before creating case (performance: check cache first)
+    // This prevents unnecessary API calls if we already know payment is not active
+    if (isAuthenticated) {
+      logger.info('Checking subscription status before case creation', {
+        subscriptionStatus,
+        lastChecked,
+        subscriptionLoading
+      });
 
-    if (newCase) {
-      showToast({
-        title: t('common.success'),
-        message: t('newCase.caseCreated'),
-        type: 'success',
+      // Check cache first - if we have fresh cached data, use it
+      const now = Date.now();
+      const cacheAge = lastChecked ? now - lastChecked : Infinity;
+      const cacheValid = cacheAge < 5 * 60 * 1000; // 5 minutes
+
+      if (!subscriptionStatus || !cacheValid) {
+        // Cache miss or stale - refresh status
+        logger.info('Cache miss or stale, refreshing subscription status');
+        await checkSubscriptionStatus({ force: false });
+      }
+
+      // Re-check status after potential refresh
+      const currentStatus = subscriptionStore.subscriptionStatus;
+      logger.info('Current subscription status after check', {
+        currentStatus,
+        isActive: currentStatus?.isActive,
+        hasPaid: currentStatus?.hasPaid,
+        bypassed: currentStatus?.bypassed,
       });
-      showAlert({
-        title: t('common.success'),
-        message: t('newCase.caseCreated'),
-        actions: [{ text: t('common.close'), onPress: () => router.back(), variant: 'primary' }],
+
+      // Allow case creation if user has bypassed flag (admin/agent) OR has active payment
+      const canCreateCase = currentStatus?.bypassed === true || currentStatus?.isActive === true;
+
+      if (!canCreateCase) {
+        logger.warn('Subscription not active, showing tier selection', {
+          currentStatus,
+          canCreateCase,
+          reason: currentStatus?.bypassed === true ? 'bypassed user' : 'no active payment',
+        });
+
+        const errorMessage = currentStatus?.hasPaid
+          ? t('cases.subscriptionExpired', {
+            defaultValue: 'Your payment has expired. Please select a payment tier to renew.'
+          })
+          : t('cases.subscriptionRequired', {
+            defaultValue: 'Active payment required to create cases. Please select a payment tier to continue.'
+          });
+
+        // Payment tiers for selection
+        const paymentTiers = [
+          { id: 'basic', name: 'Basic', amount: 500.00, description: 'Basic Tier - One-time payment' },
+          { id: 'standard', name: 'Standard', amount: 1500.00, description: 'Standard Tier - One-time payment' },
+          { id: 'premium', name: 'Premium', amount: 2000.00, description: 'Premium Tier - One-time payment' },
+        ];
+
+        // Create actions for each tier + cancel
+        const tierActions = paymentTiers.map((tier) => ({
+          text: `${tier.name} - $${tier.amount.toFixed(2)}`,
+          onPress: () => {
+            router.push({
+              pathname: '/payment',
+              params: {
+                amount: tier.amount.toString(),
+                description: tier.description,
+                tier: tier.id,
+              },
+            });
+          },
+          variant: 'primary' as const,
+        }));
+
+        showAlert({
+          title: t('cases.subscriptionTitle', { defaultValue: 'Payment Required' }),
+          message: errorMessage,
+          actions: [
+            {
+              text: t('common.cancel', { defaultValue: 'Cancel' }),
+              variant: 'secondary',
+              onPress: () => {
+                // User cancelled - do nothing
+              },
+            },
+            ...tierActions,
+          ],
+        });
+        return;
+      }
+    }
+
+    try {
+      logger.info('Creating case - about to call createCase', { serviceType, destinationId, priority });
+      const newCase = await createCase({
+        serviceType,
+        destinationId,
+        priority,
       });
-    } else {
-      showToast({
-        title: t('common.error'),
-        message: t('newCase.caseFailed'),
-        type: 'error',
-      });
-      showAlert({ title: t('common.error'), message: t('newCase.caseFailed') });
+      logger.info('Case created successfully - createCase returned', { caseId: newCase?.id });
+
+      if (newCase) {
+        showToast({
+          title: t('common.success'),
+          message: t('newCase.caseCreated'),
+          type: 'success',
+        });
+        router.back();
+      }
+    } catch (error: any) {
+      logger.error('Case creation error', error);
+
+      // Handle subscription-related errors from backend
+      const errorCode = error?.response?.data?.code;
+      const errorMessage = error?.response?.data?.error || error.message;
+
+      if (
+        errorCode === 'SUBSCRIPTION_REQUIRED' ||
+        errorCode === 'SUBSCRIPTION_EXPIRED' ||
+        errorMessage?.includes('subscription') ||
+        errorMessage?.includes('Subscription') ||
+        errorMessage?.includes('payment') ||
+        errorMessage?.includes('Payment')
+      ) {
+        const isExpired = errorCode === 'SUBSCRIPTION_EXPIRED' || errorMessage?.includes('expired');
+        const alertMessage = isExpired
+          ? t('cases.subscriptionExpired', {
+            defaultValue: 'Your payment has expired. Please select a payment tier to renew.',
+          })
+          : t('cases.subscriptionRequired', {
+            defaultValue: 'Active payment required to create cases. Please select a payment tier to continue.',
+          });
+
+        // Payment tiers for selection
+        const paymentTiers = [
+          { id: 'basic', name: 'Basic', amount: 500.00, description: 'Basic Tier - One-time payment' },
+          { id: 'standard', name: 'Standard', amount: 1500.00, description: 'Standard Tier - One-time payment' },
+          { id: 'premium', name: 'Premium', amount: 2000.00, description: 'Premium Tier - One-time payment' },
+        ];
+
+        // Create actions for each tier + cancel
+        const tierActions = paymentTiers.map((tier) => ({
+          text: `${tier.name} - $${tier.amount.toFixed(2)}`,
+          onPress: () => {
+            router.push({
+              pathname: '/payment',
+              params: {
+                amount: tier.amount.toString(),
+                description: tier.description,
+                tier: tier.id,
+              },
+            });
+          },
+          variant: 'primary' as const,
+        }));
+
+        showAlert({
+          title: t('cases.subscriptionTitle', { defaultValue: 'Payment Required' }),
+          message: alertMessage,
+          actions: [
+            {
+              text: t('common.cancel', { defaultValue: 'Cancel' }),
+              variant: 'secondary',
+              onPress: () => {
+                // User cancelled - do nothing
+              },
+            },
+            ...tierActions,
+          ],
+        });
+      } else {
+        showAlert({
+          title: t('common.error'),
+          message: errorMessage || t('newCase.caseCreationFailed'),
+          actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+        });
+      }
     }
   };
 
@@ -394,9 +569,21 @@ export default function NewCaseScreen() {
           </View>
 
           <Pressable
-            style={[styles.submitButton, { backgroundColor: colors.primary }, ((!serviceType || !destinationId || !priority) || isLoading) && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
+            style={[
+              styles.submitButton,
+              { backgroundColor: colors.primary },
+              ((!serviceType || !destinationId || !priority) || isLoading) && styles.submitButtonDisabled
+            ]}
+            onPress={() => {
+              logger.info('Submit button pressed', { serviceType, destinationId, priority, isLoading });
+              if (!serviceType || !destinationId || !priority || isLoading) {
+                logger.warn('Button pressed but form is incomplete or loading', { serviceType, destinationId, priority, isLoading });
+                return;
+              }
+              handleSubmit();
+            }}
             disabled={!serviceType || !destinationId || !priority || isLoading}
+            accessibilityRole="button"
           >
             {isLoading ? (
               <ActivityIndicator color="#ffffff" />

@@ -9,53 +9,55 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useAppTheme } from '@/lib/hooks/useAppTheme';
 import { withOpacity } from '@/styles/theme';
 import { useMessagesStore } from '@/stores/messages/messagesStore';
-
-const TAB_ITEMS: TabBarItem[] = [
-  {
-    name: 'Home',
-    label: 'Home',
-    icon: 'house.fill',
-    inactiveIcon: 'house',
-    route: '/(tabs)/(home)',
-    routeName: '(home)'
-  },
-  {
-    name: 'Cases',
-    label: 'Cases',
-    icon: 'folder.fill',
-    inactiveIcon: 'folder',
-    route: '/(tabs)/cases',
-    routeName: 'cases'
-  },
-  {
-    name: 'Messages',
-    label: 'Messages',
-    icon: 'message.fill',
-    inactiveIcon: 'message',
-    route: '/(tabs)/messages',
-    routeName: 'messages'
-  },
-  {
-    name: 'Documents',
-    label: 'Documents',
-    icon: 'doc.fill',
-    inactiveIcon: 'doc',
-    route: '/(tabs)/documents',
-    routeName: 'documents'
-  },
-  {
-    name: 'Profile',
-    label: 'Profile',
-    icon: 'person.fill',
-    inactiveIcon: 'person',
-    route: '/(tabs)/profile',
-    routeName: 'profile'
-  },
-];
+import { useTranslation } from '@/lib/hooks/useTranslation';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const theme = useAppTheme();
   const colors = theme.colors;
+
+  const TAB_ITEMS: TabBarItem[] = useMemo(() => [
+    {
+      name: 'Home',
+      label: t('home.title'),
+      icon: 'house.fill',
+      inactiveIcon: 'house',
+      route: '/(tabs)/(home)',
+      routeName: '(home)'
+    },
+    {
+      name: 'Cases',
+      label: t('cases.title'),
+      icon: 'folder.fill',
+      inactiveIcon: 'folder',
+      route: '/(tabs)/cases',
+      routeName: 'cases'
+    },
+    {
+      name: 'Messages',
+      label: t('messages.title'),
+      icon: 'message.fill',
+      inactiveIcon: 'message',
+      route: '/(tabs)/messages',
+      routeName: 'messages'
+    },
+    {
+      name: 'Documents',
+      label: t('documents.title'),
+      icon: 'doc.fill',
+      inactiveIcon: 'doc',
+      route: '/(tabs)/documents',
+      routeName: 'documents'
+    },
+    {
+      name: 'Profile',
+      label: t('profile.title'),
+      icon: 'person.fill',
+      inactiveIcon: 'person',
+      route: '/(tabs)/profile',
+      routeName: 'profile'
+    },
+  ], [t]);
   const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
   const totalUnreadMessages = unreadChatTotal;
   const tabBadges = useMemo<Record<string, number>>(
@@ -140,7 +142,7 @@ export default function TabLayout() {
         })}
       </View>
     </SafeAreaView>
-  ), [colors.muted, colors.primary, elevatedWrapperStyle, tabBadges]);
+  ), [colors.muted, colors.primary, elevatedWrapperStyle, tabBadges, TAB_ITEMS]);
 
   const renderTabBar = useCallback((props: BottomTabBarProps) => {
     const focusedRouteName = props.state.routeNames[props.state.index];
@@ -171,7 +173,7 @@ export default function TabLayout() {
         }}
       />
     );
-  }, [renderCustomTabBar, tabBadges]);
+  }, [renderCustomTabBar, tabBadges, TAB_ITEMS]);
 
   return (
     <Tabs
@@ -189,8 +191,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Home',
-          tabBarLabel: 'Home',
+          title: t('home.title'),
+          tabBarLabel: t('home.title'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               name={focused ? TAB_ITEMS[0].icon : TAB_ITEMS[0].inactiveIcon ?? TAB_ITEMS[0].icon}
@@ -203,8 +205,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cases"
         options={{
-          title: 'Cases',
-          tabBarLabel: 'Cases',
+          title: t('cases.title'),
+          tabBarLabel: t('cases.title'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               name={focused ? TAB_ITEMS[1].icon : TAB_ITEMS[1].inactiveIcon ?? TAB_ITEMS[1].icon}
@@ -217,8 +219,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
-          tabBarLabel: 'Messages',
+          title: t('messages.title'),
+          tabBarLabel: t('messages.title'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               name={focused ? TAB_ITEMS[2].icon : TAB_ITEMS[2].inactiveIcon ?? TAB_ITEMS[2].icon}
@@ -231,8 +233,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="documents"
         options={{
-          title: 'Documents',
-          tabBarLabel: 'Documents',
+          title: t('documents.title'),
+          tabBarLabel: t('documents.title'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               name={focused ? TAB_ITEMS[3].icon : TAB_ITEMS[3].inactiveIcon ?? TAB_ITEMS[3].icon}
@@ -245,8 +247,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarLabel: 'Profile',
+          title: t('profile.title'),
+          tabBarLabel: t('profile.title'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               name={focused ? TAB_ITEMS[4].icon : TAB_ITEMS[4].inactiveIcon ?? TAB_ITEMS[4].icon}

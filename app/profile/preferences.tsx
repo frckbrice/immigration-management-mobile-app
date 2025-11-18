@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Platform,
     Pressable,
     ScrollView,
@@ -19,6 +20,7 @@ import { useSettingsStore } from "@/stores/settings/settingsStore";
 import { useToast } from "@/components/Toast";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { BackButton } from "@/components/BackButton";
+import { resetOnboarding, resetGetStarted } from "@/lib/utils/onboarding";
 
 type ThemePreference = "system" | "light" | "dark";
 type LanguagePreference = "en" | "fr";
@@ -45,6 +47,7 @@ export default function PreferencesScreen() {
     const [initializing, setInitializing] = useState(true);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [processingNotifications, setProcessingNotifications] = useState(false);
+    const [resettingOnboarding, setResettingOnboarding] = useState(false);
 
     useEffect(() => {
         const hydrate = async () => {
@@ -59,7 +62,10 @@ export default function PreferencesScreen() {
     useEffect(() => {
         if (settings) {
             setThemePreference(settings.themePreference ?? "system");
-            setLanguagePreference(settings.languagePreference ?? (currentLanguage === "fr" ? "fr" : "en"));
+            // Use stored preference first, then fall back to current i18n language
+            const storedLang = settings.languagePreference;
+            const currentLang = currentLanguage === "fr" ? "fr" : "en";
+            setLanguagePreference(storedLang ?? currentLang);
             const enabled = Boolean(settings.pushNotifications && settings.emailNotifications);
             setNotificationsEnabled(enabled);
         }
@@ -144,7 +150,9 @@ export default function PreferencesScreen() {
         if (languagePreference === value || isUpdating) return;
         setLanguagePreference(value);
         try {
+            // Change language first (this also saves to AsyncStorage)
             await changeLanguage(value);
+            // Then update settings store
             await updateSettings({ languagePreference: value });
             showToast({
                 type: "success",
@@ -152,9 +160,15 @@ export default function PreferencesScreen() {
                 message: t("profile.languageUpdated", { defaultValue: "Language updated successfully." }),
             });
         } catch (error: any) {
-            setLanguagePreference(
-                settings?.languagePreference ?? (currentLanguage === "fr" ? "fr" : "en")
-            );
+            // Revert on error
+            const previousLang = settings?.languagePreference ?? (currentLanguage === "fr" ? "fr" : "en");
+            setLanguagePreference(previousLang);
+            // Try to restore previous language
+            try {
+                await changeLanguage(previousLang);
+            } catch (restoreError) {
+                // Ignore restore errors
+            }
             const message = typeof error?.message === "string" ? error.message : undefined;
             showToast({
                 type: "error",
@@ -250,6 +264,53 @@ export default function PreferencesScreen() {
         }
     };
 
+    const handleResetOnboarding = () => {
+        Alert.alert(
+            t("profile.resetOnboardingTitle", { defaultValue: "Reset Onboarding" }),
+            t("profile.resetOnboardingMessage", {
+                defaultValue: "This will reset your onboarding status. You'll be taken to the welcome screens immediately. Continue?",
+            }),
+            [
+                {
+                    text: t("common.cancel", { defaultValue: "Cancel" }),
+                    style: "cancel",
+                },
+                {
+                    text: t("common.reset", { defaultValue: "Reset" }),
+                    style: "destructive",
+                    onPress: async () => {
+                        setResettingOnboarding(true);
+                        try {
+                            // Reset both onboarding and getstarted to allow full flow
+                            await resetOnboarding();
+                            await resetGetStarted();
+                            showToast({
+                                type: "success",
+                                title: t("common.success"),
+                                message: t("profile.onboardingResetSuccess", {
+                                    defaultValue: "Onboarding reset. Redirecting to getstarted screens...",
+                                }),
+                            });
+                            // Navigate immediately to getstarted page after a short delay to show toast
+                            setTimeout(() => {
+                                router.replace('/getstarted');
+                            }, 500);
+                        } catch (error: any) {
+                            setResettingOnboarding(false);
+                            showToast({
+                                type: "error",
+                                title: t("common.error"),
+                                message: error?.message || t("profile.onboardingResetError", {
+                                    defaultValue: "Failed to reset onboarding.",
+                                }),
+                            });
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const renderThemeOptions = () =>
         themeOptions.map((option) => {
             const isActive = option.value === themePreference;
@@ -334,11 +395,19 @@ export default function PreferencesScreen() {
                 />
             )}
             <SafeAreaView
-                style={[styles.container, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}
+                style={[styles.container,
+                {
+                    backgroundColor: "#1f2937",
+                    paddingBottom: insets.bottom,
+                    paddingTop: insets.top
+                }]}
+
                 edges={["top"]}
             >
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: insets.top }]}>
+                    <View style={{ marginRight: 16 }} >
                     <BackButton onPress={() => router.back()} iconSize={22} />
+                    </View>
                     <View style={styles.headerTextContainer}>
                         <Text style={[styles.headerTitle, { color: colors.text }]}>
                             {t("profile.preferencesTitle", { defaultValue: "Theme & Language" })}
@@ -431,6 +500,46 @@ export default function PreferencesScreen() {
                             </Text>
                         </View>
                         <View style={styles.cardBody}>{renderLanguageOptions()}</View>
+                    </View>
+
+                    {/* Developer/Test Options */}
+                    <View style={[styles.card, { backgroundColor: theme.dark ? "#111827" : "#FFFFFF" }]}>
+                        <View style={styles.cardHeader}>
+                            <Text style={[styles.cardTitle, { color: colors.text }]}>
+                                {t("profile.developerSectionTitle", { defaultValue: "Developer Options" })}
+                            </Text>
+                        </View>
+                        <View style={styles.cardBody}>
+                            <Pressable
+                                style={[
+                                    styles.optionRow,
+                                    {
+                                        borderColor: theme.dark ? "#1F2937" : "#E2E8F0",
+                                        backgroundColor: theme.dark ? "#111827" : "#F8FAFC",
+                                        opacity: resettingOnboarding ? 0.6 : 1,
+                                    },
+                                ]}
+                                onPress={handleResetOnboarding}
+                                disabled={resettingOnboarding}
+                            >
+                                <View style={styles.optionContent}>
+                                    <View style={[styles.optionIcon, { backgroundColor: "#EF4444" + "15" }]}>
+                                        <IconSymbol name="arrow.counterclockwise" size={22} color="#EF4444" />
+                                    </View>
+                                    <View style={styles.optionTextContainer}>
+                                        <Text style={[styles.optionTitle, { color: colors.text }]}>
+                                            {t("profile.resetOnboarding", { defaultValue: "Reset Onboarding" })}
+                                        </Text>
+                                        <Text style={[styles.optionDescription, { color: colors.muted }]}>
+                                            {t("profile.resetOnboardingDescription", {
+                                                defaultValue: "Reset onboarding and return to welcome screens immediately.",
+                                            })}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {resettingOnboarding && <ActivityIndicator size="small" color={colors.primary} />}
+                            </Pressable>
+                        </View>
                     </View>
 
                     {isUpdating && (

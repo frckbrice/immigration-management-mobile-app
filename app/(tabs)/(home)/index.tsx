@@ -11,16 +11,33 @@ import { useCasesStore } from "@/stores/cases/casesStore";
 import { useNotificationsStore } from "@/stores/notifications/notificationsStore";
 import { useMessagesStore } from "@/stores/messages/messagesStore";
 import { useDocumentsStore } from "@/stores/documents/documentsStore";
+import { useSubscriptionStore } from "@/stores/subscription/subscriptionStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { useScrollContext } from "@/contexts/ScrollContext";
 import { dashboardService } from "@/lib/services/dashboardService";
 import { appointmentsService } from "@/lib/services/appointmentsService";
 import { logger } from "@/lib/utils/logger";
+import { secureStorage } from "@/lib/storage/secureStorage";
 import type { DashboardStats, Case, Appointment } from "@/lib/types";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
-import { useShallow } from "zustand/react/shallow";
+
+const DASHBOARD_STATS_CACHE_KEY_PREFIX = 'dashboard_stats_cache_'; // Will be suffixed with user ID
+const DASHBOARD_STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const APPOINTMENT_CACHE_KEY_PREFIX = 'appointment_cache_'; // Will be suffixed with user ID
+const APPOINTMENT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+// Helper to get user-specific cache keys
+const getDashboardStatsCacheKey = (userId: string | null | undefined): string => {
+  if (!userId) return 'dashboard_stats_cache_no_user';
+  return `${DASHBOARD_STATS_CACHE_KEY_PREFIX}${userId}`;
+};
+
+const getAppointmentCacheKey = (userId: string | null | undefined): string => {
+  if (!userId) return 'appointment_cache_no_user';
+  return `${APPOINTMENT_CACHE_KEY_PREFIX}${userId}`;
+};
 
 const appLogo = require("@/assets/app_logo.png");
 
@@ -66,7 +83,8 @@ export default function HomeScreen() {
     [colors.warning, theme.dark]
   );
   const router = useRouter();
-  const { t } = useTranslation();
+  const translation = useTranslation();
+  const t = translation.t; // Extract t function once
   const scrollViewRef = useRef<ScrollView>(null);
   const lastScrollY = useRef(0);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,38 +96,27 @@ export default function HomeScreen() {
   const [isAppointmentLoading, setIsAppointmentLoading] = useState(false);
   const statsCacheRef = useRef<{ data: DashboardStats | null; fetchedAt: number }>({ data: null, fetchedAt: 0 });
   const statsUpdateRef = useRef(false);
-  const { user, isAuthenticated } = useAuthStore(
-    useShallow((state) => ({
-      user: state.user,
-      isAuthenticated: state.isAuthenticated,
-    }))
-  );
-  const { cases, fetchCases } = useCasesStore(
-    useShallow((state) => ({
-      cases: state.cases,
-      fetchCases: state.fetchCases,
-    }))
-  );
-  const { unreadCount, fetchUnreadCount } = useNotificationsStore(
-    useShallow((state) => ({
-      unreadCount: state.unreadCount,
-      fetchUnreadCount: state.fetchUnreadCount,
-    }))
-  );
-  const { fetchMessages, fetchConversations, unreadChatTotal } = useMessagesStore(
-    useShallow((state) => ({
-      fetchMessages: state.fetchMessages,
-      fetchConversations: state.fetchConversations,
-      unreadChatTotal: state.unreadChatTotal,
-    }))
-  );
-  const { documents, fetchDocuments } = useDocumentsStore(
-    useShallow((state) => ({
-      documents: state.documents,
-      fetchDocuments: state.fetchDocuments,
-    }))
-  );
+  // Use stable selectors to prevent unnecessary re-renders
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Only subscribe to the data we need, not the actions (actions are stable in Zustand)
+  const cases = useCasesStore((state) => state.cases);
+  const fetchCases = useCasesStore((state) => state.fetchCases);
+
+  const unreadCount = useNotificationsStore((state) => state.unreadCount);
+  const fetchUnreadCount = useNotificationsStore((state) => state.fetchUnreadCount);
+
+  const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
+  const fetchMessages = useMessagesStore((state) => state.fetchMessages);
+  const fetchConversations = useMessagesStore((state) => state.fetchConversations);
+
+  const documents = useDocumentsStore((state) => state.documents);
+  const fetchDocuments = useDocumentsStore((state) => state.fetchDocuments);
   const { showAlert } = useBottomSheetAlert();
+  const subscriptionStatus = useSubscriptionStore((state) => state.subscriptionStatus);
+  const lastChecked = useSubscriptionStore((state) => state.lastChecked);
+  const checkSubscriptionStatus = useSubscriptionStore((state) => state.checkSubscriptionStatus);
   const tabBarHeight = useBottomTabBarHeight();
 
   const scrollContentPaddingBottom = useMemo(() => tabBarHeight + 40, [tabBarHeight]);
@@ -171,39 +178,102 @@ export default function HomeScreen() {
   };
 
   const refreshStats = useCallback(
-    (force = false) => {
-      if (!isAuthenticated) {
+    async (force = false) => {
+      if (!isAuthenticated || !user?.uid) {
         setStats(null);
-        return Promise.resolve();
+        return;
       }
 
+      const cacheKey = getDashboardStatsCacheKey(user.uid);
       const now = Date.now();
-      if (!force && statsCacheRef.current.data && now - statsCacheRef.current.fetchedAt < 60_000) {
+
+      // Check in-memory cache first
+      if (!force && statsCacheRef.current.data && now - statsCacheRef.current.fetchedAt < DASHBOARD_STATS_CACHE_TTL) {
         setStats(statsCacheRef.current.data);
-        return Promise.resolve();
+        return;
       }
 
-      return dashboardService
-        .getStats()
-        .then((data) => {
-          statsCacheRef.current = { data, fetchedAt: now };
-          setStats(data);
-        })
-        .catch((error) => {
-          logger.error('Failed to fetch dashboard stats', error);
-        });
+      // Check persistent cache (user-specific)
+      if (!force) {
+        try {
+          const cached = await secureStorage.get<{ data: DashboardStats; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user
+          if (cached && cached.userId === user.uid && now - cached.fetchedAt < DASHBOARD_STATS_CACHE_TTL) {
+            logger.debug('Dashboard stats cache hit (persistent)', { userId: user.uid });
+            statsCacheRef.current = { data: cached.data, fetchedAt: cached.fetchedAt };
+            setStats(cached.data);
+            return;
+          }
+        } catch (error) {
+          logger.debug('Failed to read dashboard stats cache', error);
+        }
+      }
+
+      // Fetch from API
+      try {
+        const data = await dashboardService.getStats();
+        statsCacheRef.current = { data, fetchedAt: now };
+        setStats(data);
+
+        // Update persistent cache with user ID
+        try {
+          await secureStorage.set(cacheKey, {
+            data,
+            fetchedAt: now,
+            userId: user.uid // Store user ID for verification
+          });
+        } catch (error) {
+          logger.debug('Failed to save dashboard stats cache', error);
+        }
+      } catch (error) {
+        logger.error('Failed to fetch dashboard stats', error);
+
+        // Try to use cached data on error (only if same user)
+        try {
+          const cached = await secureStorage.get<{ data: DashboardStats; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user
+          if (cached && cached.userId === user.uid && cached.data) {
+            logger.info('Using cached dashboard stats due to fetch error', { userId: user.uid });
+            statsCacheRef.current = { data: cached.data, fetchedAt: cached.fetchedAt };
+            setStats(cached.data);
+            return;
+          }
+        } catch (cacheError) {
+          logger.debug('Failed to read dashboard stats cache on error', cacheError);
+        }
+      }
     },
-    [isAuthenticated]
+    [isAuthenticated, user?.uid]
   );
 
   const fetchUpcomingAppointment = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: { silent?: boolean; force?: boolean }) => {
       const silent = options?.silent ?? false;
+      const force = options?.force ?? false;
 
-      if (!isAuthenticated) {
+      if (!isAuthenticated || !user?.uid) {
         setUpcomingAppointment(null);
         setIsAppointmentLoading(false);
         return;
+      }
+
+      const cacheKey = getAppointmentCacheKey(user.uid);
+      const now = Date.now();
+
+      // Check persistent cache first (only if same user)
+      if (!force) {
+        try {
+          const cached = await secureStorage.get<{ appointment: Appointment | null; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user (extra safety check)
+          if (cached && cached.userId === user.uid && now - cached.fetchedAt < APPOINTMENT_CACHE_TTL) {
+            logger.debug('Appointment cache hit', { userId: user.uid });
+            setUpcomingAppointment(cached.appointment);
+            setIsAppointmentLoading(false);
+            return;
+          }
+        } catch (error) {
+          logger.debug('Failed to read appointment cache', error);
+        }
       }
 
       if (!silent) {
@@ -213,8 +283,33 @@ export default function HomeScreen() {
       try {
         const appointment = await appointmentsService.getUpcoming();
         setUpcomingAppointment(appointment);
+
+        // Update persistent cache with user ID for verification
+        try {
+          await secureStorage.set(cacheKey, {
+            appointment,
+            fetchedAt: now,
+            userId: user.uid // Store user ID in cache for verification
+          });
+        } catch (error) {
+          logger.debug('Failed to save appointment cache', error);
+        }
       } catch (error) {
         logger.error('Failed to load upcoming appointment', error);
+
+        // Try to use cached data on error (only if same user)
+        try {
+          const cached = await secureStorage.get<{ appointment: Appointment | null; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user
+          if (cached && cached.userId === user.uid) {
+            logger.info('Using cached appointment due to fetch error', { userId: user.uid });
+            setUpcomingAppointment(cached.appointment);
+            return;
+          }
+        } catch (cacheError) {
+          logger.debug('Failed to read appointment cache on error', cacheError);
+        }
+
         setUpcomingAppointment(null);
       } finally {
         if (!silent) {
@@ -222,24 +317,121 @@ export default function HomeScreen() {
         }
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, user?.uid]
   );
+
+  // Store actions in refs to prevent dependency changes
+  const fetchCasesRef = useRef(fetchCases);
+  const fetchUnreadCountRef = useRef(fetchUnreadCount);
+  const fetchMessagesRef = useRef(fetchMessages);
+  const fetchDocumentsRef = useRef(fetchDocuments);
+  const fetchConversationsRef = useRef(fetchConversations);
+  const fetchUpcomingAppointmentRef = useRef(fetchUpcomingAppointment);
+  const refreshStatsRef = useRef(refreshStats);
+
+  // Update refs when actions change (they shouldn't, but just in case)
+  useEffect(() => {
+    fetchCasesRef.current = fetchCases;
+    fetchUnreadCountRef.current = fetchUnreadCount;
+    fetchMessagesRef.current = fetchMessages;
+    fetchDocumentsRef.current = fetchDocuments;
+    fetchConversationsRef.current = fetchConversations;
+    fetchUpcomingAppointmentRef.current = fetchUpcomingAppointment;
+    refreshStatsRef.current = refreshStats;
+  }, [fetchCases, fetchUnreadCount, fetchMessages, fetchDocuments, fetchConversations, fetchUpcomingAppointment, refreshStats]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchUpcomingAppointment({ silent: true });
-    }, [fetchUpcomingAppointment])
+      fetchUpcomingAppointmentRef.current({ silent: true });
+    }, []) // Empty deps - use ref instead
   );
 
-  // Helper function to navigate to payment with type safety
-  // Platform-specific routes (payment.native.tsx, payment.web.tsx) are resolved at runtime
-  const navigateToPayment = (params: { amount: string; description: string; referenceNumber: string }) => {
-    logger.info('Navigating to payment screen', {
-      referenceNumber: params.referenceNumber,
-      amount: params.amount,
+  // Handle Make Payment button click - check payment status and show tier selection if needed
+  const handleMakePayment = useCallback(async () => {
+    if (!isAuthenticated) {
+      showAlert({
+        title: t('common.error', { defaultValue: 'Error' }),
+        message: t('auth.loginRequired', { defaultValue: 'Please log in to make a payment.' }),
+        actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+      });
+      return;
+    }
+
+    // Check cache first - if we have fresh cached data, use it
+    const now = Date.now();
+    const cacheAge = lastChecked ? now - lastChecked : Infinity;
+    const cacheValid = cacheAge < 5 * 60 * 1000; // 5 minutes
+
+    if (!subscriptionStatus || !cacheValid) {
+      // Cache miss or stale - refresh status
+      logger.info('Cache miss or stale, refreshing subscription status for payment check');
+      await checkSubscriptionStatus({ force: false });
+    }
+
+    // Re-check status after potential refresh
+    const currentStatus = useSubscriptionStore.getState().subscriptionStatus;
+    const hasPaid = currentStatus?.hasPaid === true;
+    const isActive = currentStatus?.isActive === true;
+
+    if (hasPaid && isActive) {
+      // User has already paid - show info alert
+      showAlert({
+        title: t('payments.alreadyPaidTitle', { defaultValue: 'Payment Already Made' }),
+        message: t('payments.alreadyPaidMessage', {
+          defaultValue: 'You have already made a one-time payment. Your payment is active.',
+          tier: currentStatus?.subscriptionTier || 'active',
+        }),
+        actions: [{ text: t('common.close', { defaultValue: 'Close' }), variant: 'primary' }],
+      });
+      return;
+    }
+
+    // User hasn't paid or payment expired - show tier selection
+    const paymentTiers = [
+      { id: 'basic', name: 'Basic', amount: 500.00, description: 'Basic Tier - One-time payment' },
+      { id: 'standard', name: 'Standard', amount: 1500.00, description: 'Standard Tier - One-time payment' },
+      { id: 'premium', name: 'Premium', amount: 2000.00, description: 'Premium Tier - One-time payment' },
+    ];
+
+    // Create actions for each tier + cancel
+    const tierActions = paymentTiers.map((tier) => ({
+      text: `${tier.name} - $${tier.amount.toFixed(2)}`,
+      onPress: () => {
+        router.push({
+          pathname: '/payment',
+          params: {
+            amount: tier.amount.toString(),
+            description: tier.description,
+            tier: tier.id,
+          },
+        });
+      },
+      variant: 'primary' as const,
+    }));
+
+    const errorMessage = hasPaid
+      ? t('payments.subscriptionExpired', {
+        defaultValue: 'Your payment has expired. Please select a payment tier to renew.',
+      })
+      : t('payments.subscriptionRequired', {
+        defaultValue: 'Active payment required. Please select a payment tier to continue.',
+      });
+
+    showAlert({
+      title: t('payments.paymentRequiredTitle', { defaultValue: 'Payment Required' }),
+      message: errorMessage,
+      actions: [
+        {
+          text: t('common.cancel', { defaultValue: 'Cancel' }),
+          variant: 'secondary',
+          onPress: () => {
+            // User cancelled - do nothing
+          },
+        },
+        ...tierActions,
+      ],
     });
-    router.push({ pathname: '/payment', params });
-  };
+  }, [isAuthenticated, subscriptionStatus, lastChecked, checkSubscriptionStatus, showAlert, router, t]);
 
   useEffect(() => {
     setAtBottom(true);
@@ -260,17 +452,44 @@ export default function HomeScreen() {
         return;
       }
 
+      // Load cached data first for instant display
+      try {
+        // Load cached stats (only if user ID matches)
+        if (userId) {
+          const cacheKey = getDashboardStatsCacheKey(userId);
+          const cachedStats = await secureStorage.get<{ data: DashboardStats; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user
+          if (cachedStats && cachedStats.userId === userId && cachedStats.data) {
+            statsCacheRef.current = { data: cachedStats.data, fetchedAt: cachedStats.fetchedAt };
+            setStats(cachedStats.data);
+          }
+        }
+
+        // Load cached appointment (only if user ID matches)
+        if (userId) {
+          const cacheKey = getAppointmentCacheKey(userId);
+          const cachedAppointment = await secureStorage.get<{ appointment: Appointment | null; fetchedAt: number; userId?: string }>(cacheKey);
+          // Verify cache is for current user
+          if (cachedAppointment && cachedAppointment.userId === userId) {
+            setUpcomingAppointment(cachedAppointment.appointment);
+          }
+        }
+      } catch (error) {
+        logger.debug('Failed to load cached data on bootstrap', error);
+      }
+
+      // Then fetch fresh data in background (non-blocking)
       const tasks: Array<Promise<unknown>> = [
-        fetchCases(),
-        fetchUnreadCount(),
-        fetchMessages(),
-        fetchDocuments(),
-        fetchUpcomingAppointment(),
-        refreshStats(true),
+        fetchCasesRef.current(),
+        fetchUnreadCountRef.current(),
+        fetchMessagesRef.current(),
+        fetchDocumentsRef.current(),
+        fetchUpcomingAppointmentRef.current({ silent: true }),
+        refreshStatsRef.current(false), // Use cache if available
       ];
 
       if (userId) {
-        tasks.push(fetchConversations(userId));
+        tasks.push(fetchConversationsRef.current(userId));
       }
 
       const results = await Promise.allSettled(tasks);
@@ -280,17 +499,14 @@ export default function HomeScreen() {
         }
       });
     },
-    [
-      isAuthenticated,
-      fetchCases,
-      fetchUnreadCount,
-      fetchMessages,
-      fetchDocuments,
-      fetchUpcomingAppointment,
-      refreshStats,
-      fetchConversations,
-    ]
+    [isAuthenticated] // Only depend on isAuthenticated
   );
+
+  // Store bootstrapData in ref to prevent useEffect from re-running
+  const bootstrapDataRef = useRef(bootstrapData);
+  useEffect(() => {
+    bootstrapDataRef.current = bootstrapData;
+  }, [bootstrapData]);
 
   useEffect(() => {
     if (__DEV__) {
@@ -299,8 +515,31 @@ export default function HomeScreen() {
     }
 
     if (!isAuthenticated || !user?.uid) {
+      // Clear appointment cache when user logs out
+      setUpcomingAppointment(null);
       bootstrapUserRef.current = null;
       return;
+    }
+
+    // If user changed, clear caches from previous user
+    if (bootstrapUserRef.current && bootstrapUserRef.current !== user.uid) {
+      logger.info('User changed, clearing caches', {
+        previousUserId: bootstrapUserRef.current,
+        newUserId: user.uid,
+      });
+      // Clear previous user's caches
+      const previousAppointmentKey = getAppointmentCacheKey(bootstrapUserRef.current);
+      const previousStatsKey = getDashboardStatsCacheKey(bootstrapUserRef.current);
+      Promise.all([
+        secureStorage.delete(previousAppointmentKey),
+        secureStorage.delete(previousStatsKey),
+      ]).catch((error) => {
+        logger.debug('Failed to clear previous user caches', error);
+      });
+      // Clear current state
+      setUpcomingAppointment(null);
+      setStats(null);
+      statsCacheRef.current = { data: null, fetchedAt: 0 };
     }
 
     if (bootstrapUserRef.current === user.uid) {
@@ -308,12 +547,12 @@ export default function HomeScreen() {
     }
 
     bootstrapUserRef.current = user.uid;
-    bootstrapData(user.uid);
+    bootstrapDataRef.current(user.uid);
 
     return () => {
       bootstrapUserRef.current = null;
     };
-  }, [isAuthenticated, user?.uid, bootstrapData]);
+  }, [isAuthenticated, user?.uid]); // Removed bootstrapData from deps - using ref instead
 
   const sortedCases = useMemo(() => {
     if (!cases || cases.length === 0) {
@@ -364,81 +603,150 @@ export default function HomeScreen() {
   const activeCasesCount = stats?.activeCases ?? activeCases.length;
   const unreadChatCount = unreadChatTotal;
 
+  // Use refs to track previous values and only update when they actually change
+  const prevCasesLengthRef = useRef(cases.length);
+  const prevDocumentsLengthRef = useRef(documents.length);
+  const prevUnreadCountRef = useRef(unreadCount);
+  const prevUnreadChatCountRef = useRef(unreadChatCount);
+
   useEffect(() => {
     if (!isAuthenticated) {
       statsUpdateRef.current = false;
       statsRefreshCooldownRef.current = 0;
       setStats(null);
+      prevCasesLengthRef.current = 0;
+      prevDocumentsLengthRef.current = 0;
+      prevUnreadCountRef.current = 0;
+      prevUnreadChatCountRef.current = 0;
       return;
     }
+
+    // Check if any values actually changed
+    const casesChanged = cases.length !== prevCasesLengthRef.current;
+    const documentsChanged = documents.length !== prevDocumentsLengthRef.current;
+    const unreadCountChanged = unreadCount !== prevUnreadCountRef.current;
+    const unreadChatCountChanged = unreadChatCount !== prevUnreadChatCountRef.current;
+
+    // Update refs
+    prevCasesLengthRef.current = cases.length;
+    prevDocumentsLengthRef.current = documents.length;
+    prevUnreadCountRef.current = unreadCount;
+    prevUnreadChatCountRef.current = unreadChatCount;
+
+    // Only proceed if something actually changed
+    if (!casesChanged && !documentsChanged && !unreadCountChanged && !unreadChatCountChanged) {
+      return;
+    }
+
     if (!statsUpdateRef.current) {
       statsUpdateRef.current = true;
       return;
     }
+
     const now = Date.now();
     if (now - statsRefreshCooldownRef.current < 60_000) {
       return;
     }
     statsRefreshCooldownRef.current = now;
-    refreshStats();
-  }, [isAuthenticated, cases.length, documents.length, unreadCount, unreadChatCount, refreshStats]);
+    refreshStatsRef.current();
+  }, [isAuthenticated, cases.length, documents.length, unreadCount, unreadChatCount]); // Removed refreshStats from deps - using ref instead
 
-  const importantUpdatesTitle = t('home.importantUpdates', { defaultValue: 'Important Updates' });
-  const paymentDescription = t('home.paymentDescription', { defaultValue: 'Case Processing Fee' });
-  const paymentButtonLabel = t('home.makePayment', { defaultValue: 'Make Payment' });
+  // Memoize all translation strings to prevent unnecessary re-renders
+  const importantUpdatesTitle = useMemo(
+    () => t('home.importantUpdates', { defaultValue: 'Important Updates' }),
+    [t]
+  );
+  const paymentButtonLabel = useMemo(
+    () => t('home.makePayment', { defaultValue: 'Make Payment' }),
+    [t]
+  );
 
-  const approvedUpdateTitle = latestApprovedCase
-    ? t('home.caseApprovedTitle', {
-      defaultValue: '{{service}} ({{reference}}) Approved',
-      service: formatServiceTypeLabel(latestApprovedCase.serviceType),
-      reference: formatCompactReference(latestApprovedCase.referenceNumber),
-    })
-    : t('home.noRecentApprovalsTitle', { defaultValue: 'No cases approved yet' });
+  const approvedUpdateTitle = useMemo(
+    () =>
+      latestApprovedCase
+        ? t('home.caseApprovedTitle', {
+          defaultValue: '{{service}} ({{reference}}) Approved',
+          service: formatServiceTypeLabel(latestApprovedCase.serviceType),
+          reference: formatCompactReference(latestApprovedCase.referenceNumber),
+        })
+        : t('home.noRecentApprovalsTitle', { defaultValue: 'No cases approved yet' }),
+    [t, latestApprovedCase]
+  );
 
-  const approvedUpdateDescription = latestApprovedCase
-    ? t('home.caseApprovedDescription', {
-      defaultValue: 'Case {{reference}} was approved on {{date}}.',
-      reference: latestApprovedCase.referenceNumber,
-      date: formatCaseDate(latestApprovedCase.approvedAt || latestApprovedCase.lastUpdated),
-    })
-    : t('home.noRecentApprovalsDescription', {
-      defaultValue: 'You will be notified when a case is approved.',
-    });
+  const approvedUpdateDescription = useMemo(
+    () =>
+      latestApprovedCase
+        ? t('home.caseApprovedDescription', {
+          defaultValue: 'Case {{reference}} was approved on {{date}}.',
+          reference: latestApprovedCase.referenceNumber,
+          date: formatCaseDate(latestApprovedCase.approvedAt || latestApprovedCase.lastUpdated),
+        })
+        : t('home.noRecentApprovalsDescription', {
+          defaultValue: 'You will be notified when a case is approved.',
+        }),
+    [t, latestApprovedCase]
+  );
 
-  const pendingUpdateTitle = upcomingActionCase
-    ? t('home.pendingActionTitle', {
-      defaultValue: 'Action Required: {{service}} ({{reference}})',
-      service: formatServiceTypeLabel(upcomingActionCase.serviceType),
-      reference: formatCompactReference(upcomingActionCase.referenceNumber),
-    })
-    : t('home.noPendingActionsTitle', { defaultValue: 'No pending actions' });
+  const pendingUpdateTitle = useMemo(
+    () =>
+      upcomingActionCase
+        ? t('home.pendingActionTitle', {
+          defaultValue: 'Action Required: {{service}} ({{reference}})',
+          service: formatServiceTypeLabel(upcomingActionCase.serviceType),
+          reference: formatCompactReference(upcomingActionCase.referenceNumber),
+        })
+        : t('home.noPendingActionsTitle', { defaultValue: 'No pending actions' }),
+    [t, upcomingActionCase]
+  );
 
-  const pendingUpdateDescription = upcomingActionCase
-    ? t('home.pendingActionDescription', {
-      defaultValue: 'Latest update on {{date}}. Please review the case details.',
-      date: formatCaseDate(upcomingActionCase.lastUpdated || upcomingActionCase.submissionDate),
-    })
-    : t('home.noPendingActionsDescription', {
-      defaultValue: 'Great job! All your cases are up to date and nothing needs your attention right now.',
-    });
+  const pendingUpdateDescription = useMemo(
+    () =>
+      upcomingActionCase
+        ? t('home.pendingActionDescription', {
+          defaultValue: 'Latest update on {{date}}. Please review the case details.',
+          date: formatCaseDate(upcomingActionCase.lastUpdated || upcomingActionCase.submissionDate),
+        })
+        : t('home.noPendingActionsDescription', {
+          defaultValue: 'Great job! All your cases are up to date and nothing needs your attention right now.',
+        }),
+    [t, upcomingActionCase]
+  );
 
-  const nextAppointmentLabel = t('home.nextAppointment', { defaultValue: 'Next Appointment' });
-  const appointmentCaseReference =
-    upcomingAppointment?.case?.referenceNumber ||
-    t('cases.statusUnknown', { defaultValue: 'Unknown case' });
-  const nextAppointmentValue = upcomingAppointment
-    ? t('home.nextAppointmentValueWithCase', {
-        defaultValue: '{{date}} · {{reference}}',
-        date: formatAppointmentDateTime(upcomingAppointment.scheduledAt),
-        reference: appointmentCaseReference,
-      })
-    : t('home.noUpcomingAppointments', { defaultValue: 'No upcoming appointments' });
-  const appointmentLocationText = upcomingAppointment?.location
-    ? t('home.appointmentLocation', {
-        defaultValue: 'Location: {{location}}',
-        location: upcomingAppointment.location,
-      })
-    : null;
+  const nextAppointmentLabel = useMemo(
+    () => t('home.nextAppointment', { defaultValue: 'Next Appointment' }),
+    [t]
+  );
+
+  const appointmentCaseReference = useMemo(
+    () =>
+      upcomingAppointment?.case?.referenceNumber ||
+      t('cases.statusUnknown', { defaultValue: 'Unknown case' }),
+    [t, upcomingAppointment?.case?.referenceNumber]
+  );
+
+  const nextAppointmentValue = useMemo(
+    () =>
+      upcomingAppointment
+        ? t('home.nextAppointmentValueWithCase', {
+          defaultValue: '{{date}} · {{reference}}',
+          date: formatAppointmentDateTime(upcomingAppointment.scheduledAt),
+          reference: appointmentCaseReference,
+        })
+        : t('home.noUpcomingAppointments', { defaultValue: 'No upcoming appointments' }),
+    [t, upcomingAppointment, appointmentCaseReference]
+  );
+
+  const appointmentLocationText = useMemo(
+    () =>
+      upcomingAppointment?.location
+        ? t('home.appointmentLocation', {
+          defaultValue: 'Location: {{location}}',
+          location: upcomingAppointment.location,
+        })
+        : null,
+    [t, upcomingAppointment?.location]
+  );
+
   const appointmentAdvisorName = useMemo(() => {
     if (!upcomingAppointment?.assignedAgent) {
       return '';
@@ -447,21 +755,48 @@ export default function HomeScreen() {
     const composedName = [firstName, lastName].filter(Boolean).join(' ').trim();
     return composedName || email || '';
   }, [upcomingAppointment]);
-  const appointmentAdvisorText =
-    upcomingAppointment?.assignedAgent && appointmentAdvisorName
-      ? t('home.appointmentAdvisor', {
+
+  const appointmentAdvisorText = useMemo(
+    () =>
+      upcomingAppointment?.assignedAgent && appointmentAdvisorName
+        ? t('home.appointmentAdvisor', {
           defaultValue: 'Advisor: {{name}}',
           name: appointmentAdvisorName,
         })
-      : null;
-  const appointmentNotesText = upcomingAppointment?.notes
-    ? t('home.appointmentNotes', {
-        defaultValue: 'Notes: {{notes}}',
-        notes: upcomingAppointment.notes,
-      })
-    : null;
+        : null,
+    [t, upcomingAppointment?.assignedAgent, appointmentAdvisorName]
+  );
 
-  const userName = user?.displayName || user?.email?.split('@')[0] || t('home.defaultUserName', { defaultValue: 'User' });
+  const appointmentNotesText = useMemo(
+    () =>
+      upcomingAppointment?.notes
+        ? t('home.appointmentNotes', {
+          defaultValue: 'Notes: {{notes}}',
+          notes: upcomingAppointment.notes,
+        })
+        : null,
+    [t, upcomingAppointment?.notes]
+  );
+
+  const userName = useMemo(
+    () => user?.displayName || user?.email?.split('@')[0] || t('home.defaultUserName', { defaultValue: 'User' }),
+    [t, user?.displayName, user?.email]
+  );
+
+  // Memoize frequently used static translation strings
+  const goodMorningText = useMemo(() => t('home.goodMorning'), [t]);
+  const welcomeText = useMemo(() => t('home.welcome', { name: userName }), [t, userName]);
+  const currentCaseStatusText = useMemo(() => t('home.currentCaseStatus'), [t]);
+  const viewAllText = useMemo(() => t('common.viewAll'), [t]);
+  const noCasesText = useMemo(() => t('cases.noCases'), [t]);
+  const newCaseText = useMemo(() => t('cases.newCase'), [t]);
+  const loadingText = useMemo(() => t('common.loading'), [t]);
+  const activeCasesText = useMemo(() => t('home.activeCases'), [t]);
+  const pendingDocumentsText = useMemo(() => t('home.pendingDocuments'), [t]);
+  const newMessagesText = useMemo(() => t('home.newMessages'), [t]);
+  const quickAccessText = useMemo(() => t('home.quickAccess'), [t]);
+  const uploadDocumentText = useMemo(() => t('home.uploadDocument'), [t]);
+  const getHelpText = useMemo(() => t('home.getHelp'), [t]);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -528,16 +863,19 @@ export default function HomeScreen() {
               </View>
               <View style={styles.greetingTextContainer}>
                 <Text style={[styles.greetingText, { color: colors.muted }]}>
-                  {t('home.goodMorning')}
+                  {goodMorningText}
                 </Text>
                 <Text style={[styles.welcomeText, { color: colors.text }]}>
-                  {t('home.welcome', { name: userName })}
+                  {welcomeText}
                 </Text>
               </View>
             </View>
-            <Pressable 
+            <Pressable
               style={styles.notificationButton}
-              onPress={() => router.push('/(tabs)/notifications')}
+              onPress={() => router.push({
+                pathname: '/(tabs)/messages',
+                params: { segment: 'email' }
+              })}
             >
               <IconSymbol name="bell.fill" size={26} color={colors.text} />
               {unreadCount > 0 && (
@@ -552,10 +890,10 @@ export default function HomeScreen() {
           <View style={[styles.card, { backgroundColor: surfaceCard }]}>
             <View style={styles.cardHeader}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>
-                {t('home.currentCaseStatus')}
+                {currentCaseStatusText}
               </Text>
               <Pressable onPress={() => router.push('/(tabs)/cases')}>
-                <Text style={[styles.viewAllText, { color: colors.primary }]}>{t('common.viewAll')}</Text>
+                <Text style={[styles.viewAllText, { color: colors.primary }]}>{viewAllText}</Text>
               </Pressable>
             </View>
             
@@ -584,13 +922,13 @@ export default function HomeScreen() {
               <View style={styles.statusRow}>
                   <View style={[styles.iconCircle, { backgroundColor: iconTint }]}>
                     <IconSymbol name="folder.fill" size={24} color={colors.primary} />
-                </View>
+                  </View>
                 <View style={styles.statusTextContainer}>
                     <Text style={[styles.statusSubtitle, { color: colors.muted }]}>
-                    {t('cases.noCases')}
+                      {noCasesText}
                   </Text>
                     <Text style={[styles.statusTitle, { color: colors.text }]}>
-                    {t('cases.newCase')}
+                      {newCaseText}
                   </Text>
                 </View>
               </View>
@@ -612,7 +950,7 @@ export default function HomeScreen() {
                   <View style={styles.appointmentLoadingRow}>
                     <ActivityIndicator size="small" color={colors.primary} />
                     <Text style={[styles.statusMeta, { color: colors.muted, marginTop: 0 }]}>
-                      {t('common.loading')}
+                      {loadingText}
                     </Text>
                   </View>
                 ) : (
@@ -649,19 +987,19 @@ export default function HomeScreen() {
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
               <Text style={[styles.statLabel, { color: colors.muted }]}>
-                {t('home.activeCases')}
+                {activeCasesText}
               </Text>
               <Text style={[styles.statValue, { color: colors.primary }]}>{activeCasesCount}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
               <Text style={[styles.statLabel, { color: colors.muted }]}>
-                {t('home.pendingDocuments')}
+                {pendingDocumentsText}
               </Text>
               <Text style={[styles.statValue, { color: colors.warning }]}>{pendingDocsCount}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: surfaceCard }]}>
               <Text style={[styles.statLabel, { color: colors.muted }]}>
-                {t('home.newMessages')}
+                {newMessagesText}
               </Text>
               <Text style={[styles.statValue, { color: colors.primary }]}>{unreadChatCount}</Text>
             </View>
@@ -669,7 +1007,7 @@ export default function HomeScreen() {
 
           {/* Quick Access Section */}
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t('home.quickAccess')}
+            {quickAccessText}
           </Text>
           <View style={styles.quickAccessGrid}>
             <Pressable 
@@ -680,7 +1018,7 @@ export default function HomeScreen() {
                 <IconSymbol name="plus.circle.fill" size={32} color={colors.primary} />
               </View>
               <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
-                {t('cases.newCase')}
+                {newCaseText}
               </Text>
             </Pressable>
 
@@ -692,28 +1030,13 @@ export default function HomeScreen() {
                 <IconSymbol name="doc.fill" size={32} color={colors.primary} />
               </View>
               <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
-                {t('home.uploadDocument')}
+                {uploadDocumentText}
               </Text>
             </Pressable>
 
             <Pressable 
               style={[styles.quickAccessButton, { backgroundColor: surfaceCard }]}
-              onPress={() => {
-                if (!caseForStatusCard?.referenceNumber) {
-                  showAlert({
-                    title: t('common.info', { defaultValue: 'Heads up' }),
-                    message: t('home.noCaseForPayment', { defaultValue: 'No case is ready for payment yet.' }),
-                    actions: [{ text: t('common.close'), variant: 'primary' }],
-                  });
-                  return;
-                }
-                const amount = deriveCaseAmount(caseForStatusCard);
-                navigateToPayment({
-                  amount: amount.toFixed(2),
-                  description: paymentDescription,
-                  referenceNumber: caseForStatusCard.referenceNumber,
-                });
-              }}
+              onPress={handleMakePayment}
             >
               <View style={[styles.quickAccessIconCircle, { backgroundColor: successTint }]}>
                 <IconSymbol name="creditcard.fill" size={32} color={colors.success} />
@@ -731,7 +1054,7 @@ export default function HomeScreen() {
                 <IconSymbol name="message.fill" size={32} color={colors.primary} />
               </View>
               <Text style={[styles.quickAccessLabel, { color: colors.text }]}>
-                {t('home.getHelp')}
+                {getHelpText}
               </Text>
             </Pressable>
           </View>
@@ -776,21 +1099,6 @@ export default function HomeScreen() {
   );
 }
 
-function deriveCaseAmount(caseItem: Case | null): number {
-  if (!caseItem) {
-    return 0;
-  }
-  const baseByPriority: Record<Case['priority'], number> = {
-    URGENT: 1850,
-    HIGH: 1550,
-    NORMAL: 1125,
-    LOW: 850,
-  };
-  const base = baseByPriority[caseItem.priority] ?? 995;
-  const varianceSeed = caseItem.referenceNumber?.charCodeAt(0) || 42;
-  const variance = (varianceSeed % 7) * 25;
-  return base + variance;
-}
 
 const styles = StyleSheet.create({
   container: {

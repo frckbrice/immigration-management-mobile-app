@@ -22,7 +22,11 @@
     "retry": "Réessayer",
     "refresh": "Actualiser",
     "resultsCount": "{{count}} résultat(s)",
-    "validation": "Validation"
+    "validation": "Validation",
+    "ok": "OK",
+    "unknownDate": "Date inconnue",
+    "unknownError": "Erreur inconnue",
+    "now": "Maintenant"
   },
   "email": {
     "detailTitle": "Courriel",
@@ -65,7 +69,13 @@
     "acceptTerms": "J'accepte les Conditions d'utilisation",
     "acceptPrivacy": "J'accepte la Politique de confidentialité",
     "registrationSuccess": "Inscription réussie",
-    "checkEmail": "Veuillez vérifier votre boîte de réception pour vérifier votre email avant de vous connecter."
+    "checkEmail": "Veuillez vérifier votre boîte de réception pour vérifier votre email avant de vous connecter.",
+    "passwordResetSent": "Réinitialisation du mot de passe envoyée",
+    "checkEmailForReset": "Veuillez vérifier votre email pour les instructions de réinitialisation du mot de passe.",
+    "enterEmailForReset": "Entrez votre adresse email et nous vous enverrons les instructions pour réinitialiser votre mot de passe.",
+    "sendResetLink": "Envoyer le lien de réinitialisation",
+    "rememberPassword": "Vous vous souvenez de votre mot de passe ? ",
+    "userNotFound": "Aucun compte trouvé avec cet email."
   },
   "onboarding": {
     "welcome": "Bienvenue dans notre application",
@@ -77,6 +87,13 @@
     "getStarted": "Commencer",
     "getStartedDescription": "Prêt à commencer? Configurons votre compte et commençons à gérer vos services.",
     "skip": "Passer"
+  },
+  "getStarted": {
+    "welcomeTo": "Bienvenue chez",
+    "companyName": "Patrick Travel Agency",
+    "tagline": "Votre partenaire de confiance pour des expériences de voyage sans faille",
+    "description": "Découvrez un monde de possibilités avec nos services de voyage complets. Des demandes de visa à la planification de voyage, nous sommes là pour rendre votre voyage fluide et mémorable.",
+    "getStartedButton": "Commencer"
   },
   "home": {
     "title": "Accueil",
@@ -135,6 +152,11 @@
     "rejected": "Rejeté",
     "closed": "Clôturé",
     "statusUnknown": "Statut inconnu",
+    "subscriptionRequired": "Un paiement actif est requis pour créer des dossiers. Veuillez d'abord effectuer un paiement pour continuer.",
+    "subscriptionExpired": "Votre paiement a expiré. Veuillez renouveler votre paiement pour créer des dossiers.",
+    "subscriptionTitle": "Paiement requis",
+    "subscribe": "S'abonner",
+    "caseCreationFailed": "Échec de la création du dossier. Veuillez réessayer.",
     "chatUnavailableTitle": "Discussion indisponible",
     "chatUnavailableMessage": "La discussion sera disponible lorsque votre conseiller aura examiné ce dossier.",
     "chatAwaitingAgentTitle": "Conseiller en attente",
@@ -322,6 +344,51 @@
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
   },
   "payments": {
+    "title": "Paiement",
+    "paymentSummary": "Résumé du paiement",
+    "caseReference": "Référence du dossier",
+    "description": "Description",
+    "totalAmount": "Montant total",
+    "cardDetails": "Détails de la carte",
+    "basicTierDescription": "Niveau de base - Paiement unique",
+    "incompleteCard": "Carte incomplète",
+    "incompleteCardMessage": "Veuillez saisir tous les détails de la carte",
+    "paymentFailed": "Échec du paiement",
+    "paymentFailedMessage": "Une erreur s'est produite lors du traitement du paiement",
+    "paymentError": "Erreur de paiement",
+    "paymentSuccessful": "Paiement réussi",
+    "paymentSuccessfulMessage": "Votre paiement de {{amount}} $ a été traité avec succès. Vous pouvez maintenant créer des dossiers.",
+    "paymentProcessing": "Traitement du paiement",
+    "paymentProcessingMessage": "Votre paiement est en cours de traitement. Veuillez consulter votre historique de paiement pour les mises à jour.",
+    "paymentProcessingMessageShort": "Votre paiement est en cours de traitement. Consultez votre historique pour les mises à jour.",
+    "paymentSubmitted": "Paiement soumis",
+    "paymentSubmittedMessage": "Votre paiement de {{amount}} $ a été soumis. Vous recevrez une confirmation sous peu.",
+    "unexpectedError": "Une erreur inattendue s'est produite. Veuillez réessayer.",
+    "paymentVerificationFailed": "Échec de la vérification du paiement",
+    "paymentVerificationFailedMessage": "Nous n'avons pas pu vérifier votre paiement avec notre serveur. Veuillez réessayer ou contacter le support si le problème persiste.",
+    "alreadyPaidTitle": "Paiement déjà effectué",
+    "alreadyPaidMessage": "Vous avez déjà effectué un paiement unique. Votre paiement est actif.",
+    "subscriptionExpired": "Votre paiement unique a expiré. Veuillez sélectionner un niveau de paiement pour renouveler.",
+    "subscriptionRequired": "Un paiement unique actif est requis. Veuillez sélectionner un niveau de paiement pour continuer.",
+    "paymentRequiredTitle": "Paiement requis",
+    "testMode": "Mode test : Utilisez la carte 4242 4242 4242 4242 avec n'importe quelle date future et CVC",
+    "securityNotice": "Vos informations de paiement sont cryptées et sécurisées",
+    "paymentInformation": "Informations de paiement",
+    "paymentInfoBullets": "• Les paiements sont traités en toute sécurité via Stripe\n• Vous recevrez un reçu par email\n• Les remboursements prennent 5 à 10 jours ouvrables\n• Contactez le support pour les problèmes de paiement",
+    "contactSupport": "Contactez le support pour les problèmes de paiement",
+    "payButton": "Payer {{amount}} $",
+    "cancel": "Annuler",
+    "web": {
+      "notAvailable": "Paiement non disponible sur le Web",
+      "notAvailableMessage": "Le traitement des paiements Stripe n'est disponible que sur les appareils iOS et Android. Veuillez utiliser l'application mobile pour compléter votre paiement.",
+      "downloadApp": "Téléchargez l'application mobile depuis l'App Store ou Google Play pour effectuer des paiements en toute sécurité.",
+      "alternativeOptions": "Options alternatives",
+      "useMobileApp": "Utiliser l'application mobile",
+      "useMobileAppDescription": "Téléchargez notre application iOS ou Android pour une fonctionnalité de paiement complète",
+      "contactSupport": "Contacter le support",
+      "contactSupportDescription": "Contactez notre équipe de support pour des méthodes de paiement alternatives",
+      "goBack": "Retour"
+    },
     "history": {
       "title": "Historique des paiements",
       "recentPayments": "Paiements récents",
@@ -447,11 +514,21 @@
     "caseUpdate": "Statut du dossier mis à jour",
     "documentApproved": "Document approuvé",
     "documentRejected": "Document rejeté",
-    "urgent": "Urgent"
+    "urgent": "Urgent",
+    "newNotification": "Nouvelle notification",
+    "openAppMessage": "Ouvrez l'application pour voir la dernière mise à jour."
   },
   "profile": {
-    "title": "Profil et paramètres",
+    "title": "Profile",
     "editProfile": "Modifier le profil",
+    "deleteAccountWarning": "Cela supprimera définitivement votre compte et vos données.",
+    "deleteAccountButton": "Supprimer le compte",
+    "exportSubtitle": "Demandez une copie de vos données personnelles pour vos archives.",
+    "exportCardTitle": "Demandez vos données personnelles",
+    "exportCardDescription": "Nous regrouperons vos soumissions, fichiers de dossier et activité de compte dans un lien de téléchargement livré par email.",
+    "exportCta": "Soumettre la demande d'export",
+    "exportSuccessMessage": "Votre export de données vous a été envoyé par email.",
+    "exportErrorMessage": "Nous n'avons pas pu démarrer l'export. Veuillez réessayer sous peu.",
     "editProfileSubtitle": "Mettez à jour vos informations pour que nous puissions rester en contact.",
     "logout": "Se déconnecter",
     "personalInfo": "Informations personnelles",
@@ -542,7 +619,16 @@
     "newPassword": "Nouveau mot de passe",
     "passwordHint": "Les mots de passe doivent contenir au moins 8 caractères et inclure des chiffres et des lettres.",
     "passwordUpdated": "Votre mot de passe a été modifié.",
-    "passwordUpdateFailed": "Échec du changement de mot de passe."
+    "passwordUpdateFailed": "Échec du changement de mot de passe.",
+    "deleteAccountSubtitle": "Supprimer définitivement votre compte et toutes les données associées.",
+    "deleteAccountWarningTitle": "Avertissement",
+    "deleteAccountWarningMessage": "Cela supprimera définitivement votre compte et toutes les données associées, notamment :\n\n• Tous vos dossiers et documents\n• Votre historique de paiement\n• Vos messages et conversations\n• Vos informations de profil\n\nCette action est irréversible.",
+    "deleteAccountInfo": "Si vous avez des dossiers en attente ou des paiements, veuillez ",
+    "deleteAccountInfoSuffix": " avant de supprimer votre compte.",
+    "deleteAccountConfirmTitle": "Confirmer la suppression",
+    "deleteAccountConfirmMessage": "Cette action est irréversible. Toutes vos données seront définitivement supprimées. Continuer ?",
+    "deleteAccountConfirm": "Supprimer",
+    "deleteAccountError": "Échec de la suppression du compte. Veuillez réessayer."
   },
   "legal": {
     "termsHeroTitle": "Consultez nos dernières conditions générales",
@@ -554,14 +640,22 @@
     "refreshFailed": "Impossible d'actualiser pour le moment. Affichage de la dernière version enregistrée."
   },
   "support": {
-    "contactSupport": "Contacter le support"
+    "contactSupport": "Contacter le support",
+    "messageRequired": "Veuillez fournir un message afin que nous puissions vous aider.",
+    "missingEmail": "Nous n'avons pas pu trouver d'adresse email sur votre compte. Veuillez mettre à jour votre profil et réessayer.",
+    "unknownUser": "Client",
+    "messageSent": "Votre message a été envoyé. Nous vous répondrons sous peu.",
+    "sendError": "Échec de l'envoi"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",
     "network": "Erreur réseau. Veuillez vérifier votre connexion.",
     "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
     "notFound": "Ressource introuvable.",
-    "serverError": "Erreur serveur. Veuillez réessayer plus tard."
+    "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
+    "somethingWentWrong": "Une erreur s'est produite",
+    "restartApp": "Veuillez redémarrer l'application",
+    "rootLayoutError": "Erreur de mise en page racine"
   },
   "validation": {
     "required": "Ce champ est requis",
@@ -569,5 +663,14 @@
     "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
     "passwordsDontMatch": "Les mots de passe ne correspondent pas",
     "acceptTerms": "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité"
+  },
+  "modals": {
+    "standardModal": "Modal standard",
+    "standardModalDescription": "Ceci est une présentation modale.",
+    "formSheetModal": "Modal de formulaire",
+    "formSheetModalDescription": "Faites glisser la poignée pour redimensionner !",
+    "transparentModal": "Modal transparent",
+    "transparentModalDescription": "Appuyez à l'extérieur pour fermer",
+    "closeModal": "Fermer le modal"
   }
 }

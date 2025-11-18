@@ -28,6 +28,7 @@ import { palette, themes } from "@/styles/theme";
 import "@/lib/i18n";
 import { useSettingsStore } from "@/stores/settings/settingsStore";
 import { presenceService } from "@/lib/services/presenceService";
+import i18n from "@/lib/i18n";
 
 
 // Error Boundary Component
@@ -53,9 +54,9 @@ class ErrorBoundary extends Component<
         if (this.state.hasError) {
             return (
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorTitle}>Something went wrong</Text>
-                    <Text style={styles.errorText}>{this.state.error?.message || 'Unknown error'}</Text>
-                    <Text style={styles.errorHint}>Please restart the app</Text>
+                    <Text style={styles.errorTitle}>{i18n.t('errors.somethingWentWrong')}</Text>
+                    <Text style={styles.errorText}>{this.state.error?.message || i18n.t('common.unknownError')}</Text>
+                    <Text style={styles.errorHint}>{i18n.t('errors.restartApp')}</Text>
                 </View>
             );
         }
@@ -144,13 +145,13 @@ function AppContent() {
             // Setup notification listeners
             cleanup = setupNotificationListeners({
                 onNotificationReceived: ({ notification, data }) => {
-                    const title = notification.request.content.title?.trim() || 'New notification';
+                    const title = notification.request.content.title?.trim() || i18n.t('notifications.newNotification');
                     const body = notification.request.content.body?.trim();
                     const fallbackMessage =
                         typeof data?.message === 'string' && data.message.trim().length > 0
                             ? data.message.trim()
                             : undefined;
-                    const message = body || fallbackMessage || 'Open the app to view the latest update.';
+                    const message = body || fallbackMessage || i18n.t('notifications.openAppMessage');
 
                     showToast({
                         title,
@@ -196,6 +197,7 @@ function AppContent() {
             {SystemBars && <SystemBars style={isDarkTheme ? "light" : "dark"} />}
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="getstarted" />
                 <Stack.Screen name="onboarding" />
                 <Stack.Screen name="login" />
                 <Stack.Screen name="register" />
@@ -239,8 +241,8 @@ export default function RootLayout() {
         console.error('[App] RootLayout error:', error);
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorTitle}>Root Layout Error</Text>
-                <Text style={styles.errorText}>{error instanceof Error ? error.message : 'Unknown error'}</Text>
+                <Text style={styles.errorTitle}>{i18n.t('errors.rootLayoutError')}</Text>
+                <Text style={styles.errorText}>{error instanceof Error ? error.message : i18n.t('common.unknownError')}</Text>
             </View>
         );
     }

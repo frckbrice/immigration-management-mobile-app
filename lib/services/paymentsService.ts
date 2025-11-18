@@ -9,10 +9,19 @@ interface ApiResponse<T> {
 }
 
 export interface CreatePaymentIntentParams {
-  amount: number; // in major units (e.g., 150.00)
+  amount: number; // in major units (e.g., 500.00 for Basic tier)
   currency?: string; // default provided server-side
   description: string;
-  metadata?: Record<string, any>; // e.g., { caseNumber, userId }
+  metadata?: Record<string, any>; // MUST include: { tier: "basic"|"standard"|"premium", type: "subscription" }
+}
+
+export interface SubscriptionStatus {
+  hasPaid: boolean;
+  subscriptionTier: 'BASIC' | 'STANDARD' | 'PREMIUM' | null;
+  paymentDate: string | null;
+  subscriptionExpiresAt: string | null;
+  bypassed: boolean;
+  isActive: boolean;
 }
 
 export interface ConfirmPaymentParams {
@@ -55,6 +64,43 @@ export const paymentsService = {
     }
   },
 
+  /**
+   * Verify payment and update subscription status
+   * This endpoint verifies payment with Stripe and updates User table
+   */
+  async verifyPayment(paymentIntentId: string): Promise<{
+    paymentStatus: string;
+    stripeStatus: string;
+    hasPaid: boolean;
+    subscriptionTier: string | null;
+    paymentDate: string | null;
+    subscriptionExpiresAt: string | null;
+  }> {
+    try {
+      const res = await apiClient.post<ApiResponse<{
+        paymentStatus: string;
+        stripeStatus: string;
+        hasPaid: boolean;
+        subscriptionTier: string | null;
+        paymentDate: string | null;
+        subscriptionExpiresAt: string | null;
+      }>>('/payments/verify', { paymentIntentId });
+
+      if (!res.data.success || !res.data.data) {
+        throw new Error(res.data.error || 'Failed to verify payment');
+      }
+
+      return res.data.data;
+    } catch (error: any) {
+      logger.error('verifyPayment failed', error);
+      throw new Error(error?.response?.data?.error || 'Unable to verify payment');
+    }
+  },
+
+  /**
+   * Verify payment status (legacy - checks payment intent status)
+   * Use verifyPayment() for subscription updates
+   */
   async verifyPaymentStatus(paymentIntentId: string): Promise<PaymentIntent> {
     try {
       const res = await apiClient.get<ApiResponse<PaymentIntent>>(`/payments/intents/${paymentIntentId}`);
@@ -63,6 +109,44 @@ export const paymentsService = {
     } catch (error: any) {
       logger.error('verifyPaymentStatus failed', error);
       throw new Error(error?.response?.data?.error || 'Unable to verify payment status');
+    }
+  },
+
+  /**
+   * Get subscription status for current user
+   * Cached for performance - use this before case creation
+   */
+  async getSubscriptionStatus(): Promise<SubscriptionStatus> {
+    try {
+      const res = await apiClient.get<ApiResponse<SubscriptionStatus>>('/payments/status');
+      if (!res.data.success || !res.data.data) {
+        // Return default status if not found
+        return {
+          hasPaid: false,
+          subscriptionTier: null,
+          paymentDate: null,
+          subscriptionExpiresAt: null,
+          bypassed: false,
+          isActive: false,
+        };
+      }
+      // Normalize response: ensure isActive is present (derive from hasPaid if missing)
+      const status = res.data.data;
+      return {
+        ...status,
+        isActive: status.isActive !== undefined ? status.isActive : status.hasPaid,
+      };
+    } catch (error: any) {
+      logger.error('getSubscriptionStatus failed', error);
+      // Return default status on error
+      return {
+        hasPaid: false,
+        subscriptionTier: null,
+        paymentDate: null,
+        subscriptionExpiresAt: null,
+        bypassed: false,
+        isActive: false,
+      };
     }
   },
 

@@ -3,7 +3,7 @@
  * Beautiful onboarding experience with smooth animations
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import Animated, {
 import { StatusBar } from 'expo-status-bar';
 import { completeOnboarding } from '../lib/utils/onboarding';
 import { useTranslation } from '../lib/hooks/useTranslation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -209,23 +210,15 @@ const Pagination = ({
 export default function OnboardingScreen() {
   console.log('[Onboarding] Screen rendering');
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, currentLanguage } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useSharedValue(0);
-  
-  // Wrap in try-catch to handle translation errors
-  let ONBOARDING_SLIDES: OnboardingSlide[] = [];
-  try {
-    ONBOARDING_SLIDES = getOnboardingSlides(t);
-    console.log('[Onboarding] Slides loaded:', ONBOARDING_SLIDES.length);
-  } catch (error) {
-    console.error('[Onboarding] Error loading slides:', error);
-    // Fallback slides if translation fails
-    ONBOARDING_SLIDES = [
-      { id: '1', title: 'Welcome', description: 'Welcome to our app', icon: 'airplane-takeoff', color: '#0066CC' },
-    ];
-  }
+  const { bottom: bottomInset } = useSafeAreaInsets();
+  // Load onboarding slides with translations - recompute when language changes
+  const ONBOARDING_SLIDES = useMemo(() => {
+    return getOnboardingSlides(t);
+  }, [t, currentLanguage]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -272,7 +265,7 @@ export default function OnboardingScreen() {
   const isLastSlide = currentIndex === ONBOARDING_SLIDES.length - 1;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomInset }]}>
       <StatusBar style="dark" />
 
       {/* Skip Button */}

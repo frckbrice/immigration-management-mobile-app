@@ -12,8 +12,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
   splash: {
     image: './assets/splash-icon.png',
-    resizeMode: 'contain',
+    resizeMode: 'cover',
     backgroundColor: '#e7eeff',
+    // Modern standard: Logo should be 30-40% of screen height for prominence
+    // To achieve larger logo size, ensure splash-icon.png has:
+    // - High resolution (at least 1024x1024 or larger)
+    // - Logo element sized to ~40% of image height with padding around it
+    // - This will make the logo appear larger when using 'contain' mode
   },
   ios: {
     supportsTablet: true,
@@ -71,7 +76,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         backgroundColor: '#e7eeff',
         image: './assets/splash-icon.png',
-        resizeMode: 'contain',
+        resizeMode: 'cover',
+        // Modern standard: Logo should be 30-40% of screen height for prominence
+        // To achieve larger logo size, ensure splash-icon.png has:
+        // - High resolution (at least 1024x1024 or larger, ideally 2048x2048)
+        // - Logo element sized to ~40% of image height with padding around it
+        // - This will make the logo appear larger when using 'cover' mode
       },
     ]
   ],

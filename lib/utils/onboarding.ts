@@ -51,3 +51,43 @@ export const resetOnboarding = async (): Promise<void> => {
   }
 };
 
+/**
+ * Check if user has seen the get started screen
+ * @returns true if get started was completed, false otherwise
+ */
+export const hasSeenGetStarted = async (): Promise<boolean> => {
+  try {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.GET_STARTED_COMPLETED);
+    return value === 'true';
+  } catch (error) {
+    logger.error('Error checking get started status', error);
+    return false;
+  }
+};
+
+/**
+ * Mark get started as completed
+ * This will prevent the get started screen from showing again
+ */
+export const completeGetStarted = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.GET_STARTED_COMPLETED, 'true');
+    logger.info('Get started marked as completed');
+  } catch (error) {
+    logger.error('Error saving get started completion', error);
+  }
+};
+
+/**
+ * Reset get started status (for testing purposes)
+ * WARNING: This will cause get started to show again on next app start
+ */
+export const resetGetStarted = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.GET_STARTED_COMPLETED);
+    logger.info('Get started status reset');
+  } catch (error) {
+    logger.error('Error resetting get started', error);
+  }
+};
+

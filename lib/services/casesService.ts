@@ -232,13 +232,27 @@ export const casesService = {
 
   /**
    * Create a new case
+   * Note: Backend will verify subscription status before allowing case creation
+   * If subscription is not active, backend returns 403 with SUBSCRIPTION_REQUIRED or SUBSCRIPTION_EXPIRED
    */
   async createCase(data: CreateCaseRequest): Promise<Case> {
     try {
+      logger.info('Sending createCase request to API', {
+        endpoint: '/cases',
+        data: { serviceType: data.serviceType, destinationId: data.destinationId, priority: data.priority }
+      });
+
       const response = await apiClient.post<ApiResponse<{ case: any }>>('/cases', data);
+
+      logger.info('CreateCase API response received', {
+        success: response.data.success,
+        hasData: !!response.data.data,
+        error: response.data.error
+      });
 
       const caseData = response.data.data?.case;
       if (!caseData) {
+        logger.error('CreateCase API response missing case data', { response: response.data });
         throw new Error(response.data.error || 'Failed to create case');
       }
 
@@ -246,7 +260,31 @@ export const casesService = {
       logger.info('Case created successfully', { caseId: mapped.id });
       return mapped;
     } catch (error: any) {
-      logger.error('Error creating case', error);
+      logger.error('Error creating case', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
+
+      // Provide user-friendly error messages for subscription errors
+      const errorCode = error?.response?.data?.code;
+      const errorMessage = error?.response?.data?.error || error.message;
+
+      if (errorCode === 'SUBSCRIPTION_REQUIRED' || errorMessage?.includes('subscription')) {
+        throw new Error(
+          'Active subscription required to create cases. Please subscribe first to continue.'
+        );
+      }
+
+      if (errorCode === 'SUBSCRIPTION_EXPIRED' || errorMessage?.includes('expired')) {
+        throw new Error(
+          'Your subscription has expired. Please renew your subscription to create cases.'
+        );
+      }
+
       throw error;
     }
   },

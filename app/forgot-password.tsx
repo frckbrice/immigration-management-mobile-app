@@ -25,7 +25,7 @@ export default function ForgotPasswordScreen() {
     if (!email.trim()) {
       showAlert({ 
         title: t('common.error'), 
-        message: t('validation.required') || 'Please enter your email address' 
+        message: t('validation.required') 
       });
       return;
     }
@@ -33,7 +33,7 @@ export default function ForgotPasswordScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       showAlert({ 
         title: t('common.error'), 
-        message: t('validation.invalidEmail') || 'Please enter a valid email address' 
+        message: t('validation.invalidEmail') 
       });
       return;
     }
@@ -45,11 +45,11 @@ export default function ForgotPasswordScreen() {
       logger.info('Password reset email sent', { email: email.trim() });
       
       showAlert({
-        title: t('auth.passwordResetSent') || 'Password Reset Sent',
-        message: t('auth.checkEmailForReset') || 'Please check your email for password reset instructions.',
+        title: t('auth.passwordResetSent'),
+        message: t('auth.checkEmailForReset'),
         actions: [
           { 
-            text: t('common.ok') || 'OK', 
+            text: t('common.ok'), 
             onPress: () => router.back(), 
             variant: 'primary' 
           }
@@ -57,24 +57,24 @@ export default function ForgotPasswordScreen() {
       });
     } catch (error: any) {
       logger.error('Password reset error', error);
-      let errorMessage = t('errors.generic') || 'Failed to send password reset email. Please try again.';
+      let errorMessage = t('errors.generic');
       
       switch (error.code) {
         case 'auth/invalid-email':
-          errorMessage = t('validation.invalidEmail') || 'Invalid email address.';
+          errorMessage = t('validation.invalidEmail');
           break;
         case 'auth/user-not-found':
-          errorMessage = t('auth.userNotFound') || 'No account found with this email.';
+          errorMessage = t('auth.userNotFound');
           break;
         case 'auth/network-request-failed':
-          errorMessage = t('errors.network') || 'Network error. Please check your connection.';
+          errorMessage = t('errors.network');
           break;
         default:
           errorMessage = error.message || errorMessage;
       }
       
       showAlert({ 
-        title: t('common.error') || 'Error', 
+        title: t('common.error'), 
         message: errorMessage 
       });
     } finally {
@@ -119,18 +119,18 @@ export default function ForgotPasswordScreen() {
             {/* Title */}
             <View style={styles.titleContainer}>
               <Text style={[styles.title, { color: theme.colors.text }]}>
-                {t('auth.forgotPassword') || 'Forgot Password'}
+                {t('auth.forgotPassword')}
               </Text>
               <Text style={[styles.subtitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('auth.enterEmailForReset') || 'Enter your email address and we\'ll send you instructions to reset your password.'}
+                {t('auth.enterEmailForReset')}
               </Text>
             </View>
 
             {/* Email Input */}
             <FormInput
               ref={emailInputRef}
-              label={t('auth.email') || 'Email'}
-              placeholder={t('auth.enterEmail') || 'Enter your email'}
+              label={t('auth.email')}
+              placeholder={t('auth.enterEmail')}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -152,7 +152,7 @@ export default function ForgotPasswordScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.resetButtonText}>
-                  {t('auth.sendResetLink') || 'Send Reset Link'}
+                  {t('auth.sendResetLink')}
                 </Text>
               )}
             </Pressable>
@@ -160,11 +160,11 @@ export default function ForgotPasswordScreen() {
             {/* Back to Login Link */}
             <View style={styles.backToLoginContainer}>
               <Text style={[styles.backToLoginText, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('auth.rememberPassword') || 'Remember your password? '}
+                {t('auth.rememberPassword')}
               </Text>
               <Pressable onPress={() => router.back()}>
                 <Text style={styles.backToLoginLink}>
-                  {t('auth.login') || 'Login'}
+                  {t('auth.login')}
                 </Text>
               </Pressable>
             </View>

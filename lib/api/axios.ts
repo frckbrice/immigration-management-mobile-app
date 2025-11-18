@@ -52,12 +52,12 @@ const envSelectedApi = isProduction
     : (DEV_API || PROD_API);
 
 const candidateApiUrls = [
-    // Constants.expoConfig?.extra?.apiUrl,
+    // process.env.EXPO_PUBLIC_API_PROD_URL || "https://immigration-web-app-zeta.vercel.app/api",
     // envSelectedApi,
-    // process.env.EXPO_PUBLIC_API_FALLBACK_URL,
+    // Constants.expoConfig?.extra?.apiUrl,
     // 'http://192.168.43.4:3000/api',
     'http://172.20.10.10:3000/api',
-    'http://localhost:3000/api',
+    // 'http://localhost:3000/api',
 ];
 
 const API_BASE_URL =

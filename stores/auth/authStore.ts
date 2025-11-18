@@ -128,11 +128,35 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true });
 
+          // Get user ID before clearing auth (needed for cache cleanup)
+          const userId = get().user?.uid;
+
           // Best-effort push token cleanup before logout
           try {
             await get().unregisterPushToken();
           } catch (cleanupError) {
             logger.warn('Failed to remove push token during logout', cleanupError);
+          }
+
+          // Clear all user-specific caches before logout
+          if (userId) {
+            try {
+              const { useCasesStore } = await import('../cases/casesStore');
+              const { useNotificationsStore } = await import('../notifications/notificationsStore');
+              const { useSubscriptionStore } = await import('../subscription/subscriptionStore');
+              
+              // Clear all caches for this user
+              await Promise.all([
+                useCasesStore.getState().clearCache(),
+                useNotificationsStore.getState().clearCache(),
+                useSubscriptionStore.getState().clearSubscriptionStatus(),
+              ]);
+              
+              logger.info('Cleared all user caches on logout', { userId });
+            } catch (cacheError) {
+              logger.warn('Failed to clear some caches on logout', cacheError);
+              // Non-blocking - continue with logout
+            }
           }
 
           // Sign out from Firebase

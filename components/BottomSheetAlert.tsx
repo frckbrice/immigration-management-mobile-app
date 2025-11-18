@@ -44,10 +44,10 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModalType>(null);
-  // Add extra bottom padding to account for tab bar (typically 60-80px) + safe area
-  const bottomPadding = Platform.OS === 'ios' ? Math.max(insets.bottom, 20) + 80 : 100;
-  // Use dynamic sizing instead of fixed snap points for content-based height
-  const snapPoints = useMemo(() => ['50%'], []);
+  // Bottom padding for safe area (tab bar is handled by bottomInset)
+  const bottomPadding = useMemo(() => Math.max(insets.bottom, 20), [insets.bottom]);
+  // Use larger snap points to accommodate multiple tier buttons
+  const snapPoints = useMemo(() => ['50%', '70%'], []);
 
   const [content, setContent] = useState<BottomSheetAlertOptions | null>(null);
 
@@ -67,14 +67,28 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
       actions: opts.actions && opts.actions.length > 0 ? opts.actions : [{ text: t('common.close') }],
     };
 
+    // Set content first
     setContent(normalized);
 
+    // Use requestAnimationFrame + setTimeout to ensure the state is updated and DOM is ready
     requestAnimationFrame(() => {
-      try {
-        sheetRef.current?.present();
-      } catch (error) {
-        console.warn('Failed to present bottom sheet:', error);
-      }
+      setTimeout(() => {
+        try {
+          if (sheetRef.current) {
+            // Present the sheet - it will use the first snapPoint
+            sheetRef.current.present();
+          } else {
+            // Retry once after a short delay if ref is not ready
+            setTimeout(() => {
+              if (sheetRef.current) {
+                sheetRef.current.present();
+              }
+            }, 100);
+          }
+        } catch (error) {
+          // Silent fail - user will see error in UI if needed
+        }
+      }, 50);
     });
   }, [t]);
 
@@ -98,10 +112,14 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
           ref={sheetRef}
           snapPoints={snapPoints}
           enablePanDownToClose
-          enableDynamicSizing
+          enableDynamicSizing={false}
           backdropComponent={content ? backdrop : undefined}
-          handleIndicatorStyle={{ backgroundColor: colors.muted }}
-          backgroundStyle={{ backgroundColor: colors.surface }}
+          handleIndicatorStyle={{ backgroundColor: theme.dark ? '#666' : '#999' }}
+          backgroundStyle={{
+            backgroundColor: theme.dark ? '#1C1C1E' : '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+          }}
           bottomInset={bottomPadding}
           android_keyboardInputMode="adjustResize"
           keyboardBehavior="interactive"
@@ -109,47 +127,64 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
           onDismiss={() => {
             setContent(null);
           }}
-          index={-1}
           enableContentPanningGesture={false}
         >
-          <BottomSheetView style={{ paddingBottom: bottomPadding }}>
+          <BottomSheetView style={{
+            paddingBottom: bottomPadding,
+            backgroundColor: theme.dark ? '#1C1C1E' : '#FFFFFF',
+          }}>
             {content && (
-              <View style={styles.container}>
+              <View style={[styles.container, { backgroundColor: 'transparent' }]}>
                 {content.title ? (
-                  <Text style={[styles.title, { color: colors.text }]}>{content.title}</Text>
+                  <Text style={[styles.title, { color: theme.dark ? '#FFFFFF' : '#000000' }]}>{content.title}</Text>
                 ) : null}
                 {content.message ? (
-                  <Text style={[styles.message, { color: colors.muted }]}>{content.message}</Text>
+                  <Text style={[styles.message, { color: theme.dark ? '#E4E6EB' : '#65676B' }]}>{content.message}</Text>
                 ) : null}
 
-                <View style={styles.actionsRow}>
-                  {(content.actions || []).map((action, idx) => (
-                    <Pressable
-                      key={`${action.text}-${idx}`}
-                      onPress={() => {
-                        hideAlert();
-                        action.onPress?.();
-                      }}
-                      style={[
-                        styles.actionButton,
-                        action.variant === 'primary' && { backgroundColor: colors.primary },
-                        action.variant === 'secondary' && { borderColor: colors.borderStrong, borderWidth: 1 },
-                        action.variant === 'destructive' && { backgroundColor: colors.danger },
-                      ]}
-                    >
-                      <Text style={[
-                        styles.actionText,
-                        { color: colors.text },
-                        action.variant === 'primary' && { color: colors.onPrimary },
-                        action.variant === 'secondary' && { color: colors.primary },
-                        action.variant === 'destructive' && { color: colors.onPrimary },
-                        !action.variant && { color: colors.primary },
-                      ]}>
-                        {action.text}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                {content.actions && content.actions.length > 0 && (
+                  <View style={styles.actionsContainer}>
+                    {content.actions.map((action, idx) => (
+                      <Pressable
+                        key={`${action.text}-${idx}`}
+                        onPress={() => {
+                          hideAlert();
+                          // Small delay to ensure alert is dismissed before navigation
+                          setTimeout(() => {
+                            action.onPress?.();
+                          }, 100);
+                        }}
+                        style={[
+                          styles.actionButton,
+                          action.variant === 'primary' && {
+                            backgroundColor: colors.primary,
+                            shadowColor: colors.primary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.25,
+                            shadowRadius: 4,
+                            elevation: 3,
+                          },
+                          action.variant === 'secondary' && {
+                            borderColor: colors.borderStrong,
+                            borderWidth: 1.5,
+                            backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                          },
+                          action.variant === 'destructive' && { backgroundColor: colors.danger },
+                        ]}
+                      >
+                        <Text style={[
+                          styles.actionText,
+                          !action.variant && { color: colors.primary },
+                          action.variant === 'primary' && { color: '#FFFFFF' },
+                          action.variant === 'secondary' && { color: colors.primary },
+                          action.variant === 'destructive' && { color: '#FFFFFF' },
+                        ]}>
+                          {action.text}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
           </BottomSheetView>
@@ -175,19 +210,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  actionsContainer: {
+    flexDirection: 'column',
     gap: 12,
     marginTop: 4,
   },
   actionButton: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: 'transparent',
-    minWidth: 80,
+    width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   actionText: {
     fontSize: 16,

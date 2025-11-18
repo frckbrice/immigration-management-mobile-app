@@ -6,8 +6,10 @@ import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { useTranslation } from '@/lib/hooks/useTranslation';
 
 export default function PaymentScreen() {
+  const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -31,7 +33,7 @@ export default function PaymentScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} iconSize={24} />
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Payment</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('payments.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -45,13 +47,13 @@ export default function PaymentScreen() {
           <View style={styles.summaryHeader}>
             <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              Payment Summary
+              {t('payments.paymentSummary')}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-              Case Reference:
+              {t('payments.caseReference')}:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
               {caseReference}
@@ -60,7 +62,7 @@ export default function PaymentScreen() {
 
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-              Description:
+              {t('payments.description')}:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
               {description}
@@ -71,7 +73,7 @@ export default function PaymentScreen() {
 
           <View style={styles.summaryRow}>
             <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
-              Total Amount:
+              {t('payments.totalAmount')}:
             </Text>
             <Text style={[styles.totalValue, { color: '#2196F3' }]}>
               ${amount.toFixed(2)}
@@ -86,18 +88,17 @@ export default function PaymentScreen() {
           </View>
           
           <Text style={[styles.notSupportedTitle, { color: theme.colors.text }]}>
-            Payment Not Available on Web
+            {t('payments.web.notAvailable')}
           </Text>
           
           <Text style={[styles.notSupportedText, { color: theme.dark ? '#999' : '#666' }]}>
-            Stripe payment processing is only available on iOS and Android devices. 
-            Please use the mobile app to complete your payment.
+            {t('payments.web.notAvailableMessage')}
           </Text>
 
           <View style={[styles.infoBox, { backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5' }]}>
             <IconSymbol name="info.circle.fill" size={20} color="#2196F3" />
             <Text style={[styles.infoBoxText, { color: theme.dark ? '#999' : '#666' }]}>
-              Download the mobile app from the App Store or Google Play to make payments securely.
+              {t('payments.web.downloadApp')}
             </Text>
           </View>
         </View>
@@ -105,17 +106,17 @@ export default function PaymentScreen() {
         {/* Alternative Options */}
         <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Alternative Options
+            {t('payments.web.alternativeOptions')}
           </Text>
           
           <View style={styles.optionItem}>
             <IconSymbol name="apps.iphone" size={24} color="#2196F3" />
             <View style={styles.optionContent}>
               <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
-                Use Mobile App
+                {t('payments.web.useMobileApp')}
               </Text>
               <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                Download our iOS or Android app for full payment functionality
+                {t('payments.web.useMobileAppDescription')}
               </Text>
             </View>
           </View>
@@ -126,10 +127,10 @@ export default function PaymentScreen() {
             <IconSymbol name="envelope.fill" size={24} color="#4CAF50" />
             <View style={styles.optionContent}>
               <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
-                Contact Support
+                {t('payments.web.contactSupport')}
               </Text>
               <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                Reach out to our support team for alternative payment methods
+                {t('payments.web.contactSupportDescription')}
               </Text>
             </View>
           </View>
@@ -142,7 +143,7 @@ export default function PaymentScreen() {
         >
           <IconSymbol name="arrow.left" size={20} color="#fff" />
           <Text style={styles.backToHomeText}>
-            Go Back
+            {t('payments.web.goBack')}
           </Text>
         </Pressable>
       </ScrollView>

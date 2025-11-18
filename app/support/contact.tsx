@@ -76,7 +76,7 @@ export default function ContactSupportScreen() {
         message: t('support.messageSent', { defaultValue: 'Your message has been sent. We will get back to you shortly.' }),
       });
     } catch (e: any) {
-      showAlert({ title: 'Error', message: e?.message || 'Failed to send' });
+      showAlert({ title: t('common.error'), message: e?.message || t('support.sendError') });
     } finally {
       setSubmitting(false);
     }

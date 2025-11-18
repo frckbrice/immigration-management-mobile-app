@@ -12,7 +12,7 @@ import {
   NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTranslation } from "@/lib/hooks/useTranslation";
@@ -27,11 +27,12 @@ import type { ListRenderItem, ListRenderItemInfo } from "react-native";
 import type { Conversation } from "@/lib/services/chat";
 import { useScrollContext } from "@/contexts/ScrollContext";
 import SearchField from "@/components/SearchField";
+import { logger } from "@/lib/utils/logger";
 
 type SegmentKey = "chat" | "email";
 type EmailFolderKey = "inbox" | "sent";
 
-const formatRelativeTime = (timestamp?: number | null, fallback = "") => {
+const formatRelativeTime = (timestamp?: number | null, fallback = "", t?: (key: string) => string) => {
   if (!timestamp) {
     return fallback;
   }
@@ -44,7 +45,7 @@ const formatRelativeTime = (timestamp?: number | null, fallback = "") => {
   const diffMs = now.getTime() - date.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-  if (diffMinutes < 1) return "Now";
+  if (diffMinutes < 1) return t ? t('common.now', { defaultValue: 'Now' }) : 'Now';
   if (diffMinutes < 60) return `${diffMinutes}m`;
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
@@ -60,10 +61,12 @@ export default function MessagesScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const tabBarHeight = useBottomTabBarHeight();
-  const { user } = useAuthStore(
+  const { user, isAuthenticated } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
+      isAuthenticated: state.isAuthenticated,
     }))
   );
   const { setScrollDirection, setAtBottom } = useScrollContext();
@@ -110,21 +113,46 @@ export default function MessagesScreen() {
     }))
   );
 
-  const [activeSegment, setActiveSegment] = useState<SegmentKey>("chat");
+  // Initialize segment from URL params if provided, otherwise default to "chat"
+  const initialSegment = useMemo(() => {
+    const segmentParam = params.segment as string | undefined;
+    if (segmentParam === "email" || segmentParam === "chat") {
+      return segmentParam as SegmentKey;
+    }
+    return "chat" as SegmentKey;
+  }, [params.segment]);
+
+  const [activeSegment, setActiveSegment] = useState<SegmentKey>(initialSegment);
   const [activeEmailFolder, setActiveEmailFolder] = useState<EmailFolderKey>("inbox");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Update segment when params change (e.g., when navigating from home page bell icon)
+  useEffect(() => {
+    const segmentParam = params.segment as string | undefined;
+    if (segmentParam === "email" || segmentParam === "chat") {
+      setActiveSegment(segmentParam as SegmentKey);
+    }
+  }, [params.segment]);
 
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
   useEffect(() => {
-    if (user?.uid) {
+    // Only subscribe when user is authenticated and has a valid uid
+    if (user?.uid && isAuthenticated) {
+      logger.info('Setting up conversation subscription', { userId: user.uid });
       fetchConversations(user.uid);
       const unsubscribe = subscribeToConversations(user.uid);
       return unsubscribe;
+    } else {
+      logger.debug('Skipping conversation subscription', { 
+        hasUser: !!user, 
+        hasUid: !!user?.uid, 
+        isAuthenticated 
+      });
     }
-  }, [user?.uid, fetchConversations, subscribeToConversations]);
+  }, [user?.uid, isAuthenticated, fetchConversations, subscribeToConversations]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -292,7 +320,7 @@ export default function MessagesScreen() {
                 {participantName}
               </Text>
               <Text style={[styles.messageTime, { color: colors.muted }]}>
-                {formatRelativeTime(item.lastMessageTime, t("messages.justNow", { defaultValue: "Just now" }))}
+                {formatRelativeTime(item.lastMessageTime, t("messages.justNow", { defaultValue: "Just now" }), t)}
               </Text>
             </View>
             <Text

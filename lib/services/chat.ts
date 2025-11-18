@@ -1,4 +1,4 @@
-import { database, getDatabaseInstance as getDbInstance } from '../firebase/config';
+import { database, getDatabaseInstance as getDbInstance, auth } from '../firebase/config';
 import { apiClient } from '../api/axios';
 import {
     ref,
@@ -359,6 +359,25 @@ class ChatService {
         callback: (conversations: Conversation[]) => void
     ): () => void {
         if (!userId) {
+            logger.warn('subscribeToConversationSummaries: userId is empty');
+            callback([]);
+            return () => { };
+        }
+
+        // Verify user is authenticated and userId matches auth.uid
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            logger.warn('subscribeToConversationSummaries: User not authenticated', { userId });
+            callback([]);
+            return () => { };
+        }
+
+        if (currentUser.uid !== userId) {
+            logger.error('subscribeToConversationSummaries: userId mismatch', {
+                providedUserId: userId,
+                authUid: currentUser.uid,
+                note: 'userId must match auth.uid for Firebase security rules to allow access'
+            });
             callback([]);
             return () => { };
         }
@@ -370,16 +389,50 @@ class ChatService {
             return () => { };
         }
 
+        logger.info('Subscribing to conversation summaries', {
+            userId,
+            authUid: currentUser.uid,
+            matches: currentUser.uid === userId
+        });
+
         const userChatsRef = ref(db, `userChats/${userId}`);
 
         const listener = onValue(
             userChatsRef,
             async () => {
-                const conversations = await this.loadConversations(userId);
-                callback(conversations);
+                try {
+                    const conversations = await this.loadConversations(userId);
+                    callback(conversations);
+                } catch (error) {
+                    logger.error('Error loading conversations in subscription callback', { userId, error });
+                    callback([]);
+                }
             },
-            (error) => {
-                logger.error('Conversation subscription error', { userId, error });
+            (error: any) => {
+                // Handle permission errors gracefully
+                const errorCode = error?.code || '';
+                const errorMessage = error?.message || '';
+
+                if (errorCode === 'PERMISSION_DENIED' || errorMessage.includes('permission_denied')) {
+                    logger.error('Conversation subscription permission denied', {
+                        userId,
+                        authUid: currentUser?.uid,
+                        errorCode,
+                        errorMessage,
+                        troubleshooting: {
+                            check1: 'Verify userId matches auth.uid',
+                            check2: 'Verify Firebase security rules allow read access',
+                            check3: 'Verify user is authenticated',
+                            check4: 'Check Firebase Console > Realtime Database > Rules'
+                        }
+                    });
+                    // Call callback with empty array to prevent UI from breaking
+                    callback([]);
+                } else {
+                    logger.error('Conversation subscription error', { userId, error });
+                    // On other errors, still provide empty array to prevent crashes
+                    callback([]);
+                }
             }
         );
 

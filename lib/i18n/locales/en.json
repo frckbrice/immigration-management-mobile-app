@@ -22,7 +22,11 @@
     "retry": "Retry",
     "refresh": "Refresh",
     "resultsCount": "{{count}} result(s)",
-    "validation": "Validation"
+    "validation": "Validation",
+    "ok": "OK",
+    "unknownDate": "Unknown date",
+    "unknownError": "Unknown error",
+    "now": "Now"
   },
   "email": {
     "detailTitle": "Email",
@@ -65,7 +69,13 @@
     "acceptTerms": "I accept the Terms and Conditions",
     "acceptPrivacy": "I accept the Privacy Policy",
     "registrationSuccess": "Registration Successful",
-    "checkEmail": "Please check your inbox to verify your email before logging in."
+    "checkEmail": "Please check your inbox to verify your email before logging in.",
+    "passwordResetSent": "Password Reset Sent",
+    "checkEmailForReset": "Please check your email for password reset instructions.",
+    "enterEmailForReset": "Enter your email address and we'll send you instructions to reset your password.",
+    "sendResetLink": "Send Reset Link",
+    "rememberPassword": "Remember your password? ",
+    "userNotFound": "No account found with this email."
   },
   "onboarding": {
     "welcome": "Welcome to Our App",
@@ -77,6 +87,13 @@
     "getStarted": "Get Started",
     "getStartedDescription": "Ready to begin? Let's get you set up and start managing your services.",
     "skip": "Skip"
+  },
+  "getStarted": {
+    "welcomeTo": "Welcome to",
+    "companyName": "Patrick Travel Agency",
+    "tagline": "Your trusted partner for seamless travel experiences",
+    "description": "Discover a world of possibilities with our comprehensive travel services. From visa applications to travel planning, we're here to make your journey smooth and memorable.",
+    "getStartedButton": "Get Started"
   },
   "home": {
     "title": "Home",
@@ -135,6 +152,11 @@
     "rejected": "Rejected",
     "closed": "Closed",
     "statusUnknown": "Unknown status",
+    "subscriptionRequired": "Active payment required to create cases. Please make a payment first to continue.",
+    "subscriptionExpired": "Your payment has expired. Please renew your payment to create cases.",
+    "subscriptionTitle": "Payment Required",
+    "subscribe": "Subscribe",
+    "caseCreationFailed": "Failed to create case. Please try again.",
     "chatUnavailableTitle": "Chat Not Available",
     "chatUnavailableMessage": "Chat will be available once your advisor reviews this case.",
     "chatAwaitingAgentTitle": "Advisor Pending",
@@ -322,6 +344,51 @@
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
   },
   "payments": {
+    "title": "Payment",
+    "paymentSummary": "Payment Summary",
+    "caseReference": "Case Reference",
+    "description": "Description",
+    "totalAmount": "Total Amount",
+    "cardDetails": "Card Details",
+    "basicTierDescription": "Basic Tier - One-time payment",
+    "incompleteCard": "Incomplete Card",
+    "incompleteCardMessage": "Please enter complete card details",
+    "paymentFailed": "Payment Failed",
+    "paymentFailedMessage": "An error occurred during payment processing",
+    "paymentError": "Payment Error",
+    "paymentSuccessful": "Payment Successful",
+    "paymentSuccessfulMessage": "Your payment of ${{amount}} has been processed successfully. You can now create cases.",
+    "paymentProcessing": "Payment Processing",
+    "paymentProcessingMessage": "Your payment is being processed. Please check your payment history for updates.",
+    "paymentProcessingMessageShort": "Your payment is being processed. Check your history for updates.",
+    "paymentSubmitted": "Payment Submitted",
+    "paymentSubmittedMessage": "Your payment of ${{amount}} has been submitted. You will receive a confirmation shortly.",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
+    "paymentVerificationFailed": "Payment Verification Failed",
+    "paymentVerificationFailedMessage": "We couldn't verify your payment with our server. Please try again or contact support if the issue persists.",
+    "alreadyPaidTitle": "Payment Already Made",
+    "alreadyPaidMessage": "You have already made a one-time payment. Your payment is active.",
+    "subscriptionExpired": "Your one-time payment has expired. Please select a payment tier to renew.",
+    "subscriptionRequired": "Active one-time payment required. Please select a payment tier to continue.",
+    "paymentRequiredTitle": "Payment Required",
+    "testMode": "Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC",
+    "securityNotice": "Your payment information is encrypted and secure",
+    "paymentInformation": "Payment Information",
+    "paymentInfoBullets": "• Payments are processed securely through Stripe\n• You will receive a receipt via email\n• Refunds take 5-10 business days\n• Contact support for payment issues",
+    "contactSupport": "Contact support for payment issues",
+    "payButton": "Pay ${{amount}}",
+    "cancel": "Cancel",
+    "web": {
+      "notAvailable": "Payment Not Available on Web",
+      "notAvailableMessage": "Stripe payment processing is only available on iOS and Android devices. Please use the mobile app to complete your payment.",
+      "downloadApp": "Download the mobile app from the App Store or Google Play to make payments securely.",
+      "alternativeOptions": "Alternative Options",
+      "useMobileApp": "Use Mobile App",
+      "useMobileAppDescription": "Download our iOS or Android app for full payment functionality",
+      "contactSupport": "Contact Support",
+      "contactSupportDescription": "Reach out to our support team for alternative payment methods",
+      "goBack": "Go Back"
+    },
     "history": {
       "title": "Payment History",
       "recentPayments": "Recent Payments",
@@ -355,6 +422,54 @@
         }
       },
       "priorityLabel": "Priority • {{priority}}"
+    }
+  },
+  "cases": {
+    "title": "My Cases",
+    "newCase": "New Case",
+    "noCases": "No cases found",
+    "caseDetails": "Case Details",
+    "status": "Status",
+    "progress": "Progress",
+    "lastUpdated": "Last updated",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterActionRequired": "Action Required",
+    "filterComplete": "Complete",
+    "searchPlaceholder": "Search cases...",
+    "caseNumber": "Case Number",
+    "submitted": "Submitted",
+    "underReview": "Under Review",
+    "documentsRequired": "Documents Required",
+    "processing": "Processing",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "closed": "Closed",
+    "statusUnknown": "Unknown status",
+    "subscriptionRequired": "Active payment required to create cases. Please make a payment first to continue.",
+    "subscriptionExpired": "Your payment has expired. Please renew your payment to create cases.",
+    "subscriptionTitle": "Payment Required",
+    "subscribe": "Subscribe",
+    "chatUnavailableTitle": "Chat Not Available",
+    "chatUnavailableMessage": "Chat will be available once your advisor reviews this case.",
+    "chatAwaitingAgentTitle": "Advisor Pending",
+    "chatAwaitingAgentMessage": "An advisor will contact you shortly. Chat becomes available after the assignment.",
+    "statusLabels": {
+      "submitted": "Submitted",
+      "under_review": "Under Review",
+      "documents_required": "Documents Required",
+      "processing": "Processing",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "closed": "Closed",
+      "unknown": "Unknown"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "normal": "Normal",
+      "low": "Low",
+      "unknown": "Unknown"
     }
   },
   "messages": {
@@ -451,11 +566,21 @@
     "caseUpdate": "Case Status Updated",
     "documentApproved": "Document Approved",
     "documentRejected": "Document Rejected",
-    "urgent": "Urgent"
+    "urgent": "Urgent",
+    "newNotification": "New notification",
+    "openAppMessage": "Open the app to view the latest update."
   },
   "profile": {
-    "title": "Profile & Settings",
+    "title": "Profil",
     "editProfile": "Edit Profile",
+    "deleteAccountWarning": "This will permanently delete your account and data.",
+    "deleteAccountButton": "Delete Account",
+    "exportSubtitle": "Request a copy of your personal data for your records.",
+    "exportCardTitle": "Request your personal data",
+    "exportCardDescription": "We will package your submissions, case files, and account activity into a download link delivered via email.",
+    "exportCta": "Submit export request",
+    "exportSuccessMessage": "Your data export has been emailed to you.",
+    "exportErrorMessage": "We couldn't start the export. Please try again shortly.",
     "editProfileSubtitle": "Update your personal details so we can stay in touch.",
     "logout": "Log Out",
     "personalInfo": "Personal Information",
@@ -546,7 +671,16 @@
     "newPassword": "New Password",
     "passwordHint": "Passwords must be at least 8 characters and include a combination of numbers and letters.",
     "passwordUpdated": "Your password has been changed.",
-    "passwordUpdateFailed": "Failed to change password."
+    "passwordUpdateFailed": "Failed to change password.",
+    "deleteAccountSubtitle": "Permanently remove your account and all associated data.",
+    "deleteAccountWarningTitle": "Warning",
+    "deleteAccountWarningMessage": "This will permanently delete your account and all associated data including:\n\n• All your cases and documents\n• Your payment history\n• Your messages and conversations\n• Your profile information\n\nThis action cannot be undone.",
+    "deleteAccountInfo": "If you have any pending cases or payments, please ",
+    "deleteAccountInfoSuffix": " before deleting your account.",
+    "deleteAccountConfirmTitle": "Confirm Deletion",
+    "deleteAccountConfirmMessage": "This action is irreversible. All your data will be permanently deleted. Continue?",
+    "deleteAccountConfirm": "Delete",
+    "deleteAccountError": "Failed to delete account. Please try again."
   },
   "legal": {
     "termsHeroTitle": "Review our latest Terms & Conditions",
@@ -558,14 +692,22 @@
     "refreshFailed": "Unable to refresh right now. Showing the last saved version."
   },
   "support": {
-    "contactSupport": "Contact Support"
+    "contactSupport": "Contact Support",
+    "messageRequired": "Please provide a message so we can assist you.",
+    "missingEmail": "We could not find an email address on your account. Please update your profile and try again.",
+    "unknownUser": "Customer",
+    "messageSent": "Your message has been sent. We will get back to you shortly.",
+    "sendError": "Failed to send"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "network": "Network error. Please check your connection.",
     "unauthorized": "You are not authorized to perform this action.",
     "notFound": "Resource not found.",
-    "serverError": "Server error. Please try again later."
+    "serverError": "Server error. Please try again later.",
+    "somethingWentWrong": "Something went wrong",
+    "restartApp": "Please restart the app",
+    "rootLayoutError": "Root Layout Error"
   },
   "validation": {
     "required": "This field is required",
@@ -573,5 +715,14 @@
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordsDontMatch": "Passwords do not match",
     "acceptTerms": "You must accept Terms and Privacy Policy"
+  },
+  "modals": {
+    "standardModal": "Standard Modal",
+    "standardModalDescription": "This is a modal presentation.",
+    "formSheetModal": "Form Sheet Modal",
+    "formSheetModalDescription": "Drag the grabber to resize!",
+    "transparentModal": "Transparent Modal",
+    "transparentModalDescription": "Tap outside to dismiss",
+    "closeModal": "Close Modal"
   }
 }

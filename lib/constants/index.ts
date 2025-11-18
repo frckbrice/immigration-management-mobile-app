@@ -49,6 +49,7 @@ export const FONT_SIZES = {
 
 // AsyncStorage Keys
 export const STORAGE_KEYS = {
+    GET_STARTED_COMPLETED: 'get_started_completed',
     ONBOARDING_COMPLETED: 'onboarding_completed',
     BIOMETRIC_ENABLED: 'biometric_enabled',
     LANGUAGE_PREFERENCE: 'language_preference',

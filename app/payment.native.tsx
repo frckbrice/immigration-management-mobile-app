@@ -12,9 +12,12 @@ import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
 import { useToast } from '@/components/Toast';
 import { paymentsService } from '@/lib/services/paymentsService';
 import { useAuthStore } from '@/stores/auth/authStore';
+import { useSubscriptionStore } from '@/stores/subscription/subscriptionStore';
 import { logger } from '@/lib/utils/logger';
+import { useTranslation } from '@/lib/hooks/useTranslation';
 
 export default function PaymentScreen() {
+  const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
   const { showToast } = useToast();
   const theme = useTheme();
@@ -22,23 +25,38 @@ export default function PaymentScreen() {
   const params = useLocalSearchParams();
   const { confirmPayment } = useStripe();
   const user = useAuthStore((state) => state.user);
+  const { refreshSubscriptionStatus } = useSubscriptionStore();
 
   const [cardComplete, setCardComplete] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   // Get payment details from params or use defaults
-  const amount = params.amount ? parseFloat(params.amount as string) : 100.0;
-  const description = params.description as string || 'Case Processing Fee';
-  const referenceNumber = (params.referenceNumber as string) || (params.caseNumber as string) || 'PT-REF-000';
+  const amount = params.amount ? parseFloat(params.amount as string) : 500.0;
+  const defaultDescription = t('payments.basicTierDescription', { defaultValue: 'Basic Tier - One-time payment' });
+  const description = params.description as string || defaultDescription;
+
+  // Get tier from params or determine from amount (for one-time payment metadata)
+  const tierParam = params.tier as string;
+  const getTierFromAmount = (amt: number): 'basic' | 'standard' | 'premium' => {
+    if (amt >= 2000) return 'premium';
+    if (amt >= 1500) return 'standard';
+    return 'basic';
+  };
+
+  const tier = (tierParam as 'basic' | 'standard' | 'premium') || getTierFromAmount(amount);
 
   const handlePayment = async () => {
     if (!cardComplete) {
       logger.warn('Payment attempted with incomplete card details', {
-        referenceNumber,
         amount,
+        tier,
       });
-      showAlert({ title: 'Incomplete Card', message: 'Please enter complete card details' });
+      showAlert({
+        title: t('payments.incompleteCard'),
+        message: t('payments.incompleteCardMessage'),
+        actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+      });
       return;
     }
 
@@ -49,17 +67,26 @@ export default function PaymentScreen() {
       logger.info('Creating payment intent', {
         amount,
         description,
-        referenceNumber,
+        tier,
       });
       // Step 1: Create Payment Intent on backend (amount in major units)
+      // CRITICAL: Include ONLY tier and type metadata for User table update
+      // Note: This is a one-time payment per user, NOT per case
+      // The backend will extract userId from the auth token
+      // Metadata MUST contain only: { tier: "basic"|"standard"|"premium", type: "subscription" }
       const paymentIntent = await paymentsService.createPaymentIntent({
         amount,
         currency: 'usd',
         description,
         metadata: {
-          caseNumber: referenceNumber,
-          userId: user?.uid,
+          tier, // Required: "basic" | "standard" | "premium"
+          type: 'subscription', // Required: despite name, this is one-time payment
         },
+      });
+
+      logger.info('Payment intent created successfully', {
+        paymentIntentId: paymentIntent.id,
+        metadata: { tier, type: 'subscription' },
       });
 
       if (!paymentIntent.clientSecret) {
@@ -79,8 +106,9 @@ export default function PaymentScreen() {
           error: error.message,
         });
         showAlert({ 
-          title: 'Payment Failed', 
-          message: error.message || 'An error occurred during payment processing' 
+          title: t('payments.paymentFailed'),
+          message: error.message || t('payments.paymentFailedMessage'),
+          actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
         });
         return;
       }
@@ -90,79 +118,109 @@ export default function PaymentScreen() {
           paymentIntentId: confirmedIntent.id,
           status: confirmedIntent.status,
         });
-        // Step 3: Verify payment status with backend
+        // Step 3: Verify payment with backend (updates User table and Payment table)
+        // Use Stripe Payment Intent ID (starts with pi_) as per API documentation
+        const stripePaymentIntentId = confirmedIntent.id;
         try {
-          logger.info('Verifying payment status with backend', { paymentIntentId: paymentIntent.id });
-          const verifiedIntent = await paymentsService.verifyPaymentStatus(paymentIntent.id);
+          logger.info('Verifying payment with backend', { paymentIntentId: stripePaymentIntentId });
+          const verifiedPayment = await paymentsService.verifyPayment(stripePaymentIntentId);
           
-          if (verifiedIntent.status === 'succeeded') {
-            logger.info('Payment verified as succeeded', { paymentIntentId: paymentIntent.id });
+          if (verifiedPayment.paymentStatus === 'COMPLETED' || verifiedPayment.stripeStatus === 'succeeded') {
+            logger.info('Payment verified and User table updated', {
+              paymentIntentId: stripePaymentIntentId,
+              hasPaid: verifiedPayment.hasPaid,
+              subscriptionTier: verifiedPayment.subscriptionTier,
+            });
             paymentWasSuccessful = true;
+
+            // Refresh subscription status cache after successful payment
+            try {
+              await refreshSubscriptionStatus();
+              logger.info('Subscription status refreshed after payment');
+            } catch (refreshError) {
+              logger.warn('Failed to refresh subscription status after payment', refreshError);
+              // Non-blocking - payment was successful
+            }
+
             showToast({
               type: 'success',
-              title: 'Payment Successful',
-              message: `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
+              title: t('payments.paymentSuccessful'),
+              message: t('payments.paymentSuccessfulMessage', { amount: amount.toFixed(2) }),
             });
-            showAlert({
-              title: 'Payment Successful!',
-              message: `Your payment of $${amount.toFixed(2)} has been processed successfully.`,
-              actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
-            });
+
+            // Navigate back after a short delay to allow user to see the success message
+            setTimeout(() => {
+              router.push('/(tabs)/cases');
+            }, 2000);
           } else {
             logger.warn('Payment verification returned non-success status', {
-              paymentIntentId: paymentIntent.id,
-              status: verifiedIntent.status,
+              paymentIntentId: stripePaymentIntentId,
+              paymentStatus: verifiedPayment.paymentStatus,
+              stripeStatus: verifiedPayment.stripeStatus,
             });
+            // Payment not verified as successful - do not mark as successful
+            paymentWasSuccessful = false;
+
             showToast({
-              type: 'info',
-              title: 'Payment Processing',
-              message: 'Your payment is being processed. Check your history for updates.',
-            });
-            showAlert({
-              title: 'Payment Processing',
-              message: 'Your payment is being processed. Please check your payment history for updates.',
-              actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
+              type: 'error',
+              title: t('payments.paymentVerificationFailed'),
+              message: t('payments.paymentVerificationFailedMessage'),
             });
           }
         } catch (verifyError: any) {
-          // If verification fails but Stripe confirmed, still show success
-          // Backend webhook will update status
+          // Payment verification failed - do not mark as successful
+          // User will need to retry or contact support
           logger.error('Payment verification failed after Stripe confirmation', {
-            paymentIntentId: paymentIntent.id,
+            paymentIntentId: stripePaymentIntentId,
             error: verifyError?.message,
           });
-          paymentWasSuccessful = true;
+          paymentWasSuccessful = false;
+
+          // Try to refresh subscription status to check if webhook updated it
+          try {
+            await refreshSubscriptionStatus();
+            const currentStatus = useSubscriptionStore.getState().subscriptionStatus;
+            // If webhook updated the status, mark as successful
+            if (currentStatus?.hasPaid && currentStatus?.isActive) {
+              logger.info('Payment status updated by webhook', { hasPaid: currentStatus.hasPaid });
+              paymentWasSuccessful = true;
+              showToast({
+                type: 'success',
+                title: t('payments.paymentSuccessful'),
+                message: t('payments.paymentSuccessfulMessage', { amount: amount.toFixed(2) }),
+              });
+              setTimeout(() => {
+                router.back();
+              }, 2000);
+              return;
+            }
+          } catch (refreshError) {
+            logger.debug('Failed to refresh subscription status', refreshError);
+          }
+
+          // Verification failed and webhook didn't update - show error
           showToast({
-            type: 'success',
-            title: 'Payment Submitted',
-            message: `Your payment of $${amount.toFixed(2)} has been submitted. You will receive a confirmation shortly.`,
-          });
-          showAlert({
-            title: 'Payment Submitted',
-            message: `Your payment of $${amount.toFixed(2)} has been submitted. You will receive a confirmation shortly.`,
-            actions: [{ text: 'OK', onPress: () => router.back(), variant: 'primary' }]
+            type: 'error',
+            title: t('payments.paymentVerificationFailed'),
+            message: t('payments.paymentVerificationFailedMessage'),
           });
         }
       }
     } catch (error: any) {
       logger.error('Unhandled payment error', {
-        referenceNumber,
         amount,
+        tier,
         error: error?.message,
       });
       showToast({
         type: 'error',
-        title: 'Payment Error',
-        message: error.message || 'An unexpected error occurred. Please try again.',
-      });
-      showAlert({ 
-        title: 'Payment Error', 
-        message: error.message || 'An unexpected error occurred. Please try again.' 
+        title: t('payments.paymentError'),
+        message: error.message || t('payments.unexpectedError'),
       });
     } finally {
       logger.info('Payment flow finished', {
-        referenceNumber,
         amount,
+        tier,
         success: paymentWasSuccessful,
       });
       setLoading(false);
@@ -182,7 +240,7 @@ export default function PaymentScreen() {
         {/* Header */}
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} iconSize={24} />
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Payment</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('payments.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -196,16 +254,7 @@ export default function PaymentScreen() {
             <View style={styles.summaryHeader}>
               <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
               <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-                Payment Summary
-              </Text>
-            </View>
-
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-                Case Reference:
-              </Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {referenceNumber}
+                {t('payments.paymentSummary')}
               </Text>
             </View>
 
@@ -234,14 +283,14 @@ export default function PaymentScreen() {
           <View style={[styles.testModeNotice, { backgroundColor: '#FFF3E0' }]}>
             <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#FF9800" />
             <Text style={[styles.testModeText, { color: '#F57C00' }]}>
-              Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC
+              {t('payments.testMode', { defaultValue: 'Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC' })}
             </Text>
           </View>
 
           {/* Card Input Section */}
           <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Card Details
+              {t('payments.cardDetails')}
             </Text>
 
             <View style={[
@@ -272,7 +321,7 @@ export default function PaymentScreen() {
             <View style={styles.securityNotice}>
               <IconSymbol name="lock.fill" size={16} color="#4CAF50" />
               <Text style={[styles.securityText, { color: theme.dark ? '#999' : '#666' }]}>
-                Your payment information is encrypted and secure
+                {t('payments.securityNotice')}
               </Text>
             </View>
           </View>
@@ -280,16 +329,13 @@ export default function PaymentScreen() {
           {/* Payment Information */}
           <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
             <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-              Payment Information
+              {t('payments.paymentInformation')}
             </Text>
             <Text style={[styles.infoText, { color: theme.dark ? '#999' : '#666' }]}>
-              • Payments are processed securely through Stripe{'\n'}
-              • You will receive a receipt via email{'\n'}
-              • Refunds take 5-10 business days{'\n'}
-              • Contact support for payment issues
+              {t('payments.paymentInfoBullets')}
             </Text>
             <Pressable onPress={() => router.push('/support/contact')} style={styles.supportLinkContainer}>
-              <Text style={styles.supportLinkText}>Contact support for payment issues</Text>
+              <Text style={styles.supportLinkText}>{t('payments.contactSupport')}</Text>
             </Pressable>
           </View>
 
@@ -308,7 +354,7 @@ export default function PaymentScreen() {
               <>
                 <IconSymbol name="checkmark.circle.fill" size={24} color="#fff" />
                 <Text style={styles.payButtonText}>
-                  Pay ${amount.toFixed(2)}
+                    {t('payments.payButton', { amount: amount.toFixed(2) })}
                 </Text>
               </>
             )}
@@ -320,7 +366,7 @@ export default function PaymentScreen() {
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={[styles.cancelButtonText, { color: '#2196F3' }]}>Cancel</Text>
+            <Text style={[styles.cancelButtonText, { color: '#2196F3' }]}>{t('payments.cancel')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
