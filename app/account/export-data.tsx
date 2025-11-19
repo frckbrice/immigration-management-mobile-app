@@ -71,7 +71,7 @@ export default function ExportDataScreen() {
                 style={[
                     styles.container,
                     {
-                        backgroundColor: colors.background,
+                        backgroundColor: theme.dark ? "#1f2937" : colors.background,
                         paddingBottom: insets.bottom,
                     },
                 ]}

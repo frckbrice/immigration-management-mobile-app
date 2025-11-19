@@ -31,7 +31,7 @@ export default function PersonalInfoScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
             <BackButton onPress={() => router.back()} />

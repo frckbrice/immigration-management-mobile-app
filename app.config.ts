@@ -10,16 +10,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  splash: {
-    image: './assets/splash-icon.png',
-    resizeMode: 'cover',
-    backgroundColor: '#e7eeff',
-    // Modern standard: Logo should be 30-40% of screen height for prominence
-    // To achieve larger logo size, ensure splash-icon.png has:
-    // - High resolution (at least 1024x1024 or larger)
-    // - Logo element sized to ~40% of image height with padding around it
-    // - This will make the logo appear larger when using 'contain' mode
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ubuntu.patrickagency',
@@ -76,12 +66,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         backgroundColor: '#e7eeff',
         image: './assets/splash-icon.png',
-        resizeMode: 'cover',
-        // Modern standard: Logo should be 30-40% of screen height for prominence
-        // To achieve larger logo size, ensure splash-icon.png has:
-        // - High resolution (at least 1024x1024 or larger, ideally 2048x2048)
-        // - Logo element sized to ~40% of image height with padding around it
-        // - This will make the logo appear larger when using 'cover' mode
+        resizeMode: 'contain',
+        imageWidth: 200,
+        dark: {
+          backgroundColor: '#1f2937',
+          image: './assets/splash-icon-dark.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+        },
       },
     ]
   ],

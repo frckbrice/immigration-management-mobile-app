@@ -272,8 +272,8 @@ export default function UploadDocumentScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background, paddingBottom: insets.bottom ?? 0 }]} edges={['top']}>
-        <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingBottom: insets.bottom ?? 0 }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}>
           <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
             {t('uploadDocument.title')}
@@ -298,8 +298,8 @@ export default function UploadDocumentScreen() {
               </Text>
             </View>
           ) : activeCases.length === 0 ? (
-            <View style={[styles.emptyState, { borderColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-              <IconSymbol name="questionmark.circle.fill" size={32} color="#F59E0B" />
+              <View style={[styles.emptyState, { borderColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}>
+                <IconSymbol name="doc.text.fill" size={32} color="#F59E0B" />
               <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
                 {t('documents.noCasesAvailable', { defaultValue: 'No active cases available' })}
               </Text>
@@ -319,7 +319,7 @@ export default function UploadDocumentScreen() {
             </View>
           ) : (
             <>
-              <View style={[styles.sectionCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff', borderColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}> 
+                  <View style={[styles.sectionCard, { backgroundColor: theme.dark ? '#111827' : '#fff', borderColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}> 
                 <View style={styles.sectionHeader}>
                   <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                     {t('uploadDocument.caseSelectionTitle')}
@@ -347,7 +347,7 @@ export default function UploadDocumentScreen() {
                               style={[
                                 styles.caseCard,
                                 isActive && styles.caseCardActive,
-                                { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') },
+                                { borderColor: isActive ? '#2196F3' : (theme.dark ? '#1F2937' : '#E0E0E0') },
                               ]}
                               onPress={() => setSelectedCaseId(caseItem.id)}
                             >
@@ -367,7 +367,7 @@ export default function UploadDocumentScreen() {
                 </View>
               </View>
 
-              <View style={[styles.sectionCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff', borderColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}> 
+                  <View style={[styles.sectionCard, { backgroundColor: theme.dark ? '#111827' : '#fff', borderColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}> 
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                   {t('uploadDocument.documentTypeTitle')}
                 </Text>
@@ -382,7 +382,7 @@ export default function UploadDocumentScreen() {
                                 style={[
                                   styles.typeChip,
                                   isActive && styles.typeChipActive,
-                                  { borderColor: isActive ? '#2196F3' : (theme.dark ? '#2C2C2E' : '#E0E0E0') },
+                                  { borderColor: isActive ? '#2196F3' : (theme.dark ? '#1F2937' : '#E0E0E0') },
                                 ]}
                                 onPress={() => setDocumentType(option.value)}
                               >
@@ -473,7 +473,7 @@ export default function UploadDocumentScreen() {
             </>
           )}
 
-          <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#E3F2FD' }]}>
+          <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#111827' : '#E3F2FD' }]}>
             <IconSymbol name="info.circle.fill" size={24} color="#2196F3" />
             <View style={styles.infoContent}>
               <Text style={[styles.infoTitle, { color: theme.colors.text }]}> 

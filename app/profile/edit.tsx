@@ -121,7 +121,7 @@ export default function EditProfileScreen() {
         <Stack.Screen options={{ headerShown: false }} />
       )}
       <SafeAreaView style={[styles.safeArea, {
-        backgroundColor: theme.colors.background,
+        backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }]} edges={['top', 'bottom']}>
@@ -156,7 +156,7 @@ export default function EditProfileScreen() {
             ) : (
                 <View style={[styles.card, {
                   backgroundColor: theme.dark ? '#111113' : '#FFFFFF',
-                  borderColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
+                  borderColor: theme.dark ? '#1F2937' : '#E2E8F0',
                   paddingBottom: insets.bottom,
                 }]}
                 >
@@ -224,7 +224,7 @@ export default function EditProfileScreen() {
           ]}
         >
           <Pressable
-            style={[styles.secondaryButton, { borderColor: theme.dark ? '#2C2C2E' : '#CBD5F5' }]}
+            style={[styles.secondaryButton, { borderColor: theme.dark ? '#1F2937' : '#CBD5F5' }]}
             onPress={() => router.back()}
             disabled={saving}
           >

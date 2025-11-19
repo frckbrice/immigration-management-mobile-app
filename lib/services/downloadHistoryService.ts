@@ -14,12 +14,17 @@ export interface DownloadHistoryRecord {
   sourceId?: string;
 }
 
-const STORAGE_KEY = 'pt_download_history';
+const STORAGE_KEY_PREFIX = 'pt_download_history_';
 const MAX_ITEMS = 500;
 
-const readDownloads = async (): Promise<DownloadHistoryRecord[]> => {
+const getStorageKey = (userId?: string | null): string => {
+  return userId ? `${STORAGE_KEY_PREFIX}${userId}` : `${STORAGE_KEY_PREFIX}no_user`;
+};
+
+const readDownloads = async (userId?: string | null): Promise<DownloadHistoryRecord[]> => {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    const storageKey = getStorageKey(userId);
+    const stored = await AsyncStorage.getItem(storageKey);
     if (!stored) {
       return [];
     }
@@ -34,25 +39,26 @@ const readDownloads = async (): Promise<DownloadHistoryRecord[]> => {
   }
 };
 
-const writeDownloads = async (records: DownloadHistoryRecord[]) => {
+const writeDownloads = async (records: DownloadHistoryRecord[], userId?: string | null) => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    const storageKey = getStorageKey(userId);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(records));
   } catch (error) {
     logger.warn('Failed to persist download history', error);
   }
 };
 
 export const downloadHistoryService = {
-  async getDownloads(): Promise<DownloadHistoryRecord[]> {
-    return readDownloads();
+  async getDownloads(userId?: string | null): Promise<DownloadHistoryRecord[]> {
+    return readDownloads(userId);
   },
 
-  async saveDownloads(records: DownloadHistoryRecord[]): Promise<void> {
-    await writeDownloads(records);
+  async saveDownloads(records: DownloadHistoryRecord[], userId?: string | null): Promise<void> {
+    await writeDownloads(records, userId);
   },
 
-  async addDownload(record: Omit<DownloadHistoryRecord, 'id' | 'downloadedAt'>): Promise<DownloadHistoryRecord> {
-    const current = await readDownloads();
+  async addDownload(record: Omit<DownloadHistoryRecord, 'id' | 'downloadedAt'>, userId?: string | null): Promise<DownloadHistoryRecord> {
+    const current = await readDownloads(userId);
 
     const duplicate = current.find((item) => {
       const sameSource = record.source ? item.source === record.source : true;
@@ -92,19 +98,29 @@ export const downloadHistoryService = {
       updated.length = MAX_ITEMS;
     }
 
-    await writeDownloads(updated);
+    await writeDownloads(updated, userId);
     logger.info('Download stored in history', { name: newRecord.name, source: newRecord.source });
     return newRecord;
   },
 
-  async removeDownload(id: string): Promise<void> {
-    const current = await readDownloads();
+  async removeDownload(id: string, userId?: string | null): Promise<void> {
+    const current = await readDownloads(userId);
     const updated = current.filter((item) => item.id !== id);
     if (updated.length === current.length) {
       return;
     }
-    await writeDownloads(updated);
+    await writeDownloads(updated, userId);
     logger.info('Download removed from history', { id });
+  },
+  
+  async clearDownloads(userId?: string | null): Promise<void> {
+    try {
+      const storageKey = getStorageKey(userId);
+      await AsyncStorage.removeItem(storageKey);
+      logger.info('Download history cleared', { userId });
+    } catch (error) {
+      logger.warn('Failed to clear download history', error);
+    }
   },
 };
 

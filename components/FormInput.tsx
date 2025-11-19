@@ -95,6 +95,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>((
                     styles.inputWrapper,
                     {
                         borderColor,
+                        borderWidth: StyleSheet.hairlineWidth * 2,
                         backgroundColor: isFocused ? palette.surface : palette.surfaceSoft,
                         shadowOpacity: isFocused ? 0.08 : 0,
                     },

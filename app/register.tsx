@@ -81,7 +81,7 @@ export default function RegisterScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* Logo - Matching onboarding design */}
           <View style={styles.logoContainer}>

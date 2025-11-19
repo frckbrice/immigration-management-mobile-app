@@ -993,7 +993,7 @@ export default function ChatScreen() {
                   styles.onlineIndicator,
                   {
                     backgroundColor: presenceColor,
-                    borderColor: theme.dark ? colors.surface : '#fff',
+                    borderColor: theme.dark ? '#1F2937' : '#fff',
                   },
                 ]}
               />
@@ -1029,7 +1029,7 @@ export default function ChatScreen() {
           style={[
             styles.chatContainer,
             {
-              backgroundColor: theme.dark ? colors.surface : withOpacity('#FFF9C4', 0.25),
+              backgroundColor: theme.dark ? colors.background : withOpacity('#FFF9C4', 0.25),
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.25),
@@ -1152,7 +1152,7 @@ export default function ChatScreen() {
               styles.messagesContent,
               {
                 backgroundColor: theme.dark
-                  ? withOpacity(colors.surfaceElevated, 0.6)
+                  ? colors.background
                   : withOpacity('#FFF9C4', 0.25),
               },
             ]}

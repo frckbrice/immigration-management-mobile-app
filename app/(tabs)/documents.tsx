@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useDocumentsStore } from "@/stores/documents/documentsStore";
 import { useCasesStore } from "@/stores/cases/casesStore";
+import { useAuthStore } from "@/stores/auth/authStore";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { templatesService, type Template } from "@/lib/services/templatesService";
@@ -152,8 +153,9 @@ export default function DocumentsScreen() {
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
   const { showToast } = useToast();
-  const { documents, isLoading, error, fetchDocuments, clearError } = useDocumentsStore();
+  const { documents, isLoading, error, fetchDocuments, clearError, clearCache } = useDocumentsStore();
   const { cases } = useCasesStore();
+  const { user } = useAuthStore();
   const { setScrollDirection, setAtBottom } = useScrollContext();
 
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -236,7 +238,7 @@ export default function DocumentsScreen() {
   const loadDownloads = useCallback(async () => {
     try {
       setDownloadsLoading(true);
-      const stored = await downloadHistoryService.getDownloads();
+      const stored = await downloadHistoryService.getDownloads(user?.uid);
       setDownloads(stored);
     } catch (storageError) {
       logger.warn('Unable to load downloads from storage', storageError);
@@ -244,7 +246,7 @@ export default function DocumentsScreen() {
     } finally {
       setDownloadsLoading(false);
     }
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (activeTab !== 'templates') {
@@ -288,6 +290,13 @@ export default function DocumentsScreen() {
       loadDownloads();
     }
   }, [activeTab, loadDownloads]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setDownloads([]);
+      clearCache();
+    }
+  }, [user?.uid, clearCache]);
 
   const handleTemplatePreview = useCallback(async (template: Template) => {
     try {
@@ -361,7 +370,7 @@ export default function DocumentsScreen() {
         mimeType: download.mimeType,
         source: 'template',
         sourceId: template.id,
-      });
+      }, user?.uid);
       setDownloads((prev) => [stored, ...prev.filter((item) => item.id !== stored.id)]);
 
       const inferredExtension =
@@ -500,7 +509,7 @@ export default function DocumentsScreen() {
   const handleDownloadDelete = useCallback(
     async (item: DownloadRecord) => {
       try {
-        await downloadHistoryService.removeDownload(item.id);
+        await downloadHistoryService.removeDownload(item.id, user?.uid);
         setDownloads((prev) => prev.filter((entry) => entry.id !== item.id));
         showToast({
           message: t('documents.downloadRemovedMessage', { defaultValue: 'Removed from Downloads.' }),
@@ -577,7 +586,7 @@ export default function DocumentsScreen() {
       : activeTab === 'templates'
         ? isTemplatesRefreshing
         : downloadsLoading;
-  const surfaceCard = theme.dark ? colors.surfaceElevated : colors.surface;
+  const surfaceCard = theme.dark ? "#111827" : colors.surface;
   const chipBackground = theme.dark ? colors.surfaceAlt : colors.surfaceAlt;
   const chipActiveBackground = withOpacity(colors.primary, theme.dark ? 0.55 : 0.2);
   const documentTypeColors = useMemo(
@@ -624,7 +633,7 @@ export default function DocumentsScreen() {
           }}
         />
       )}
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : colors.background }]} edges={['top']}>
         <View style={styles.header}>
           <BackButton onPress={handleBackPress} />
           <View style={styles.headerTextContainer}>

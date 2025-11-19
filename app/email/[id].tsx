@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -8,10 +8,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   Linking,
 } from "react-native";
+import { BottomSheetModal, BottomSheetTextInput, BottomSheetView } from "@gorhom/bottom-sheet";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -136,11 +136,11 @@ export default function EmailDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [replyVisible, setReplyVisible] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const replyBottomSheetRef = useRef<BottomSheetModal>(null);
 
   const handleGoToProfile = useCallback(() => {
     router.push("/(tabs)/profile");
@@ -275,6 +275,23 @@ export default function EmailDetailScreen() {
     [resolveAttachmentUrl, showAlert, t]
   );
 
+  const handleOpenReply = useCallback(() => {
+    if (!email?.threadId || !user) {
+      showAlert({
+        title: t("email.replyNotSupportedTitle", { defaultValue: "Unable to reply" }),
+        message: t("email.replyNotSupportedMessage", { defaultValue: "This email thread cannot be replied to." }),
+        actions: [{ text: t("common.close"), variant: "primary" }],
+      });
+      return;
+    }
+    replyBottomSheetRef.current?.present();
+  }, [email, user, showAlert, t]);
+
+  const handleCloseReply = useCallback(() => {
+    replyBottomSheetRef.current?.dismiss();
+    setReplyText("");
+  }, []);
+
   const handleReplySubmit = useCallback(async () => {
     if (!email || !replyText.trim() || !user) return;
     if (!email.threadId) {
@@ -293,12 +310,13 @@ export default function EmailDetailScreen() {
         content: replyText.trim(),
         subject: `Re: ${email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}`,
       });
-      showAlert({
+      showToast({
+        type: "success",
         title: t("email.replySentTitle", { defaultValue: "Reply sent" }),
         message: t("email.replySentMessage", { defaultValue: "Your message has been delivered to your advisor." }),
-        actions: [{ text: t("common.close"), variant: "primary", onPress: () => setReplyVisible(false) }],
       });
       setReplyText("");
+      handleCloseReply();
     } catch (replyError: any) {
       logger.error("Failed to send reply", replyError);
       showAlert({
@@ -309,7 +327,7 @@ export default function EmailDetailScreen() {
     } finally {
       setIsSendingReply(false);
     }
-  }, [email, replyText, showAlert, t, user]);
+  }, [email, replyText, showAlert, showToast, t, user, handleCloseReply]);
 
   const handleViewCase = useCallback(() => {
     if (!email?.caseId) return;
@@ -336,7 +354,7 @@ export default function EmailDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, {
-        backgroundColor: theme.colors.background, paddingTop: insets.top, paddingBottom: insets.bottom
+        backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingTop: insets.top, paddingBottom: insets.bottom
       }]} edges={["top"]}>
         <View
           style={[
@@ -582,7 +600,7 @@ export default function EmailDetailScreen() {
                             shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.4 : 0.25),
                           },
                         ]}
-                        onPress={() => setReplyVisible(true)}
+                        onPress={handleOpenReply}
                       >
                         <View style={styles.buttonContent}>
                           <IconSymbol name="paperplane.fill" size={16} color={theme.colors.onPrimary} />
@@ -595,62 +613,94 @@ export default function EmailDetailScreen() {
               </View>
             </KeyboardAvoidingView>
 
-            {replyVisible && (
-              <View style={styles.replyOverlay}>
-                    <View
+                <BottomSheetModal
+                  ref={replyBottomSheetRef}
+                  index={0}
+                  snapPoints={['75%', '90%']}
+                  enablePanDownToClose
+                  enableDismissOnClose
+                  backgroundStyle={{
+                    backgroundColor: theme.dark ? "#111827" : "#FFFFFF",
+                  }}
+                  handleIndicatorStyle={{
+                    backgroundColor: theme.dark ? "#374151" : "#D1D5DB",
+                  }}
+                  keyboardBehavior="interactive"
+                  keyboardBlurBehavior="restore"
+                  android_keyboardInputMode="adjustResize"
+                >
+                  <BottomSheetView style={styles.replySheetContent}>
+                    <View style={styles.replySheetHeader}>
+                      <Text style={[styles.replyTitle, { color: theme.colors.text }]}>
+                        {t("email.reply", { defaultValue: "Reply" })}
+                      </Text>
+                      <Pressable onPress={handleCloseReply} style={styles.closeButton}>
+                        <IconSymbol name="xmark.circle.fill" size={24} color={theme.colors.muted} />
+                      </Pressable>
+                    </View>
+
+                    {email && (
+                      <View style={[styles.replyContext, {
+                        backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.1) : withOpacity(theme.colors.primary, 0.05),
+                        borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.3 : 0.2),
+                      }]}>
+                        <View style={styles.replyContextHeader}>
+                          <IconSymbol name="envelope.fill" size={16} color={theme.colors.primary} />
+                          <Text style={[styles.replyContextLabel, { color: theme.colors.primary }]}>
+                            {t("email.replyingTo", { defaultValue: "Replying to" })}
+                          </Text>
+                        </View>
+                        <Text style={[styles.replyContextSubject, { color: theme.colors.text }]} numberOfLines={1}>
+                          {email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
+                        </Text>
+                      </View>
+                    )}
+
+                    <BottomSheetTextInput
                       style={[
-                        styles.replyCard,
+                        styles.replyInput,
                         {
-                          backgroundColor: cardBackground,
-                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.2),
+                          color: theme.colors.text,
+                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.6 : 0.3),
+                          backgroundColor: theme.dark
+                            ? withOpacity(theme.colors.surfaceAlt, 0.75)
+                            : COLORS.surface,
                         },
                       ]}
+                      multiline
+                      placeholder={t("email.replyPlaceholder", { defaultValue: "Write your reply..." })}
+                      placeholderTextColor={withOpacity(theme.colors.text, theme.dark ? 0.45 : 0.4)}
+                      value={replyText}
+                      onChangeText={setReplyText}
+                      autoFocus
+                      textAlignVertical="top"
+                    />
+
+                    <Pressable
+                      style={[
+                        styles.replySendButton,
+                        {
+                          backgroundColor: theme.colors.primary,
+                          opacity: replyText.trim() && !isSendingReply ? 1 : 0.6,
+                          shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.4 : 0.25),
+                        },
+                      ]}
+                      onPress={handleReplySubmit}
+                      disabled={!replyText.trim() || isSendingReply}
                     >
-                  <View style={styles.replyHeader}>
-                    <Text style={[styles.replyTitle, { color: theme.colors.text }]}>
-                      {t("email.reply", { defaultValue: "Reply" })}
-                    </Text>
-                    <Pressable onPress={() => setReplyVisible(false)}>
-                      <IconSymbol name="xmark.circle.fill" size={22} color={theme.colors.text} />
-                    </Pressable>
-                  </View>
-                  <TextInput
-                        style={[
-                          styles.replyInput,
-                          {
-                            color: theme.colors.text,
-                            borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.6 : 0.3),
-                            backgroundColor: theme.dark
-                              ? withOpacity(theme.colors.surfaceAlt, 0.75)
-                              : COLORS.surface,
-                          },
-                        ]}
-                    multiline
-                    placeholder={t("email.replyPlaceholder", { defaultValue: "Write your reply..." })}
-                        placeholderTextColor={withOpacity(theme.colors.text, theme.dark ? 0.45 : 0.4)}
-                    value={replyText}
-                    onChangeText={setReplyText}
-                    autoFocus
-                  />
-                  <Pressable
-                    style={[
-                      styles.primaryButton,
-                      { backgroundColor: theme.colors.primary, opacity: replyText.trim() && !isSendingReply ? 1 : 0.6 },
-                    ]}
-                    onPress={handleReplySubmit}
-                    disabled={!replyText.trim() || isSendingReply}
-                  >
-                    {isSendingReply ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={styles.primaryButtonText}>
+                      {isSendingReply ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                          <>
+                            <IconSymbol name="paperplane.fill" size={18} color="#fff" />
+                            <Text style={styles.replySendButtonText}>
                         {t("email.sendReply", { defaultValue: "Send reply" })}
                       </Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            )}
+                          </>
+                      )}
+                    </Pressable>
+                  </BottomSheetView>
+                </BottomSheetModal>
           </>
         ) : null}
       </SafeAreaView>
@@ -914,38 +964,72 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: FONT_SIZES.md,
   },
-  replyOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.overlay,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SPACING.lg,
-  },
-  replyCard: {
-    width: "100%",
-    maxWidth: 520,
-    borderRadius: 24,
-    padding: SPACING.lg,
+  replySheetContent: {
+    flex: 1,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl,
     gap: SPACING.md,
   },
-  replyHeader: {
+  replySheetHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: SPACING.xs,
   },
   replyTitle: {
     fontSize: FONT_SIZES.xl,
     fontWeight: "700",
   },
+  closeButton: {
+    padding: SPACING.xs,
+  },
+  replyContext: {
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: SPACING.xs,
+  },
+  replyContextHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+  },
+  replyContextLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  replyContextSubject: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "600",
+    marginTop: 2,
+  },
   replyInput: {
-    minHeight: 140,
-    maxHeight: 220,
+    minHeight: 160,
+    maxHeight: 300,
     borderWidth: 1,
     borderRadius: 16,
     padding: SPACING.md,
-    textAlignVertical: "top",
     fontSize: FONT_SIZES.md,
     lineHeight: 24,
+  },
+  replySendButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    borderRadius: 12,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  replySendButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: FONT_SIZES.md,
   },
 });
 

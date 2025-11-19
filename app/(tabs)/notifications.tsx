@@ -145,7 +145,7 @@ export default function NotificationsScreen() {
           }}
         />
       )}
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} iconSize={24} />
@@ -225,7 +225,7 @@ export default function NotificationsScreen() {
               style={[
                 styles.notificationCard,
                 { 
-                  backgroundColor: theme.dark ? '#1C1C1E' : '#fff',
+                  backgroundColor: theme.dark ? '#111827' : '#fff',
                   borderLeftWidth: notification.unread ? 3 : 0,
                   borderLeftColor: notification.unread ? '#2196F3' : 'transparent',
                 }

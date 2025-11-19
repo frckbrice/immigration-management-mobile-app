@@ -168,7 +168,7 @@ export default function PaymentHistoryScreen() {
         />
       )}
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}
+        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingTop: insets.top }]}
         edges={['top']}
       >
         {/* Header */}
@@ -191,7 +191,7 @@ export default function PaymentHistoryScreen() {
           )}
         >
           {/* Summary Card */}
-          <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
                 <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>{t('payments.history.summary.totalPaid')}</Text>
@@ -221,11 +221,11 @@ export default function PaymentHistoryScreen() {
             return (
               <Pressable
                 key={payment.id}
-                style={[styles.paymentCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
+                style={[styles.paymentCard, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}
                 onPress={() => console.log('Payment details:', payment.id)}
               >
                 <View style={styles.paymentHeader}>
-                  <View style={[styles.paymentIconCircle, { backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5' }]}>
+                  <View style={[styles.paymentIconCircle, { backgroundColor: theme.dark ? '#111827' : '#F5F5F5' }]}>
                     <IconSymbol name="creditcard.fill" size={24} color="#2196F3" />
                   </View>
                   <View style={styles.paymentInfo}>
@@ -245,7 +245,7 @@ export default function PaymentHistoryScreen() {
                   </View>
                 </View>
 
-                <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+                <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
                 <View style={styles.paymentFooter}>
                   <View style={styles.statusContainer}>

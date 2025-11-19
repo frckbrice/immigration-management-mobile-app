@@ -95,18 +95,20 @@ const segmentEmails = (messages: Message[]) => {
   let unread = 0;
 
   messages.forEach((message) => {
-    const isUnread = message.unread ?? !message.isRead;
-    if (isUnread) {
-      unread += 1;
-    }
     const direction =
       message.direction ||
       ((message.role || '').toLowerCase() === 'sent' ? 'outgoing' : 'incoming');
-    if (direction === 'outgoing') {
+
+    // Only count unread for incoming messages (not outgoing)
+    if (direction === 'incoming') {
+      const isUnread = message.unread ?? !message.isRead;
+      if (isUnread) {
+        unread += 1;
+      }
+      inbox.push(message);
+    } else {
       sent.push(message);
-      return;
     }
-    inbox.push(message);
   });
 
   const sortBySentAt = (collection: Message[]) =>
@@ -267,12 +269,42 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     }
 
     const unsubscribe = chatService.subscribeToConversationSummaries(userId, (conversations) => {
-      set({
-        conversations,
-        unreadChatTotal: computeUnreadChatTotal(conversations),
-        conversationsError: null, // Clear error on successful update
-        lastConversationsFetchedAt: Date.now(),
-        lastConversationsUserId: userId,
+      set((state) => {
+        // Merge backend conversations with local state to preserve optimistic updates
+        // If a conversation was marked as read locally (unreadCount: 0), preserve that
+        // unless the backend shows a newer last message (indicating new messages arrived)
+        const backendConvMap = new Map(conversations.map((c) => [c.id, c]));
+        const localConvMap = new Map(state.conversations.map((c) => [c.id, c]));
+
+        const mergedConversations = conversations.map((backendConv) => {
+          const localConv = localConvMap.get(backendConv.id);
+          // If locally marked as read (unreadCount: 0) and backend still shows unread,
+          // check if backend has a newer message - if not, preserve the local optimistic update
+          if (localConv && localConv.unreadCount === 0 && backendConv.unreadCount > 0) {
+            const localLastMessageTime = localConv.lastMessageTime ?? 0;
+            const backendLastMessageTime = backendConv.lastMessageTime ?? 0;
+            // Only preserve local update if backend doesn't have a newer message
+            if (backendLastMessageTime <= localLastMessageTime) {
+              return { ...backendConv, unreadCount: 0 };
+            }
+          }
+          return backendConv;
+        });
+
+        // Add any local conversations that aren't in the backend (shouldn't happen often, but handle it)
+        localConvMap.forEach((localConv, id) => {
+          if (!backendConvMap.has(id)) {
+            mergedConversations.push(localConv);
+          }
+        });
+
+        return {
+          conversations: mergedConversations,
+          unreadChatTotal: computeUnreadChatTotal(mergedConversations),
+          conversationsError: null, // Clear error on successful update
+          lastConversationsFetchedAt: Date.now(),
+          lastConversationsUserId: userId,
+        };
       });
     });
 
@@ -547,15 +579,13 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
                 readAt: new Date().toISOString(),
               }
             : message;
-        const wasUnread =
-          state.messages.some((m) => m.id === messageId && m.unread) ||
-          state.emailInbox.some((m) => m.id === messageId && m.unread) ||
-          state.emailSent.some((m) => m.id === messageId && m.unread);
+        const updatedMessages = state.messages.map(updateMessage);
+        const { inbox, sent, unread } = segmentEmails(updatedMessages);
         return {
-          messages: state.messages.map(updateMessage),
-          emailInbox: state.emailInbox.map(updateMessage),
-          emailSent: state.emailSent.map(updateMessage),
-          unreadEmailTotal: Math.max(0, state.unreadEmailTotal - (wasUnread ? 1 : 0)),
+          messages: updatedMessages,
+          emailInbox: inbox,
+          emailSent: sent,
+          unreadEmailTotal: unread,
         };
       });
     } catch (error: any) {
@@ -588,15 +618,13 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
               readAt: undefined,
             }
           : message;
-      const wasUnread =
-        state.messages.some((m) => m.id === messageId && m.unread) ||
-        state.emailInbox.some((m) => m.id === messageId && m.unread) ||
-        state.emailSent.some((m) => m.id === messageId && m.unread);
+      const updatedMessages = state.messages.map(updateMessage);
+      const { inbox, sent, unread } = segmentEmails(updatedMessages);
       return {
-        messages: state.messages.map(updateMessage),
-        emailInbox: state.emailInbox.map(updateMessage),
-        emailSent: state.emailSent.map(updateMessage),
-        unreadEmailTotal: wasUnread ? state.unreadEmailTotal : state.unreadEmailTotal + 1,
+        messages: updatedMessages,
+        emailInbox: inbox,
+        emailSent: sent,
+        unreadEmailTotal: unread,
       };
     });
   },

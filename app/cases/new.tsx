@@ -76,9 +76,9 @@ export default function NewCaseScreen() {
 
   const colors = useMemo(() => ({
     primary: theme.colors.primary ?? '#2563EB',
-    card: theme.colors.card ?? (theme.dark ? '#1c1c1e' : '#ffffff'),
-    cardBorder: theme.colors.border ?? (theme.dark ? 'rgba(255,255,255,0.16)' : 'rgba(15,23,42,0.08)'),
-    subtleBackground: theme.dark ? 'rgba(118,118,128,0.18)' : 'rgba(37,99,235,0.08)',
+    card: theme.colors.card ?? (theme.dark ? '#111827' : '#ffffff'),
+    cardBorder: theme.colors.border ?? (theme.dark ? '#1F2937' : 'rgba(15,23,42,0.08)'),
+    subtleBackground: theme.dark ? '#111827' : 'rgba(37,99,235,0.08)',
     mutedText: theme.dark ? 'rgba(235,235,245,0.7)' : 'rgba(71,85,105,1)',
     elevatedBackground: theme.dark ? 'rgba(37,99,235,0.24)' : 'rgba(37,99,235,0.12)',
     highlightBackground: theme.dark ? 'rgba(37,99,235,0.18)' : 'rgba(37,99,235,0.05)',
@@ -292,10 +292,10 @@ export default function NewCaseScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background, paddingBottom: insets.bottom ?? 0 }]}
+        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingBottom: insets.bottom ?? 0 }]}
         edges={['top']}
       >
-        <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
+        <View style={[styles.header, { borderBottomColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}>
           <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('newCase.title')}</Text>
           <View style={styles.placeholder} />
@@ -303,7 +303,7 @@ export default function NewCaseScreen() {
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.colors.background }]}
+          contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

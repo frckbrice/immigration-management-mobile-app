@@ -32,7 +32,8 @@
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release"
-      }
+      },
+      "autoIncrement": true
     },
     "production": {
       "channel": "production",
@@ -44,7 +45,8 @@
       },
       "ios": {
         "buildConfiguration": "Release"
-      }
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

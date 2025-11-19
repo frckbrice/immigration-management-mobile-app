@@ -54,7 +54,7 @@ export default function DeleteAccountScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView 
-        style={[styles.safeArea, { backgroundColor: theme.colors.background }]} 
+        style={[styles.safeArea, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} 
         edges={['top', 'bottom']}
       >
         <ScrollView
@@ -77,8 +77,8 @@ export default function DeleteAccountScreen() {
 
           {/* Warning Card */}
           <View style={[styles.warningCard, { 
-            backgroundColor: theme.dark ? '#1C1C1E' : '#FFF5F5',
-            borderColor: theme.dark ? '#2C2C2E' : '#FEE2E2',
+            backgroundColor: theme.dark ? '#111827' : '#FFF5F5',
+            borderColor: theme.dark ? '#1F2937' : '#FEE2E2',
           }]}>
             <View style={styles.warningHeader}>
               <IconSymbol 
@@ -100,7 +100,7 @@ export default function DeleteAccountScreen() {
           {/* Information Card */}
           <View style={[styles.infoCard, { 
             backgroundColor: theme.dark ? '#111113' : '#FFFFFF',
-            borderColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
+            borderColor: theme.dark ? '#1F2937' : '#E2E8F0',
           }]}>
             <View style={styles.infoRow}>
               <IconSymbol name="info.circle" size={18} color={theme.dark ? '#8E8E93' : '#64748B'} />
@@ -134,7 +134,7 @@ export default function DeleteAccountScreen() {
           <Pressable
             style={[styles.cancelButton, { 
               borderColor: theme.dark ? '#2C2C2E' : '#CBD5F5',
-              backgroundColor: theme.dark ? '#1C1C1E' : '#FFFFFF',
+              backgroundColor: theme.dark ? '#111827' : '#FFFFFF',
             }]}
             onPress={() => router.back()}
             disabled={deleting}

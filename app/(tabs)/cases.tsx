@@ -201,7 +201,7 @@ export default function CasesScreen() {
           styles.searchContainer,
           styles.block,
           {
-            backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+            backgroundColor: theme.dark ? "#111827" : colors.surface,
             borderColor: colors.accent,
             borderWidth: StyleSheet.hairlineWidth,
             shadowColor: 'green'
@@ -247,8 +247,9 @@ export default function CasesScreen() {
                       ? colors.surfaceElevated
                       : colors.surfaceAlt,
                   borderColor: isActive
-                    ? withOpacity(colors.primary, theme.dark ? 0.7 : 0.35)
-                    : withOpacity(colors.borderStrong, theme.dark ? 0.4 : 0.12),
+                    ? withOpacity(colors.primary, theme.dark ? 0.7 : 0.8)
+                    : withOpacity(colors.borderStrong, theme.dark ? 0.5 : 0.5),
+                  borderWidth: StyleSheet.hairlineWidth * 2,
                 },
               ]}
             >
@@ -318,26 +319,50 @@ export default function CasesScreen() {
   const normalizedSearch = searchQuery.trim().toLowerCase();
 
   const filteredCases = useMemo(() => {
-    if (!normalizedSearch) {
-      return cases;
+    let result = cases;
+
+    // Apply filter based on selectedFilter
+    if (selectedFilter !== 'all') {
+      result = result.filter((item) => {
+        const status = normalizeStatus(item.status);
+
+        switch (selectedFilter) {
+          case 'active':
+            // Active cases: submitted, under_review, processing, documents_required
+            return ['submitted', 'under_review', 'processing', 'documents_required'].includes(status);
+          case 'action-required':
+            // Action required: documents_required or action-required
+            return status === 'documents_required' || status === 'action-required';
+          case 'complete':
+            // Complete: approved
+            return status === 'approved';
+          default:
+            return true;
+        }
+      });
     }
 
-    return cases.filter((item) => {
-      const haystacks = [
-        item.referenceNumber,
-        item.displayName,
-        item.serviceType,
-        item.client?.firstName ? `${item.client.firstName} ${item.client.lastName ?? ''}` : '',
-        item.client?.email ?? '',
-        item.assignedAgent ? `${item.assignedAgent.firstName ?? ''} ${item.assignedAgent.lastName ?? ''}` : '',
-        item.assignedAgent?.email ?? '',
-      ]
-        .filter(Boolean)
-        .map((value) => value.toLowerCase());
+    // Apply search filter if search query exists
+    if (normalizedSearch) {
+      result = result.filter((item) => {
+        const haystacks = [
+          item.referenceNumber,
+          item.displayName,
+          item.serviceType,
+          item.client?.firstName ? `${item.client.firstName} ${item.client.lastName ?? ''}` : '',
+          item.client?.email ?? '',
+          item.assignedAgent ? `${item.assignedAgent.firstName ?? ''} ${item.assignedAgent.lastName ?? ''}` : '',
+          item.assignedAgent?.email ?? '',
+        ]
+          .filter(Boolean)
+          .map((value) => value.toLowerCase());
 
-      return haystacks.some((value) => value.includes(normalizedSearch));
-    });
-  }, [cases, normalizedSearch]);
+        return haystacks.some((value) => value.includes(normalizedSearch));
+      });
+    }
+
+    return result;
+  }, [cases, selectedFilter, normalizedSearch]);
 
   const listEmptyComponent = useMemo(
     () =>
@@ -370,7 +395,7 @@ export default function CasesScreen() {
         style={[
           styles.caseCard,
           {
-            backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+            backgroundColor: theme.dark ? "#111827" : colors.surface,
             borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.35 : 0.16),
             shadowColor: colors.backdrop,
           },
@@ -465,7 +490,7 @@ export default function CasesScreen() {
       )}
       <SafeAreaView
         style={[styles.container, {
-          backgroundColor: colors.background,
+          backgroundColor: theme.dark ? "#1f2937" : colors.background,
           paddingBottom: insets.bottom,
           paddingTop: insets.top,
         }]}

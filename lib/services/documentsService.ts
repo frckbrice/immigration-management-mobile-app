@@ -108,12 +108,24 @@ export const documentsService = {
                 params.set('caseId', filters.caseId);
             }
 
+            // Map frontend type filter to backend extensionType parameter
+            // Backend supports: ALL, PDF, IMAGE, DOC, DOCX, XLS, XLSX
             if (filters?.type && filters.type !== 'all') {
-                params.set('type', filters.type);
+                const typeUpper = filters.type.toUpperCase();
+                if (typeUpper === 'PDF') {
+                    params.set('extensionType', 'PDF');
+                } else if (typeUpper === 'IMAGE') {
+                    params.set('extensionType', 'IMAGE');
+                } else if (typeUpper === 'DOC') {
+                    // Backend supports DOC (application/msword) and DOCX
+                    // For 'doc' filter, we'll use DOC which matches .doc files
+                    // Note: DOCX files would need a separate filter or we could handle both
+                    params.set('extensionType', 'DOC');
+                }
             }
 
             if (filters?.status && filters.status !== 'all') {
-                params.set('status', filters.status);
+                params.set('status', filters.status.toUpperCase());
             }
 
             if (filters?.search) {

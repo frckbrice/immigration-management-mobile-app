@@ -130,9 +130,9 @@ export default function CaseDetailsScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
+        <View style={[styles.header, { borderBottomColor: theme.dark ? '#1F2937' : '#E0E0E0' }]}>
           <BackButton onPress={() => router.back()} iconSize={24} />
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('caseDetails.title')}</Text>
           <View style={styles.headerSpacer} />
@@ -147,7 +147,7 @@ export default function CaseDetailsScreen() {
         {!isLoading && (
           <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, Platform.OS !== 'ios' && styles.contentWithTabBar]}>
             {/* Case Summary */}
-            <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Text style={[styles.caseRef, { color: theme.colors.text }]}>
                 {caseData?.referenceNumber || caseId}
               </Text>
@@ -169,7 +169,7 @@ export default function CaseDetailsScreen() {
             </View>
 
             {/* Agent Info */}
-            <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('caseDetails.assignedAdvisor')}</Text>
               {caseData?.assignedAgent ? (
                 <View style={styles.agentRow}>
@@ -192,7 +192,7 @@ export default function CaseDetailsScreen() {
             </View>
 
             {/* Status Timeline */}
-            <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('caseDetails.timeline')}</Text>
               <View style={styles.timelineRow}>
                 {statusTimeline.map(step => (
@@ -205,7 +205,7 @@ export default function CaseDetailsScreen() {
             </View>
 
             {/* Required Documents (basic) */}
-            <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('caseDetails.documents')}</Text>
               {documents.length === 0 ? (
                 <View style={styles.emptyBox}><Text style={[styles.emptyText, { color: theme.dark ? '#98989D' : '#666' }]}>{t('caseDetails.noDocuments')}</Text></View>

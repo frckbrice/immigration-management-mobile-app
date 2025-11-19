@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { documentsService } from '../../lib/services/documentsService';
 import { logger } from '../../lib/utils/logger';
 import type { Document, UploadDocumentRequest } from '../../lib/types';
+import { useAuthStore } from '../auth/authStore';
 
 const DOCUMENTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -18,6 +19,7 @@ interface DocumentsCacheEntry {
   key: string;
   documents: Document[];
   fetchedAt: number;
+  userId: string;
 }
 
 interface DocumentsState {
@@ -37,8 +39,9 @@ interface DocumentsState {
   clearCache: () => void;
 }
 
-const buildCacheKey = (filters?: DocumentFilters) => {
+const buildCacheKey = (filters?: DocumentFilters, userId?: string | null) => {
   const normalized = {
+    userId: userId || 'no_user',
     caseId: filters?.caseId ?? 'all',
     type: filters?.type ?? 'all',
     status: filters?.status ?? 'all',
@@ -59,13 +62,14 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
   documentsCache: {},
 
   fetchDocuments: async (filters, options) => {
-    const cacheKey = buildCacheKey(filters);
+    const userId = useAuthStore.getState().user?.uid;
+    const cacheKey = buildCacheKey(filters, userId);
     const now = Date.now();
     const shouldUseCache = !options?.force;
 
     if (shouldUseCache) {
       const cached = get().documentsCache[cacheKey];
-      if (cached && now - cached.fetchedAt < DOCUMENTS_CACHE_TTL) {
+      if (cached && cached.userId === userId && now - cached.fetchedAt < DOCUMENTS_CACHE_TTL) {
         set({
           documents: cached.documents,
           isLoading: false,
@@ -89,6 +93,7 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
             key: cacheKey,
             documents,
             fetchedAt: now,
+            userId: userId || '',
           },
         },
       }));
@@ -162,7 +167,7 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
   },
 
   clearCache: () => {
-    set({ documentsCache: {} });
+    set({ documentsCache: {}, documents: [] });
   },
 }));
 

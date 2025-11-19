@@ -61,7 +61,7 @@ export default function ChangePasswordScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingTop: insets.top }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -88,7 +88,7 @@ export default function ChangePasswordScreen() {
                 styles.card,
                 {
                   backgroundColor: theme.dark ? '#111113' : '#FFFFFF',
-                  borderColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
+                  borderColor: theme.dark ? '#1F2937' : '#E2E8F0',
                 },
               ]}
             >
@@ -143,7 +143,7 @@ export default function ChangePasswordScreen() {
             },
           ]}
         >
-          <Pressable style={[styles.secondaryButton, { borderColor: theme.dark ? '#2C2C2E' : '#CBD5F5' }]} onPress={() => {
+          <Pressable style={[styles.secondaryButton, { borderColor: theme.dark ? '#1F2937' : '#CBD5F5' }]} onPress={() => {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');

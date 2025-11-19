@@ -45,6 +45,8 @@ const MAPPING = {
 
   // Actions & Controls
   "plus": "add",
+  "plus.circle.fill": "add-circle",
+  "plus.circle": "add-circle-outline",
   "minus": "remove",
   "xmark": "close",
   "checkmark": "check",
@@ -142,6 +144,7 @@ const MAPPING = {
   "clock": "access-time",
   "calendar": "event",
   "timer": "timer",
+  "hourglass": "hourglass-empty",
 
   // Immigration / Services
   "graduationcap.fill": "school",
@@ -155,15 +158,18 @@ const MAPPING = {
   // User & Profile
   "person": "person",
   "person.fill": "person",
-  "person.2.fill": "group",
+  // "person.2.fill": "group",
   "person.2": "group",
   "person.circle.fill": "account-circle",
   "person.circle": "account-circle",
   "person.crop.circle.fill": "account-circle",
   "person.crop.circle": "account-circle",
+  "person.crop.circle.badge.checkmark": "verified-user",
+  "person.crop.circle.badge": "account-circle",
 
   // Sharing & Export
   "square.and.arrow.up": "share",
+  "square.and.arrow.up.fill": "share",
   "square.and.arrow.down": "download",
   "arrow.up.doc.fill": "upload-file",
   "arrow.down.doc.fill": "file-download",
@@ -180,6 +186,10 @@ const MAPPING = {
   "lightbulb.fill": "lightbulb",
   "moon.fill": "dark-mode",
   "sun.max.fill": "light-mode",
+
+  // Privacy & Security
+  "hand.raised.fill": "privacy-tip",
+  "hand.raised": "privacy-tip",
 } as unknown as Record<string, React.ComponentProps<typeof MaterialIcons>["name"]>;
 
 export type IconSymbolName = string;

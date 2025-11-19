@@ -34,13 +34,7 @@ export default function ProfileScreen() {
     if (avatarPreview) {
       return avatarPreview;
     }
-
-    return (
-      profile?.profilePicture ||
-      profile?.avatar ||
-      user?.photoURL ||
-      null
-    );
+    return profile?.profilePicture || profile?.avatar || user?.photoURL || null;
   }, [avatarPreview, profile?.profilePicture, profile?.avatar, user?.photoURL]);
 
   const uploadAndSave = useCallback(
@@ -179,7 +173,7 @@ export default function ProfileScreen() {
           }}
         />
       )}
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} iconSize={24} />
@@ -198,11 +192,14 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Profile Card */}
-          <View style={[styles.profileCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={[styles.profileCard, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarLarge}>
                 {avatarUri ? (
-                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  <Image
+                    source={{ uri: avatarUri }}
+                    style={styles.avatarImage}
+                  />
                 ) : (
                   <IconSymbol name="person.fill" size={48} color="#fff" />
                 )}
@@ -247,7 +244,7 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
               {t('profile.sections.accountSettings')}
             </Text>
-            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
                 onPress={() => router.push('/profile/personal-info')}
@@ -261,7 +258,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={styles.menuItem}
@@ -276,7 +273,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={[styles.menuItem, styles.menuItemLast]}
@@ -298,7 +295,7 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
               {t('profile.sections.preferences')}
             </Text>
-            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst, styles.menuItemLast]}
                 onPress={() => router.push('/profile/preferences')}
@@ -324,13 +321,13 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
               {t('profile.sections.supportLegal')}
             </Text>
-            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
                 onPress={() => router.push('/support/faq')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#F3E5F5' }]}>
-                  <IconSymbol name="questionmark.circle.fill" size={20} color="#9C27B0" />
+                  <IconSymbol name="info.circle.fill" size={20} color="#9C27B0" />
                 </View>
                 <Text style={[styles.menuTitle, { color: theme.colors.text }]}>
                   {t('profile.faq')}
@@ -338,7 +335,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={styles.menuItem}
@@ -353,7 +350,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={styles.menuItem}
@@ -368,7 +365,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={[styles.menuItem, styles.menuItemLast]}
@@ -390,7 +387,7 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
               {t('profile.sections.dataAndAccount')}
             </Text>
-            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+            <View style={[styles.menuGroup, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
               <Pressable
                 style={[styles.menuItem, styles.menuItemFirst]}
                 onPress={() => router.push('/account/export-data')}
@@ -404,7 +401,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="chevron.right" size={20} color={theme.dark ? '#98989D' : '#666'} />
               </Pressable>
 
-              <View style={[styles.divider, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]} />
+              <View style={[styles.divider, { backgroundColor: theme.dark ? '#1F2937' : '#E0E0E0' }]} />
 
               <Pressable
                 style={[styles.menuItem, styles.menuItemLast]}

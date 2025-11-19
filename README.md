@@ -128,6 +128,33 @@ Guidelines:
 * Centralise strings via `lib/i18n/locales`
 * Keep domain logic inside `lib/services` backed by respective Zustand stores
 
+## Code Review
+
+This project uses [CodeRabbit](https://coderabbit.ai) for automated code reviews and AI-powered code suggestions.
+
+### CodeRabbit Features
+* **Automated PR Reviews**: CodeRabbit automatically reviews pull requests for code quality, security, performance, and best practices
+* **AI-Powered Suggestions**: Get intelligent suggestions for improvements, bug fixes, and optimizations
+* **TypeScript & React Native Focus**: Specialized reviews for TypeScript, React, and React Native/Expo patterns
+* **i18n Compliance**: Ensures all user-facing strings are properly translated
+* **Accessibility Checks**: Reviews code for accessibility best practices
+
+### Configuration
+CodeRabbit is configured via `.coderabbit.yaml` in the project root. The configuration includes:
+* Review paths (app, components, lib, stores)
+* Focus areas (code quality, performance, security, best practices, accessibility, i18n)
+* Language-specific settings for TypeScript, React, and React Native
+* Custom instructions for project-specific requirements
+
+### Getting Reviews
+CodeRabbit automatically reviews pull requests when they are opened. To get the most out of CodeRabbit:
+1. Open a pull request as usual
+2. CodeRabbit will automatically analyze your changes
+3. Review the suggestions and comments
+4. Address any critical issues before merging
+
+For more information, visit [CodeRabbit Documentation](https://docs.coderabbit.ai).
+
 ## Builds (EAS)
 ```
 eas build --profile preview --platform ios
@@ -207,6 +234,7 @@ Before building, verify configuration values (`app.config.ts`) and credentials f
 3. `feature/document-uploads` – document upload improvements
 4. `feature/profile-refresh` – profile tab styling & logout button
 5. `fix/bottom-sheet-context` – provider guard for BottomSheetModal
+6. `etc`
 
 ### Next Steps
 1. Merge outstanding feature branches and resolve conflicts
@@ -216,4 +244,4 @@ Before building, verify configuration values (`app.config.ts`) and credentials f
 5. Prepare release notes and store assets
 6. Submit builds to App Store Connect and Google Play Console
 
-Built and maintained by the Patrick Digital Services engineering team. Reach out via the project channel for support or onboarding requests.
+Built and maintained by the Avom brice. check me at https://maebrieporfolio.vercel.app.

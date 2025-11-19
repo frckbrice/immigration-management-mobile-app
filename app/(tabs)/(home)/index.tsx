@@ -69,7 +69,7 @@ export default function HomeScreen() {
   }
   const theme = useAppTheme();
   const colors = useThemeColors();
-  const surfaceCard = theme.dark ? colors.surfaceElevated : colors.surface;
+  const surfaceCard = theme.dark ? "#111827" : colors.surface;
   const iconTint = useMemo(
     () => withOpacity(colors.primary, theme.dark ? 0.35 : 0.12),
     [colors.primary, theme.dark]
@@ -106,8 +106,10 @@ export default function HomeScreen() {
 
   const unreadCount = useNotificationsStore((state) => state.unreadCount);
   const fetchUnreadCount = useNotificationsStore((state) => state.fetchUnreadCount);
+  const markAllNotificationsAsRead = useNotificationsStore((state) => state.markAllAsRead);
 
   const unreadChatTotal = useMessagesStore((state) => state.unreadChatTotal);
+  const unreadEmailTotal = useMessagesStore((state) => state.unreadEmailTotal);
   const fetchMessages = useMessagesStore((state) => state.fetchMessages);
   const fetchConversations = useMessagesStore((state) => state.fetchConversations);
 
@@ -602,6 +604,7 @@ export default function HomeScreen() {
   const pendingDocsCount = stats?.pendingDocuments ?? documents.length;
   const activeCasesCount = stats?.activeCases ?? activeCases.length;
   const unreadChatCount = unreadChatTotal;
+  const headerBadgeCount = unreadCount > 0 ? unreadCount : unreadEmailTotal;
 
   // Use refs to track previous values and only update when they actually change
   const prevCasesLengthRef = useRef(cases.length);
@@ -832,7 +835,7 @@ export default function HomeScreen() {
         />
       )}
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : colors.background }]}
         edges={['top']}
       >
         <ScrollView
@@ -853,7 +856,7 @@ export default function HomeScreen() {
                 style={[
                   styles.logoWrapper,
                   {
-                    backgroundColor: withOpacity(colors.primary, theme.dark ? 0.2 : 0.12),
+                    backgroundColor: withOpacity("FFFFFF", theme.dark ? 0.4 : 0.12),
                     borderColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.2),
                     shadowColor: colors.primary,
                   },
@@ -872,15 +875,22 @@ export default function HomeScreen() {
             </View>
             <Pressable
               style={styles.notificationButton}
-              onPress={() => router.push({
-                pathname: '/(tabs)/messages',
-                params: { segment: 'email' }
-              })}
+              onPress={() => {
+                if (unreadCount > 0) {
+                  markAllNotificationsAsRead();
+                }
+                router.push({
+                  pathname: '/(tabs)/messages',
+                  params: { segment: 'email' }
+                });
+              }}
             >
               <IconSymbol name="bell.fill" size={26} color={colors.text} />
-              {unreadCount > 0 && (
+              {headerBadgeCount > 0 && (
                 <View style={[styles.notificationBadge, { backgroundColor: colors.danger }]}>
-                  <Text style={[styles.notificationBadgeText, { color: colors.onPrimary }]}>{unreadCount}</Text>
+                  <Text style={[styles.notificationBadgeText, { color: colors.onPrimary }]}>
+                    {headerBadgeCount}
+                  </Text>
                 </View>
               )}
             </Pressable>
@@ -935,7 +945,7 @@ export default function HomeScreen() {
             )}
 
             {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.divider, { backgroundColor: theme.dark ? "#1F2937" : colors.border }]} />
 
             {/* Next Appointment */}
             <View style={styles.statusRow}>

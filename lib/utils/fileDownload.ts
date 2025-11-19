@@ -78,6 +78,7 @@ export const downloadAndTrackFile = async ({
     }
 
     if (source) {
+      const userId = auth.currentUser?.uid;
       await downloadHistoryService.addDownload({
         name: filename,
         url: downloadUrl,
@@ -87,7 +88,7 @@ export const downloadAndTrackFile = async ({
         fileType: mimeType,
         source,
         sourceId,
-      });
+      }, userId);
     }
 
     return {

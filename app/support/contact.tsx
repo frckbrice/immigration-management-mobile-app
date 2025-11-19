@@ -87,7 +87,7 @@ export default function ContactSupportScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}

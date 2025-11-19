@@ -144,12 +144,14 @@ export const useAuthStore = create<AuthState>()(
               const { useCasesStore } = await import('../cases/casesStore');
               const { useNotificationsStore } = await import('../notifications/notificationsStore');
               const { useSubscriptionStore } = await import('../subscription/subscriptionStore');
+              const { useDocumentsStore } = await import('../documents/documentsStore');
               
               // Clear all caches for this user
               await Promise.all([
                 useCasesStore.getState().clearCache(),
                 useNotificationsStore.getState().clearCache(),
                 useSubscriptionStore.getState().clearSubscriptionStatus(),
+                useDocumentsStore.getState().clearCache(),
               ]);
               
               logger.info('Cleared all user caches on logout', { userId });

@@ -397,7 +397,7 @@ export default function PreferencesScreen() {
             <SafeAreaView
                 style={[styles.container,
                 {
-                    backgroundColor: "#1f2937",
+                    backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
                     paddingBottom: insets.bottom,
                     paddingTop: insets.top
                 }]}

@@ -304,7 +304,7 @@ export default function ComposeEmailScreen() {
     if (!agentOptions.length) {
       return (
         <View style={styles.emptyState}>
-          <IconSymbol name="person.crop.circle.badge.questionmark" size={56} color={colors.muted} />
+          <IconSymbol name="person.crop.circle.fill" size={56} color={colors.muted} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {t("messages.composeNoCasesTitle", { defaultValue: "No advisors available yet" })}
           </Text>
@@ -354,13 +354,13 @@ export default function ComposeEmailScreen() {
               styles.card,
               {
                 backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.75),
+                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.9),
                 shadowColor: 'green',
               },
             ]}
           >
             <View style={styles.cardHeader}>
-              <IconSymbol name="person.crop.circle.badge.checkmark" size={18} color={colors.primary} />
+              <IconSymbol name="person.2.fill" size={18} color={colors.primary} />
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>
                   {t("messages.composeSelectAgent", { defaultValue: "Choose an advisor" })}
@@ -382,12 +382,12 @@ export default function ComposeEmailScreen() {
                     backgroundColor: theme.dark
                       ? withOpacity(colors.surfaceAlt, 0.75)
                       : withOpacity(colors.primary, 0.05),
-                    borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.2),
+                    borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.8),
                   },
                 ]}
               >
-                <View style={styles.selectorTextGroup}>
-                  <Text style={[styles.selectorLabel, { color: colors.muted }]}>
+                <View style={[styles.selectorTextGroup]}>
+                  <Text style={[styles.selectorLabel, { color: colors.primary }]}>
                     {t("messages.composeAdvisorLabel", { defaultValue: "Advisor" })}
                   </Text>
                   <Text style={[styles.selectorValue, { color: colors.text }]}>
@@ -414,7 +414,7 @@ export default function ComposeEmailScreen() {
                     backgroundColor: theme.dark
                       ? withOpacity(colors.surfaceAlt, 0.75)
                       : withOpacity(colors.primary, 0.05),
-                    borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.2),
+                    borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.8),
                     opacity: filteredCases.length ? 1 : 0.6,
                   },
                 ]}
@@ -447,13 +447,13 @@ export default function ComposeEmailScreen() {
               styles.card,
               {
                 backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.75),
+                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 1),
                 shadowColor: 'green',
               },
             ]}
           >
             <View style={styles.cardHeader}>
-              <IconSymbol name="text.quote" size={18} color={colors.primary} />
+              <IconSymbol name="doc.text.fill" size={18} color={colors.primary} />
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>
                   {t("messages.composeDetailsTitle", { defaultValue: "Message details" })}
@@ -466,20 +466,22 @@ export default function ComposeEmailScreen() {
               </View>
             </View>
 
-            <FormInput
-              label={t("messages.composeSubjectLabel", { defaultValue: "Subject" })}
-              placeholder={t("messages.composeSubjectPlaceholder", {
-                defaultValue: "Visa interview preparation",
-              })}
-              value={subject}
-              onChangeText={setSubject}
-              onBlur={() => setSubjectTouched(true)}
-              autoCapitalize="sentences"
-              autoCorrect
-              returnKeyType="done"
-              errorText={subjectError}
-              containerStyle={styles.subjectField}
-            />
+            <View style={styles.subjectFieldContainer}>
+              <FormInput
+                label={t("messages.composeSubjectLabel", { defaultValue: "Subject" })}
+                placeholder={t("messages.composeSubjectPlaceholder", {
+                  defaultValue: "Visa interview preparation",
+                })}
+                value={subject}
+                onChangeText={setSubject}
+                onBlur={() => setSubjectTouched(true)}
+                autoCapitalize="sentences"
+                autoCorrect
+                returnKeyType="done"
+                errorText={subjectError}
+                containerStyle={styles.subjectField}
+              />
+            </View>
 
             <View style={styles.messageInputContainer}>
               <View style={styles.messageLabelRow}>
@@ -498,8 +500,9 @@ export default function ComposeEmailScreen() {
                   {
                     borderColor: withOpacity(
                       bodyError ? colors.danger : colors.borderStrong,
-                      theme.dark ? (bodyError ? 0.9 : 0.35) : bodyError ? 0.9 : 0.18
+                      theme.dark ? (bodyError ? 0.9 : 0.6) : bodyError ? 0.9 : 0.35
                     ),
+                    borderWidth: StyleSheet.hairlineWidth * 2,
                     backgroundColor: theme.dark
                       ? withOpacity(colors.surfaceAlt, 0.7)
                       : colors.surfaceAlt,
@@ -698,7 +701,7 @@ export default function ComposeEmailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : colors.background }]}
         edges={["top"]}
       >
         <KeyboardAvoidingView
@@ -880,8 +883,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
-  subjectField: {
+  subjectFieldContainer: {
     marginBottom: 14,
+  },
+  subjectField: {
+    marginBottom: 0,
   },
   sendButton: {
     marginTop: 8,

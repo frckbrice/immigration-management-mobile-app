@@ -84,7 +84,7 @@ export default function LoginScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

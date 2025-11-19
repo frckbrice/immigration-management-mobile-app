@@ -928,7 +928,7 @@ export default function MessagesScreen() {
         style={[
           styles.container,
           {
-            backgroundColor: theme.dark ? colors.background : withOpacity(colors.primary, 0.06),
+            backgroundColor: theme.dark ? "#1f2937" : withOpacity(colors.primary, 0.06),
             paddingTop: insets.top,
           },
         ]}

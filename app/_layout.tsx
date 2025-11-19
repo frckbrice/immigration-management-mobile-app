@@ -22,6 +22,7 @@ import { logger } from "@/lib/utils/logger";
 import { setupNotificationListeners, getLastNotificationResponse, handleNotificationNavigation } from "@/lib/services/pushNotifications";
 import { BottomSheetAlertProvider } from "@/components/BottomSheetAlert";
 import { ToastProvider } from "@/components/Toast";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useToast } from "@/components/Toast";
 import { ScrollProvider } from "@/contexts/ScrollContext";
 import { palette, themes } from "@/styles/theme";
@@ -144,7 +145,7 @@ function AppContent() {
         const setupNotifications = async () => {
             // Setup notification listeners
             cleanup = setupNotificationListeners({
-                onNotificationReceived: ({ notification, data }) => {
+                onNotificationReceived: async ({ notification, data }) => {
                     const title = notification.request.content.title?.trim() || i18n.t('notifications.newNotification');
                     const body = notification.request.content.body?.trim();
                     const fallbackMessage =
@@ -158,6 +159,17 @@ function AppContent() {
                         message,
                         duration: 5000,
                     });
+
+                    // Refresh messages when NEW_EMAIL notification is received
+                    if (data?.type === 'NEW_EMAIL') {
+                        try {
+                            const { useMessagesStore } = await import('@/stores/messages/messagesStore');
+                            useMessagesStore.getState().fetchMessages(true);
+                            logger.info('Refreshed messages after NEW_EMAIL notification');
+                        } catch (error) {
+                            logger.warn('Failed to refresh messages after NEW_EMAIL notification', error);
+                        }
+                    }
                 },
             });
 
@@ -211,7 +223,7 @@ function AppContent() {
                 <Stack.Screen name="formsheet" options={{ presentation: "formSheet" }} />
                 <Stack.Screen name="transparent-modal" options={{ presentation: "transparentModal" }} />
             </Stack>
-            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+            <StatusBar style={isDarkTheme ? "light" : "dark"} />
         </ThemeProvider>
     );
 }
@@ -224,15 +236,17 @@ export default function RootLayout() {
             <ErrorBoundary>
                 <QueryClientProvider client={queryClient}>
                     <GestureHandlerRootView style={{ flex: 1 }}>
-                        <ScrollProvider>
-                            <BottomSheetAlertProvider>
-                                <ToastProvider>
-                                    <WidgetProvider>
-                                        <AppContent />
-                                    </WidgetProvider>
-                                </ToastProvider>
-                            </BottomSheetAlertProvider>
-                        </ScrollProvider>
+                        <BottomSheetModalProvider>
+                            <ScrollProvider>
+                                <BottomSheetAlertProvider>
+                                    <ToastProvider>
+                                        <WidgetProvider>
+                                            <AppContent />
+                                        </WidgetProvider>
+                                    </ToastProvider>
+                                </BottomSheetAlertProvider>
+                            </ScrollProvider>
+                        </BottomSheetModalProvider>
                     </GestureHandlerRootView>
                 </QueryClientProvider>
             </ErrorBoundary>

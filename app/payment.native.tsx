@@ -150,7 +150,7 @@ export default function PaymentScreen() {
 
             // Navigate back after a short delay to allow user to see the success message
             setTimeout(() => {
-              router.push('/(tabs)/cases');
+              router.back();    
             }, 2000);
           } else {
             logger.warn('Payment verification returned non-success status', {
@@ -234,7 +234,7 @@ export default function PaymentScreen() {
       merchantIdentifier="merchant.com.yourapp"
     >
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]}
         edges={['top']}
       >
         {/* Header */}
@@ -250,7 +250,7 @@ export default function PaymentScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Payment Summary Card */}
-          <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
             <View style={styles.summaryHeader}>
               <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
               <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
@@ -288,7 +288,7 @@ export default function PaymentScreen() {
           </View>
 
           {/* Card Input Section */}
-          <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+          <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               {t('payments.cardDetails')}
             </Text>
@@ -296,8 +296,8 @@ export default function PaymentScreen() {
             <View style={[
               styles.cardFieldContainer,
               {
-                backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5',
-                borderColor: theme.dark ? '#3C3C3E' : '#E0E0E0',
+                backgroundColor: theme.dark ? '#111827' : '#F5F5F5',
+                borderColor: theme.dark ? '#1F2937' : '#E0E0E0',
               }
             ]}>
               <CardField
@@ -306,7 +306,7 @@ export default function PaymentScreen() {
                   number: '4242 4242 4242 4242',
                 }}
                 cardStyle={{
-                  backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5',
+                  backgroundColor: theme.dark ? '#111827' : '#F5F5F5',
                   textColor: theme.dark ? '#FFFFFF' : '#000000',
                   placeholderColor: theme.dark ? '#666666' : '#999999',
                 }}
@@ -327,7 +327,7 @@ export default function PaymentScreen() {
           </View>
 
           {/* Payment Information */}
-          <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
+          <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#111827' : '#F5F5F5' }]}>
             <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
               {t('payments.paymentInformation')}
             </Text>
@@ -362,7 +362,7 @@ export default function PaymentScreen() {
 
           {/* Cancel Button */}
           <Pressable
-            style={[styles.cancelButton, { borderColor: '#2196F3', backgroundColor: theme.dark ? '#1C1C1E' : '#ffffff' }]}
+            style={[styles.cancelButton, { borderColor: '#2196F3', backgroundColor: theme.dark ? '#111827' : '#ffffff' }]}
             onPress={() => router.back()}
             disabled={loading}
           >

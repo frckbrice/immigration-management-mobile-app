@@ -67,7 +67,7 @@ export default function TermsScreen() {
   return (
     <>
       {Platform.OS === 'ios' && <Stack.Screen options={{ headerShown: false }} />}
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} />
           <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile.terms')}</Text>
