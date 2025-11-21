@@ -11,6 +11,8 @@ import { auth } from "@/lib/firebase/config";
 import { useAuthStore } from "@/stores/auth/authStore";
 import { logger } from "@/lib/utils/logger";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useProfileStore } from "@/stores/profile/profileStore";
+import { apiClient } from "@/lib/api/axios";
 
 export default function LoginScreen() {
   const theme = useTheme();
@@ -20,6 +22,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { setUser, setError, clearError } = useAuthStore();
+  const { fetchProfile } = useProfileStore();
   const { showAlert } = useBottomSheetAlert();
   const scrollViewRef = useRef<ScrollView>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -34,17 +37,45 @@ export default function LoginScreen() {
     clearError();
 
     try {
+      // Step 1: Sign in with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      logger.info('User logged in successfully', { email: userCredential.user.email });
+      logger.info('User logged in successfully with Firebase', { email: userCredential.user.email });
 
-      // Set user in store - this will update isAuthenticated
+      // Step 2: Get Firebase ID token for backend authentication
+      const idToken = await userCredential.user.getIdToken();
+
+      // Step 3: Call backend login endpoint to trigger auto-provisioning if user doesn't exist in DB
+      // This ensures user exists in database before we navigate
+      try {
+        await apiClient.post(
+          '/auth/login',
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+        logger.info('[Login] Backend login successful - user auto-provisioned if needed');
+
+        // Step 4: Pre-fetch profile immediately after backend login to avoid race conditions
+        // This ensures profile is available when screens load
+        try {
+          await fetchProfile();
+          logger.info('[Login] Profile pre-fetched after backend login');
+        } catch (profileError: any) {
+          // Non-blocking - profile will be fetched when needed
+          logger.warn('[Login] Profile pre-fetch failed (non-blocking)', profileError);
+        }
+      } catch (backendError: any) {
+        // Log error but don't block login - backend might auto-create on next API call
+        logger.warn('[Login] Backend login call failed (non-blocking)', backendError);
+      }
+
+      // Step 5: Set user in store - this will update isAuthenticated
       setUser(userCredential.user);
 
-      // Wait for auth state to propagate, then navigate
-      // Firebase auth state listener will also update the store
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Navigate to home screen
+      // Step 6: Navigate to home screen (no artificial delays needed)
       router.replace('/(tabs)/(home)');
     } catch (error: any) {
       logger.error('Login error', error);

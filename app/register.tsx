@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Alert, ActivityIndicator, Switch, Image } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Alert, ActivityIndicator, Switch, Image, KeyboardAvoidingView, TextInput } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
@@ -16,6 +16,10 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showAlert } = useBottomSheetAlert();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -63,11 +67,9 @@ export default function RegisterScreen() {
         };
         await AsyncStorage.setItem('consent_record', JSON.stringify(consent));
 
-        showAlert({
-          title: t('auth.registrationSuccess'),
-          message: t('auth.checkEmail'),
-          actions: [{ text: t('common.close'), onPress: () => router.replace('/login'), variant: 'primary' }]
-        });
+        // Redirect directly to login screen without showing alert
+        // Backend will auto-create user in database on first login
+        router.replace('/login');
       }
     } catch (error: any) {
       logger.error('Registration error', error);
@@ -82,7 +84,19 @@ export default function RegisterScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        >
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 150) }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
           {/* Logo - Matching onboarding design */}
           <View style={styles.logoContainer}>
             <View style={styles.logoIconContainer}>
@@ -123,29 +137,50 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             textContentType="emailAddress"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
           />
 
-          <FormInput
-            label={t('auth.password')}
-            placeholder={t('auth.password')}
-            value={password}
-            onChangeText={setPassword}
-            enablePasswordToggle
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="newPassword"
-          />
+            <View style={styles.passwordContainer}>
+              <FormInput
+                ref={passwordInputRef}
+                label={t('auth.password')}
+                placeholder={t('auth.password')}
+                value={password}
+                onChangeText={setPassword}
+                enablePasswordToggle
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                onFocus={() => {
+                  // Small scroll adjustment when password field is focused
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({
+                      y: 100, // Small scroll amount - just enough space to type
+                      animated: true,
+                    });
+                  }, 100);
+                }}
+              />
+            </View>
 
-          <FormInput
-            label={t('auth.confirmPassword')}
-            placeholder={t('auth.confirmPassword')}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            enablePasswordToggle
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="newPassword"
-          />
+            <View style={styles.passwordContainer}>
+              <FormInput
+                ref={confirmPasswordInputRef}
+                label={t('auth.confirmPassword')}
+                placeholder={t('auth.confirmPassword')}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                enablePasswordToggle
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+                returnKeyType="done"
+                onSubmitEditing={() => confirmPasswordInputRef.current?.blur()}
+              />
+            </View>
 
           <View style={styles.consentRow}>
             <Text style={[styles.consentText, { color: theme.colors.text }]}>{t('auth.acceptTerms')}</Text>
@@ -166,7 +201,8 @@ export default function RegisterScreen() {
               <Text style={styles.footerLink}> {t('auth.signIn')}</Text>
             </Pressable>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </>
   );
@@ -175,7 +211,11 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 24 },
+  keyboardView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 200 },
+  passwordContainer: {
+    marginBottom: 16,
+  },
   logoContainer: { alignItems: 'center', marginBottom: 24 },
   logoIconContainer: {
     width: 160,

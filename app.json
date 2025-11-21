@@ -6,33 +6,6 @@
     "owner": "ubuntu-dev-group",
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/bc0069cd-836a-45fb-8a75-c1bc726660b3"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#000000"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.ubuntu.patrickagency",
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "com.google.android.c2dm.permission.RECEIVE"
-      ]
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.ubuntu.patrickagency",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
     }
   }
 }

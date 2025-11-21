@@ -5,6 +5,7 @@ import type { BottomSheetModal as BottomSheetModalType } from '@gorhom/bottom-sh
 import { useAppTheme, useThemeColors } from '@/lib/hooks/useAppTheme';
 import { useTranslation } from '@/lib/hooks/useTranslation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IconSymbol } from './IconSymbol';
 
 export type BottomSheetAlertAction = {
   text: string;
@@ -16,6 +17,9 @@ export type BottomSheetAlertOptions = {
   title?: string;
   message?: string;
   actions?: BottomSheetAlertAction[];
+  icon?: string;
+  iconColor?: string;
+  type?: 'success' | 'error' | 'info' | 'warning';
 };
 
 type BottomSheetAlertContextType = {
@@ -65,6 +69,9 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
       title: opts.title,
       message: opts.message,
       actions: opts.actions && opts.actions.length > 0 ? opts.actions : [{ text: t('common.close') }],
+      icon: opts.icon,
+      iconColor: opts.iconColor,
+      type: opts.type,
     };
 
     // Set content first
@@ -135,6 +142,38 @@ export const BottomSheetAlertProvider: React.FC<{ children: React.ReactNode }> =
           }}>
             {content && (
               <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+                {/* Icon Container */}
+                {(content.icon || content.type) && (
+                  <View style={styles.iconContainer}>
+                    {content.icon ? (
+                      <View style={[
+                        styles.iconCircle,
+                        content.type === 'success' && { backgroundColor: 'rgba(76, 175, 80, 0.1)' },
+                        content.type === 'error' && { backgroundColor: theme.dark ? 'rgba(244, 67, 54, 0.1)' : 'rgba(244, 67, 54, 0.1)' },
+                        content.type === 'info' && { backgroundColor: theme.dark ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.1)' },
+                        !content.type && { backgroundColor: theme.dark ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.1)' },
+                      ]}>
+                        <IconSymbol
+                          name={content.icon}
+                          size={64}
+                          color={content.iconColor || (content.type === 'success' ? '#4CAF50' : content.type === 'error' ? colors.danger : colors.primary)}
+                        />
+                      </View>
+                    ) : content.type === 'success' ? (
+                      <View style={[styles.iconCircle, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+                        <IconSymbol name="checkmark.circle.fill" size={64} color="#4CAF50" />
+                      </View>
+                    ) : content.type === 'error' ? (
+                      <View style={[styles.iconCircle, { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}>
+                        <IconSymbol name="exclamationmark.triangle.fill" size={64} color={colors.danger} />
+                      </View>
+                    ) : content.type === 'info' ? (
+                      <View style={[styles.iconCircle, { backgroundColor: 'rgba(33, 150, 243, 0.1)' }]}>
+                        <IconSymbol name="info.circle.fill" size={64} color={colors.primary} />
+                      </View>
+                    ) : null}
+                  </View>
+                )}
                 {content.title ? (
                   <Text style={[styles.title, { color: theme.dark ? '#FFFFFF' : '#000000' }]}>{content.title}</Text>
                 ) : null}
@@ -200,15 +239,31 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 8,
     gap: 16,
+    alignItems: 'center',
+  },
+  iconContainer: {
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    lineHeight: 28,
+    lineHeight: 30,
+    textAlign: 'center',
   },
   message: {
     fontSize: 15,
     lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   actionsContainer: {
     flexDirection: 'column',

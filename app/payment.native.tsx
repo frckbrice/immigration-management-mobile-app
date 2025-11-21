@@ -4,7 +4,7 @@ import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndica
 import { IconSymbol } from "@/components/IconSymbol";
 import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StripeProvider, CardField, useStripe } from '@stripe/stripe-react-native';
 import { STRIPE_PUBLISHABLE_KEY, getStripeUrlScheme } from '@/utils/stripeConfig';
@@ -26,7 +26,7 @@ export default function PaymentScreen() {
   const { confirmPayment } = useStripe();
   const user = useAuthStore((state) => state.user);
   const { refreshSubscriptionStatus } = useSubscriptionStore();
-
+  const insets = useSafeAreaInsets();
   const [cardComplete, setCardComplete] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -234,7 +234,11 @@ export default function PaymentScreen() {
       merchantIdentifier="merchant.com.yourapp"
     >
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]}
+        style={[styles.container, {
+          backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
+          // paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }]}
         edges={['top']}
       >
         {/* Header */}

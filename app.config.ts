@@ -20,7 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/icon.png',
-      backgroundColor: '#e7eeff',
+          backgroundColor: '#000000',
     },
     edgeToEdgeEnabled: true,
     package: 'com.ubuntu.patrickagency',
@@ -31,8 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.POST_NOTIFICATIONS',
       'android.permission.RECEIVE_BOOT_COMPLETED',
-      'com.google.android.c2dm.permission.RECEIVE',
-      "CAMERA", "RECORD_AUDIO", "INTERNET", "WAKE_LOCK"
+        'com.google.android.c2dm.permission.RECEIVE',
     ],
   },
   web: {
@@ -75,7 +74,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           resizeMode: 'contain',
         },
       },
-    ]
+      ],
   ],
   experiments: {
     typedRoutes: true,
@@ -102,5 +101,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId: 'bc0069cd-836a-45fb-8a75-c1bc726660b3',
     },
   },
+    runtimeVersion: {
+        policy: 'appVersion',
+    },
+    updates: {
+        url: 'https://u.expo.dev/bc0069cd-836a-45fb-8a75-c1bc726660b3',
+    },
 });
 

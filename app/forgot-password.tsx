@@ -7,8 +7,7 @@ import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase/config";
+import { apiClient } from "@/lib/api/axios";
 import { logger } from "@/lib/utils/logger";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 
@@ -41,36 +40,45 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, email.trim());
-      logger.info('Password reset email sent', { email: email.trim() });
-      
-      showAlert({
-        title: t('auth.passwordResetSent'),
-        message: t('auth.checkEmailForReset'),
-        actions: [
-          { 
-            text: t('common.ok'), 
-            onPress: () => router.back(), 
-            variant: 'primary' 
-          }
-        ]
+      const response = await apiClient.post('/auth/forgot-password', {
+        email: email.trim(),
       });
+
+      if (response.data.success) {
+        logger.info('Password reset email sent', { email: email.trim() });
+
+        showAlert({
+          title: t('auth.passwordResetSent'),
+          message: response.data.message || t('auth.checkEmailForReset'),
+          actions: [
+            {
+              text: t('common.ok'),
+              onPress: () => router.back(),
+              variant: 'primary'
+            }
+          ]
+        });
+      } else {
+        throw new Error(response.data.error || t('errors.generic'));
+      }
     } catch (error: any) {
       logger.error('Password reset error', error);
       let errorMessage = t('errors.generic');
       
-      switch (error.code) {
-        case 'auth/invalid-email':
-          errorMessage = t('validation.invalidEmail');
-          break;
-        case 'auth/user-not-found':
-          errorMessage = t('auth.userNotFound');
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = t('errors.network');
-          break;
-        default:
-          errorMessage = error.message || errorMessage;
+      if (error.response) {
+        // Backend error response
+        const status = error.response.status;
+        const data = error.response.data;
+
+        if (status === 400) {
+          errorMessage = data.error || t('validation.invalidEmail');
+        } else if (status === 500) {
+          errorMessage = data.error || data.message || t('errors.generic');
+        } else {
+          errorMessage = data.error || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
       showAlert({ 

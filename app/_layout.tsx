@@ -30,6 +30,8 @@ import "@/lib/i18n";
 import { useSettingsStore } from "@/stores/settings/settingsStore";
 import { presenceService } from "@/lib/services/presenceService";
 import i18n from "@/lib/i18n";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 
 
 // Error Boundary Component
@@ -104,6 +106,7 @@ function AppContent() {
     const settings = useSettingsStore((state) => state.settings);
     const fetchSettings = useSettingsStore((state) => state.fetchSettings);
     const { showToast } = useToast();
+    const router = useRouter();
 
     console.log('[App] AppContent state:', { loaded, isAuthenticated });
 
@@ -198,6 +201,48 @@ function AppContent() {
         }
     }, [isAuthenticated, registerPushToken]);
 
+    // Handle deep links for password reset
+    useEffect(() => {
+        const handleDeepLink = async () => {
+            try {
+                const initialUrl = await Linking.getInitialURL();
+                if (initialUrl) {
+                    const parsed = Linking.parse(initialUrl);
+                    // Check if it's a password reset link
+                    if (parsed.queryParams?.oobCode && parsed.queryParams?.mode === 'resetPassword') {
+                        const oobCode = parsed.queryParams.oobCode as string;
+                        logger.info('Password reset deep link detected', { oobCode });
+                        router.replace({
+                            pathname: '/reset-password',
+                            params: { oobCode },
+                        });
+                    }
+                }
+            } catch (error) {
+                logger.warn('Failed to handle initial deep link', error);
+            }
+        };
+
+        handleDeepLink();
+
+        // Listen for deep links when app is already open
+        const subscription = Linking.addEventListener('url', (event) => {
+            const parsed = Linking.parse(event.url);
+            if (parsed.queryParams?.oobCode && parsed.queryParams?.mode === 'resetPassword') {
+                const oobCode = parsed.queryParams.oobCode as string;
+                logger.info('Password reset deep link received', { oobCode });
+                router.replace({
+                    pathname: '/reset-password',
+                    params: { oobCode },
+                });
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [router]);
+
     // Render app even if fonts haven't loaded yet (they'll load asynchronously)
     const themePreference = settings?.themePreference ?? 'system';
     const resolvedTheme = themePreference === 'system' ? colorScheme ?? 'light' : themePreference;
@@ -214,6 +259,7 @@ function AppContent() {
                 <Stack.Screen name="login" />
                 <Stack.Screen name="register" />
                 <Stack.Screen name="forgot-password" />
+                <Stack.Screen name="reset-password" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="chat" />
                 <Stack.Screen name="case/[id]" />

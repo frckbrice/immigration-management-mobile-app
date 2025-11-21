@@ -27,9 +27,14 @@ export const profileService = {
         throw new Error(response.data.error || 'Failed to fetch profile');
       }
 
-      // logger.info('Profile fetched successfully', { profile });
+      logger.info('Profile fetched successfully', { profile });
       return profile;
     } catch (error: any) {
+      // Handle 404 gracefully - profile might not exist yet for new users
+      if (error.response?.status === 404) {
+        logger.info('Profile not found (404) - user profile may not be created yet');
+        throw new Error('Profile not found. Please complete your profile setup.');
+      }
       logger.error('Error fetching profile', error);
       throw error;
     }

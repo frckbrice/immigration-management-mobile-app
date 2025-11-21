@@ -28,9 +28,15 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       const profile = await profileService.getProfile();
       set({ profile, isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch profile';
-      logger.error('Error fetching profile', error);
-      set({ error: errorMessage, isLoading: false });
+      // Handle 404 gracefully - user might not exist in DB yet (being auto-provisioned)
+      if (error.response?.status === 404) {
+        logger.info('Profile not found (404) - this is normal for new users');
+        set({ profile: null, isLoading: false, error: null }); // Don't set error for 404
+      } else {
+        const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch profile';
+        logger.error('Error fetching profile', error);
+        set({ error: errorMessage, isLoading: false });
+      }
     }
   },
 
