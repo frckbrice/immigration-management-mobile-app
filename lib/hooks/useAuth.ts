@@ -3,10 +3,10 @@
  * Manages authentication state and session persistence
  */
 
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../firebase/config';
-import { logger } from '../utils/logger';
+import { useState, useEffect } from "react";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { auth } from "../firebase/config";
+import { logger } from "../utils/logger";
 
 interface AuthState {
   user: FirebaseUser | null;
@@ -28,7 +28,7 @@ export const useAuth = (): AuthState => {
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        logger.info('Auth state changed', {
+        logger.info("Auth state changed", {
           userId: firebaseUser?.uid || null,
           email: firebaseUser?.email || null,
         });
@@ -36,10 +36,10 @@ export const useAuth = (): AuthState => {
         setIsLoading(false);
       },
       (error) => {
-        logger.error('Auth state change error', error);
+        logger.error("Auth state change error", error);
         setUser(null);
         setIsLoading(false);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -51,4 +51,3 @@ export const useAuth = (): AuthState => {
     isAuthenticated: !!user,
   };
 };
-

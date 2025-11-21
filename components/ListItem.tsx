@@ -1,6 +1,12 @@
 import React from "react";
 import * as Haptics from "expo-haptics";
-import { Pressable, StyleSheet, useColorScheme, View, Text } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  useColorScheme,
+  View,
+  Text,
+} from "react-native";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   configureReanimatedLogger,
@@ -21,7 +27,7 @@ export default function ListItem({ listId }: { listId: string }) {
 
   const RightAction = (
     prog: SharedValue<number>,
-    drag: SharedValue<number>
+    drag: SharedValue<number>,
   ) => {
     const styleAnimation = useAnimatedStyle(() => ({
       transform: [{ translateX: drag.value + 200 }],
@@ -55,9 +61,15 @@ export default function ListItem({ listId }: { listId: string }) {
         enableContextMenu
       >
         <View style={styles.listItemContainer}>
-          <Text style={[styles.listItemText, { color: isDark ? "#FFFFFF" : "#000000" }]}>{listId}</Text>
+          <Text
+            style={[
+              styles.listItemText,
+              { color: isDark ? "#FFFFFF" : "#000000" },
+            ]}
+          >
+            {listId}
+          </Text>
         </View>
-
       </ReanimatedSwipeable>
     </Animated.View>
   );

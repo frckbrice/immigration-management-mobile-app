@@ -18,7 +18,10 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { BackButton } from "@/components/BackButton";
@@ -38,9 +41,9 @@ import type { Case, CaseAssignedAgent } from "@/lib/types";
 const formatServiceTypeLabel = (serviceType?: string) =>
   serviceType
     ? serviceType
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
     : "";
 
 export default function ComposeEmailScreen() {
@@ -52,12 +55,16 @@ export default function ComposeEmailScreen() {
   const { showAlert } = useBottomSheetAlert();
   const { showToast } = useToast();
 
-  const { cases, isLoading: casesLoading, fetchCases } = useCasesStore(
+  const {
+    cases,
+    isLoading: casesLoading,
+    fetchCases,
+  } = useCasesStore(
     useShallow((state) => ({
       cases: state.cases,
       isLoading: state.isLoading,
       fetchCases: state.fetchCases,
-    }))
+    })),
   );
 
   const fetchMessages = useMessagesStore((state) => state.fetchMessages);
@@ -109,8 +116,12 @@ export default function ComposeEmailScreen() {
       });
     });
     return Array.from(map.values()).sort((a, b) => {
-      const nameA = `${a.agent.firstName ?? ""} ${a.agent.lastName ?? ""}`.trim().toLowerCase();
-      const nameB = `${b.agent.firstName ?? ""} ${b.agent.lastName ?? ""}`.trim().toLowerCase();
+      const nameA = `${a.agent.firstName ?? ""} ${a.agent.lastName ?? ""}`
+        .trim()
+        .toLowerCase();
+      const nameB = `${b.agent.firstName ?? ""} ${b.agent.lastName ?? ""}`
+        .trim()
+        .toLowerCase();
       return nameA.localeCompare(nameB);
     });
   }, [cases]);
@@ -120,14 +131,19 @@ export default function ComposeEmailScreen() {
       setSelectedAgentId("");
       return;
     }
-    if (!selectedAgentId || !agentOptions.some((option) => option.agent.id === selectedAgentId)) {
+    if (
+      !selectedAgentId ||
+      !agentOptions.some((option) => option.agent.id === selectedAgentId)
+    ) {
       setSelectedAgentId(agentOptions[0].agent.id);
     }
   }, [agentOptions, selectedAgentId]);
 
   const selectedAgentGroup = useMemo(
-    () => agentOptions.find((option) => option.agent.id === selectedAgentId) ?? null,
-    [agentOptions, selectedAgentId]
+    () =>
+      agentOptions.find((option) => option.agent.id === selectedAgentId) ??
+      null,
+    [agentOptions, selectedAgentId],
   );
 
   const filteredCases = selectedAgentGroup?.cases ?? [];
@@ -137,14 +153,17 @@ export default function ComposeEmailScreen() {
       setSelectedCaseId("");
       return;
     }
-    if (!selectedCaseId || !filteredCases.some((caseItem) => caseItem.id === selectedCaseId)) {
+    if (
+      !selectedCaseId ||
+      !filteredCases.some((caseItem) => caseItem.id === selectedCaseId)
+    ) {
       setSelectedCaseId(filteredCases[0].id);
     }
   }, [filteredCases, selectedCaseId]);
 
   const selectedCase = useMemo(
     () => filteredCases.find((item) => item.id === selectedCaseId) ?? null,
-    [filteredCases, selectedCaseId]
+    [filteredCases, selectedCaseId],
   );
 
   const selectedAgent = selectedAgentGroup?.agent ?? null;
@@ -190,7 +209,8 @@ export default function ComposeEmailScreen() {
       showAlert({
         title: t("common.error"),
         message: t("messages.composeSubjectRequired", {
-          defaultValue: "Add a subject so your advisor understands the context.",
+          defaultValue:
+            "Add a subject so your advisor understands the context.",
         }),
         actions: [{ text: t("common.close"), variant: "primary" }],
       });
@@ -222,7 +242,9 @@ export default function ComposeEmailScreen() {
 
       showToast({
         type: "success",
-        title: t("messages.composeSuccessTitle", { defaultValue: "Email sent" }),
+        title: t("messages.composeSuccessTitle", {
+          defaultValue: "Email sent",
+        }),
         message: t("messages.composeSuccessMessage", {
           defaultValue: "Your advisor will receive your message shortly.",
         }),
@@ -259,15 +281,15 @@ export default function ComposeEmailScreen() {
   const subjectError =
     subjectTouched && !subject.trim()
       ? t("messages.composeSubjectRequired", {
-        defaultValue: "Subject is required",
-      })
+          defaultValue: "Subject is required",
+        })
       : undefined;
 
   const bodyError =
     bodyTouched && messageBody.trim().length < 10
       ? t("messages.composeBodyTooShort", {
-        defaultValue: "Enter at least 10 characters.",
-      })
+          defaultValue: "Enter at least 10 characters.",
+        })
       : undefined;
 
   const renderContent = () => {
@@ -276,7 +298,9 @@ export default function ComposeEmailScreen() {
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.muted }]}>
-            {t("messages.composeLoadingCases", { defaultValue: "Loading your cases..." })}
+            {t("messages.composeLoadingCases", {
+              defaultValue: "Loading your cases...",
+            })}
           </Text>
         </View>
       );
@@ -285,16 +309,27 @@ export default function ComposeEmailScreen() {
     if (hasFetchError) {
       return (
         <View style={styles.emptyState}>
-          <IconSymbol name="exclamationmark.triangle.fill" size={56} color={colors.danger} />
+          <IconSymbol
+            name="exclamationmark.triangle.fill"
+            size={56}
+            color={colors.danger}
+          />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {t("messages.composeCasesErrorTitle", { defaultValue: "Unable to load advisors" })}
+            {t("messages.composeCasesErrorTitle", {
+              defaultValue: "Unable to load advisors",
+            })}
           </Text>
           <Text style={[styles.emptyMessage, { color: colors.muted }]}>
             {t("messages.composeCasesErrorBody", {
-              defaultValue: "We couldn't retrieve your cases. Please try again.",
+              defaultValue:
+                "We couldn't retrieve your cases. Please try again.",
             })}
           </Text>
-          <Button variant="filled" onPress={handleRetryFetch} style={styles.retryButton}>
+          <Button
+            variant="filled"
+            onPress={handleRetryFetch}
+            style={styles.retryButton}
+          >
             {t("messages.composeRetry", { defaultValue: "Try again" })}
           </Button>
         </View>
@@ -304,9 +339,15 @@ export default function ComposeEmailScreen() {
     if (!agentOptions.length) {
       return (
         <View style={styles.emptyState}>
-          <IconSymbol name="person.crop.circle.fill" size={56} color={colors.muted} />
+          <IconSymbol
+            name="person.crop.circle.fill"
+            size={56}
+            color={colors.muted}
+          />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {t("messages.composeNoCasesTitle", { defaultValue: "No advisors available yet" })}
+            {t("messages.composeNoCasesTitle", {
+              defaultValue: "No advisors available yet",
+            })}
           </Text>
           <Text style={[styles.emptyMessage, { color: colors.muted }]}>
             {t("messages.composeNoCasesDescription", {
@@ -353,21 +394,33 @@ export default function ComposeEmailScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.7 : 0.9),
-                shadowColor: 'green',
+                backgroundColor: theme.dark
+                  ? colors.surfaceElevated
+                  : colors.surface,
+                borderColor: withOpacity(
+                  colors.borderStrong,
+                  theme.dark ? 0.7 : 0.9,
+                ),
+                shadowColor: "green",
               },
             ]}
           >
             <View style={styles.cardHeader}>
-              <IconSymbol name="person.2.fill" size={18} color={colors.primary} />
+              <IconSymbol
+                name="person.2.fill"
+                size={18}
+                color={colors.primary}
+              />
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>
-                  {t("messages.composeSelectAgent", { defaultValue: "Choose an advisor" })}
+                  {t("messages.composeSelectAgent", {
+                    defaultValue: "Choose an advisor",
+                  })}
                 </Text>
                 <Text style={[styles.cardSubtitle, { color: colors.muted }]}>
                   {t("messages.composeSelectAgentHint", {
-                    defaultValue: "Pick the advisor and case you want to contact via email.",
+                    defaultValue:
+                      "Pick the advisor and case you want to contact via email.",
                   })}
                 </Text>
               </View>
@@ -382,27 +435,42 @@ export default function ComposeEmailScreen() {
                     backgroundColor: theme.dark
                       ? withOpacity(colors.surfaceAlt, 0.75)
                       : withOpacity(colors.primary, 0.05),
-                    borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.8),
+                    borderColor: withOpacity(
+                      colors.primary,
+                      theme.dark ? 0.55 : 0.8,
+                    ),
                   },
                 ]}
               >
                 <View style={[styles.selectorTextGroup]}>
-                  <Text style={[styles.selectorLabel, { color: colors.primary }]}>
-                    {t("messages.composeAdvisorLabel", { defaultValue: "Advisor" })}
+                  <Text
+                    style={[styles.selectorLabel, { color: colors.primary }]}
+                  >
+                    {t("messages.composeAdvisorLabel", {
+                      defaultValue: "Advisor",
+                    })}
                   </Text>
                   <Text style={[styles.selectorValue, { color: colors.text }]}>
                     {selectedAgent
                       ? `${selectedAgent.firstName ?? ""} ${selectedAgent.lastName ?? ""}`.trim() ||
-                      selectedAgent.email
-                      : t("messages.composeAdvisorPlaceholder", { defaultValue: "Select advisor" })}
+                        selectedAgent.email
+                      : t("messages.composeAdvisorPlaceholder", {
+                          defaultValue: "Select advisor",
+                        })}
                   </Text>
                   {selectedAgent?.email ? (
-                    <Text style={[styles.selectorMeta, { color: colors.muted }]}>
+                    <Text
+                      style={[styles.selectorMeta, { color: colors.muted }]}
+                    >
                       {selectedAgent.email}
                     </Text>
                   ) : null}
                 </View>
-                <IconSymbol name="chevron.down" size={16} color={colors.muted} />
+                <IconSymbol
+                  name="chevron.down"
+                  size={16}
+                  color={colors.muted}
+                />
               </Pressable>
 
               <Pressable
@@ -414,7 +482,10 @@ export default function ComposeEmailScreen() {
                     backgroundColor: theme.dark
                       ? withOpacity(colors.surfaceAlt, 0.75)
                       : withOpacity(colors.primary, 0.05),
-                    borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.8),
+                    borderColor: withOpacity(
+                      colors.primary,
+                      theme.dark ? 0.55 : 0.8,
+                    ),
                     opacity: filteredCases.length ? 1 : 0.6,
                   },
                 ]}
@@ -426,19 +497,26 @@ export default function ComposeEmailScreen() {
                   <Text style={[styles.selectorValue, { color: colors.text }]}>
                     {selectedCase
                       ? selectedCase.displayName || selectedCase.referenceNumber
-                      : t("messages.composeCasePlaceholder", { defaultValue: "Select case" })}
+                      : t("messages.composeCasePlaceholder", {
+                          defaultValue: "Select case",
+                        })}
                   </Text>
                   {selectedCase ? (
-                    <Text style={[styles.selectorMeta, { color: colors.muted }]}>
+                    <Text
+                      style={[styles.selectorMeta, { color: colors.muted }]}
+                    >
                       {selectedCase.referenceNumber}
                     </Text>
                   ) : null}
                 </View>
-                <IconSymbol name="chevron.down" size={16} color={colors.muted} />
+                <IconSymbol
+                  name="chevron.down"
+                  size={16}
+                  color={colors.muted}
+                />
               </Pressable>
             </View>
           </View>
-
         </View>
 
         <View style={[styles.section, styles.sectionCompact]}>
@@ -446,21 +524,33 @@ export default function ComposeEmailScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-                borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 1),
-                shadowColor: 'green',
+                backgroundColor: theme.dark
+                  ? colors.surfaceElevated
+                  : colors.surface,
+                borderColor: withOpacity(
+                  colors.borderStrong,
+                  theme.dark ? 0.55 : 1,
+                ),
+                shadowColor: "green",
               },
             ]}
           >
             <View style={styles.cardHeader}>
-              <IconSymbol name="doc.text.fill" size={18} color={colors.primary} />
+              <IconSymbol
+                name="doc.text.fill"
+                size={18}
+                color={colors.primary}
+              />
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>
-                  {t("messages.composeDetailsTitle", { defaultValue: "Message details" })}
+                  {t("messages.composeDetailsTitle", {
+                    defaultValue: "Message details",
+                  })}
                 </Text>
                 <Text style={[styles.cardSubtitle, { color: colors.muted }]}>
                   {t("messages.composeDetailsHint", {
-                    defaultValue: "Add a clear subject and message so your advisor can respond quickly.",
+                    defaultValue:
+                      "Add a clear subject and message so your advisor can respond quickly.",
                   })}
                 </Text>
               </View>
@@ -468,7 +558,9 @@ export default function ComposeEmailScreen() {
 
             <View style={styles.subjectFieldContainer}>
               <FormInput
-                label={t("messages.composeSubjectLabel", { defaultValue: "Subject" })}
+                label={t("messages.composeSubjectLabel", {
+                  defaultValue: "Subject",
+                })}
                 placeholder={t("messages.composeSubjectPlaceholder", {
                   defaultValue: "Visa interview preparation",
                 })}
@@ -500,7 +592,13 @@ export default function ComposeEmailScreen() {
                   {
                     borderColor: withOpacity(
                       bodyError ? colors.danger : colors.borderStrong,
-                      theme.dark ? (bodyError ? 0.9 : 0.6) : bodyError ? 0.9 : 0.35
+                      theme.dark
+                        ? bodyError
+                          ? 0.9
+                          : 0.6
+                        : bodyError
+                          ? 0.9
+                          : 0.35,
                     ),
                     borderWidth: StyleSheet.hairlineWidth * 2,
                     backgroundColor: theme.dark
@@ -527,7 +625,9 @@ export default function ComposeEmailScreen() {
                 />
               </View>
               {bodyError ? (
-                <Text style={[styles.errorText, { color: colors.danger }]}>{bodyError}</Text>
+                <Text style={[styles.errorText, { color: colors.danger }]}>
+                  {bodyError}
+                </Text>
               ) : (
                 <Text style={[styles.characterCount, { color: colors.muted }]}>
                   {t("messages.composeCharacterCount", {
@@ -567,24 +667,35 @@ export default function ComposeEmailScreen() {
           style={[
             styles.modalContent,
             {
-              backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+              backgroundColor: theme.dark
+                ? colors.surfaceElevated
+                : colors.surface,
               paddingBottom: Math.max(insets.bottom + 20, 36),
             },
           ]}
         >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {t("messages.composeAgentPickerTitle", { defaultValue: "Choose advisor" })}
+              {t("messages.composeAgentPickerTitle", {
+                defaultValue: "Choose advisor",
+              })}
             </Text>
-            <Pressable onPress={() => setAgentPickerVisible(false)} style={styles.modalClose}>
+            <Pressable
+              onPress={() => setAgentPickerVisible(false)}
+              style={styles.modalClose}
+            >
               <IconSymbol name="xmark" size={18} color={colors.muted} />
             </Pressable>
           </View>
-          <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.modalList}
+            showsVerticalScrollIndicator={false}
+          >
             {agentOptions.map((option) => {
               const { agent, cases: agentCases } = option;
               const isSelected = agent.id === selectedAgentId;
-              const fullName = `${agent.firstName ?? ""} ${agent.lastName ?? ""}`.trim();
+              const fullName =
+                `${agent.firstName ?? ""} ${agent.lastName ?? ""}`.trim();
               return (
                 <Pressable
                   key={agent.id}
@@ -595,28 +706,50 @@ export default function ComposeEmailScreen() {
                   style={[
                     styles.modalOption,
                     isSelected && {
-                      borderColor: withOpacity(colors.primary, theme.dark ? 0.7 : 0.3),
-                      backgroundColor: withOpacity(colors.primary, theme.dark ? 0.2 : 0.08),
+                      borderColor: withOpacity(
+                        colors.primary,
+                        theme.dark ? 0.7 : 0.3,
+                      ),
+                      backgroundColor: withOpacity(
+                        colors.primary,
+                        theme.dark ? 0.2 : 0.08,
+                      ),
                     },
                   ]}
                 >
                   <View style={styles.modalOptionHeader}>
-                    <Text style={[styles.modalOptionTitle, { color: colors.text }]}>
+                    <Text
+                      style={[styles.modalOptionTitle, { color: colors.text }]}
+                    >
                       {fullName.length ? fullName : agent.email}
                     </Text>
                     {isSelected ? (
-                      <IconSymbol name="checkmark.circle.fill" size={18} color={colors.primary} />
+                      <IconSymbol
+                        name="checkmark.circle.fill"
+                        size={18}
+                        color={colors.primary}
+                      />
                     ) : null}
                   </View>
                   {agent.email ? (
-                    <Text style={[styles.modalOptionSubtitle, { color: colors.muted }]}>
+                    <Text
+                      style={[
+                        styles.modalOptionSubtitle,
+                        { color: colors.muted },
+                      ]}
+                    >
                       {agent.email}
                     </Text>
                   ) : null}
-                  <Text style={[styles.modalOptionMeta, { color: colors.muted }]}>
+                  <Text
+                    style={[styles.modalOptionMeta, { color: colors.muted }]}
+                  >
                     {t("messages.composeAgentCasesCount", {
                       count: agentCases.length,
-                      defaultValue: agentCases.length === 1 ? "1 case" : `${agentCases.length} cases`,
+                      defaultValue:
+                        agentCases.length === 1
+                          ? "1 case"
+                          : `${agentCases.length} cases`,
                     })}
                   </Text>
                 </Pressable>
@@ -643,20 +776,30 @@ export default function ComposeEmailScreen() {
           style={[
             styles.modalContent,
             {
-              backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
+              backgroundColor: theme.dark
+                ? colors.surfaceElevated
+                : colors.surface,
               paddingBottom: Math.max(insets.bottom + 20, 36),
             },
           ]}
         >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {t("messages.composeCasePickerTitle", { defaultValue: "Choose case" })}
+              {t("messages.composeCasePickerTitle", {
+                defaultValue: "Choose case",
+              })}
             </Text>
-            <Pressable onPress={() => setCasePickerVisible(false)} style={styles.modalClose}>
+            <Pressable
+              onPress={() => setCasePickerVisible(false)}
+              style={styles.modalClose}
+            >
               <IconSymbol name="xmark" size={18} color={colors.muted} />
             </Pressable>
           </View>
-          <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.modalList}
+            showsVerticalScrollIndicator={false}
+          >
             {filteredCases.map((caseItem) => {
               const isSelected = caseItem.id === selectedCaseId;
               return (
@@ -669,23 +812,42 @@ export default function ComposeEmailScreen() {
                   style={[
                     styles.modalOption,
                     isSelected && {
-                      borderColor: withOpacity(colors.primary, theme.dark ? 0.7 : 0.3),
-                      backgroundColor: withOpacity(colors.primary, theme.dark ? 0.2 : 0.08),
+                      borderColor: withOpacity(
+                        colors.primary,
+                        theme.dark ? 0.7 : 0.3,
+                      ),
+                      backgroundColor: withOpacity(
+                        colors.primary,
+                        theme.dark ? 0.2 : 0.08,
+                      ),
                     },
                   ]}
                 >
                   <View style={styles.modalOptionHeader}>
-                    <Text style={[styles.modalOptionTitle, { color: colors.text }]}>
+                    <Text
+                      style={[styles.modalOptionTitle, { color: colors.text }]}
+                    >
                       {caseItem.displayName || caseItem.referenceNumber}
                     </Text>
                     {isSelected ? (
-                      <IconSymbol name="checkmark.circle.fill" size={18} color={colors.primary} />
+                      <IconSymbol
+                        name="checkmark.circle.fill"
+                        size={18}
+                        color={colors.primary}
+                      />
                     ) : null}
                   </View>
-                  <Text style={[styles.modalOptionSubtitle, { color: colors.muted }]}>
+                  <Text
+                    style={[
+                      styles.modalOptionSubtitle,
+                      { color: colors.muted },
+                    ]}
+                  >
                     {caseItem.referenceNumber}
                   </Text>
-                  <Text style={[styles.modalOptionMeta, { color: colors.muted }]}>
+                  <Text
+                    style={[styles.modalOptionMeta, { color: colors.muted }]}
+                  >
                     {formatServiceTypeLabel(caseItem.serviceType)}
                   </Text>
                 </Pressable>
@@ -701,13 +863,20 @@ export default function ComposeEmailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : colors.background }]}
+        style={[
+          styles.container,
+          { backgroundColor: theme.dark ? "#1f2937" : colors.background },
+        ]}
         edges={["top"]}
       >
         <KeyboardAvoidingView
           style={styles.keyboardAvoiding}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.select({ ios: insets.top + 60, android: 0, default: 0 })}
+          keyboardVerticalOffset={Platform.select({
+            ios: insets.top + 60,
+            android: 0,
+            default: 0,
+          })}
         >
           <View style={styles.header}>
             <BackButton onPress={handleGoBack} iconSize={22} />
@@ -717,7 +886,8 @@ export default function ComposeEmailScreen() {
               </Text>
               <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
                 {t("messages.composeSubtitle", {
-                  defaultValue: "Start a fresh conversation with your advisor via email.",
+                  defaultValue:
+                    "Start a fresh conversation with your advisor via email.",
                 })}
               </Text>
             </View>
@@ -983,5 +1153,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-

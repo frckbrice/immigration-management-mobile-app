@@ -1,13 +1,13 @@
-import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logger } from '../utils/logger';
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logger } from "../utils/logger";
 
 const STORAGE_KEYS = {
-  AUTH_TOKEN: 'auth_token',
-  REFRESH_TOKEN: 'refresh_token',
-  USER_DATA: 'user_data',
-  BIOMETRIC_ENABLED: 'biometric_enabled',
-  REMEMBER_ME: 'remember_me',
+  AUTH_TOKEN: "auth_token",
+  REFRESH_TOKEN: "refresh_token",
+  USER_DATA: "user_data",
+  BIOMETRIC_ENABLED: "biometric_enabled",
+  REMEMBER_ME: "remember_me",
 } as const;
 
 class SecureStorage {
@@ -75,15 +75,15 @@ class SecureStorage {
         await this.deleteSecure(key);
       }
     } catch (error) {
-      logger.error('Error clearing storage', error);
+      logger.error("Error clearing storage", error);
     }
   }
 
   // Specific methods for common operations
   async setAuthToken(token: string | null | undefined): Promise<void> {
-    if (!token || typeof token !== 'string') {
-      logger.warn('Invalid auth token provided', { type: typeof token });
-      throw new Error('Auth token must be a non-empty string');
+    if (!token || typeof token !== "string") {
+      logger.warn("Invalid auth token provided", { type: typeof token });
+      throw new Error("Auth token must be a non-empty string");
     }
     await this.setSecure(STORAGE_KEYS.AUTH_TOKEN, token);
   }
@@ -93,9 +93,9 @@ class SecureStorage {
   }
 
   async setRefreshToken(token: string | null | undefined): Promise<void> {
-    if (!token || typeof token !== 'string') {
-      logger.warn('Invalid refresh token provided', { type: typeof token });
-      throw new Error('Refresh token must be a non-empty string');
+    if (!token || typeof token !== "string") {
+      logger.warn("Invalid refresh token provided", { type: typeof token });
+      throw new Error("Refresh token must be a non-empty string");
     }
     await this.setSecure(STORAGE_KEYS.REFRESH_TOKEN, token);
   }
@@ -139,4 +139,3 @@ class SecureStorage {
 
 export const secureStorage = new SecureStorage();
 export { STORAGE_KEYS };
-

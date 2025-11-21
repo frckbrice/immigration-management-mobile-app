@@ -19,7 +19,7 @@ const _addImportStatement = (t, p, identifier, importPath) => {
 
   const importDecl = t.importDeclaration(
     [t.importDefaultSpecifier(t.identifier(identifier))],
-    t.stringLiteral(importPath) // 👈 adjust path here
+    t.stringLiteral(importPath), // 👈 adjust path here
   );
   p.unshiftContainer("body", importDecl);
 };
@@ -59,17 +59,17 @@ const wrapElementsInEdit = (t, path, state) => {
   const openingElement = t.jsxOpeningElement(
     t.jsxIdentifier("EditableElement_"),
     [],
-    false
+    false,
   );
   const closingElement = t.jsxClosingElement(
-    t.jsxIdentifier("EditableElement_")
+    t.jsxIdentifier("EditableElement_"),
   );
 
   const wrapped = t.jsxElement(
     openingElement,
     closingElement,
     [t.cloneNode(path.node, true)], // deep clone
-    false
+    false,
   );
 
   path.replaceWith(t.cloneNode(wrapped, true));
@@ -85,8 +85,8 @@ const wrapExportWithEditableWrapper = (t, path) => {
           t.exportDefaultDeclaration(
             t.callExpression(t.identifier("withEditableWrapper_"), [
               declaration,
-            ])
-          )
+            ]),
+          ),
         );
       } else if (t.isFunctionDeclaration(declaration)) {
         const id = declaration.id;
@@ -95,7 +95,7 @@ const wrapExportWithEditableWrapper = (t, path) => {
         exportPath.replaceWithMultiple([
           declaration,
           t.exportDefaultDeclaration(
-            t.callExpression(t.identifier("withEditableWrapper_"), [id])
+            t.callExpression(t.identifier("withEditableWrapper_"), [id]),
           ),
         ]);
       }

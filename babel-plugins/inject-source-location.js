@@ -24,8 +24,8 @@ module.exports = function ({ types: t }) {
         path.node.attributes.push(
           t.jsxAttribute(
             t.jsxIdentifier("__sourceLocation"),
-            t.stringLiteral(location)
-          )
+            t.stringLiteral(location),
+          ),
         );
 
         path.node.attributes.push(
@@ -40,17 +40,17 @@ module.exports = function ({ types: t }) {
                       t.logicalExpression(
                         "||",
                         t.identifier("arguments[0]"),
-                        t.arrayExpression([])
+                        t.arrayExpression([]),
                       ), // parent props object
-                      t.identifier("__trace")
+                      t.identifier("__trace"),
                     ),
-                    t.arrayExpression([]) // fallback to empty array if undefined
-                  )
+                    t.arrayExpression([]), // fallback to empty array if undefined
+                  ),
                 ),
                 t.stringLiteral(location), // current element location
-              ])
-            )
-          )
+              ]),
+            ),
+          ),
         );
       },
     },

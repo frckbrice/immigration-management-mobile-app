@@ -12,23 +12,25 @@ export interface PasswordValidationResult {
   errors: string[];
 }
 
-export const validatePassword = (password: string): PasswordValidationResult => {
+export const validatePassword = (
+  password: string,
+): PasswordValidationResult => {
   const errors: string[] = [];
 
   if (password.length < 8) {
-    errors.push('Password must be at least 8 characters long');
+    errors.push("Password must be at least 8 characters long");
   }
 
   if (!/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
+    errors.push("Password must contain at least one uppercase letter");
   }
 
   if (!/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
+    errors.push("Password must contain at least one lowercase letter");
   }
 
   if (!/[0-9]/.test(password)) {
-    errors.push('Password must contain at least one number');
+    errors.push("Password must contain at least one number");
   }
 
   return {
@@ -37,8 +39,10 @@ export const validatePassword = (password: string): PasswordValidationResult => 
   };
 };
 
-export const getPasswordStrength = (password: string): 'weak' | 'medium' | 'strong' => {
-  if (password.length === 0) return 'weak';
+export const getPasswordStrength = (
+  password: string,
+): "weak" | "medium" | "strong" => {
+  if (password.length === 0) return "weak";
 
   let strength = 0;
 
@@ -52,8 +56,7 @@ export const getPasswordStrength = (password: string): 'weak' | 'medium' | 'stro
   if (/[0-9]/.test(password)) strength++;
   if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-  if (strength <= 2) return 'weak';
-  if (strength <= 4) return 'medium';
-  return 'strong';
+  if (strength <= 2) return "weak";
+  if (strength <= 4) return "medium";
+  return "strong";
 };
-

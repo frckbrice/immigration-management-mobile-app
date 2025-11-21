@@ -1,23 +1,22 @@
-
 // Firebase configuration
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import { logger } from '../utils/logger';
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { initializeAuth, getAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { logger } from "../utils/logger";
 
 // Safely import getReactNativePersistence (may not exist in all Firebase versions)
-let getReactNativePersistence: ((storage: typeof AsyncStorage) => any) | null = null;
+let getReactNativePersistence: ((storage: typeof AsyncStorage) => any) | null =
+  null;
 try {
-  const authModule = require('firebase/auth');
+  const authModule = require("firebase/auth");
   if (authModule.getReactNativePersistence) {
     getReactNativePersistence = authModule.getReactNativePersistence;
   }
 } catch {
   // getReactNativePersistence not available
 }
-
 
 // For React Native, we need to use ReactNativeAsyncStorage adapter"
 // Firebase v12+ uses a different persistence mechanism
@@ -29,20 +28,32 @@ try {
 // }
 
 const firebaseConfig = {
-  apiKey: Constants.expoConfig?.extra?.firebaseApiKey || process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: Constants.expoConfig?.extra?.firebaseAuthDomain || process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: Constants.expoConfig?.extra?.firebaseProjectId || process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: Constants.expoConfig?.extra?.firebaseStorageBucket || process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: Constants.expoConfig?.extra?.firebaseMessagingSenderId || process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: Constants.expoConfig?.extra?.firebaseAppId || process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-  databaseURL: Constants.expoConfig?.extra?.firebaseDatabaseUrl || process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
+  apiKey:
+    Constants.expoConfig?.extra?.firebaseApiKey ||
+    process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain:
+    Constants.expoConfig?.extra?.firebaseAuthDomain ||
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId:
+    Constants.expoConfig?.extra?.firebaseProjectId ||
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket:
+    Constants.expoConfig?.extra?.firebaseStorageBucket ||
+    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId:
+    Constants.expoConfig?.extra?.firebaseMessagingSenderId ||
+    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId:
+    Constants.expoConfig?.extra?.firebaseAppId ||
+    process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  databaseURL:
+    Constants.expoConfig?.extra?.firebaseDatabaseUrl ||
+    process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
 };
-
-
 
 // Validate Firebase configuration
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  logger.error('Firebase config is missing required fields:', {
+  logger.error("Firebase config is missing required fields:", {
     hasApiKey: !!firebaseConfig.apiKey,
     hasProjectId: !!firebaseConfig.projectId,
     hasAuthDomain: !!firebaseConfig.authDomain,
@@ -59,7 +70,10 @@ const ensureAuth = (firebaseApp: FirebaseApp) => {
           persistence: getReactNativePersistence(AsyncStorage),
         });
       } catch (persistenceError: any) {
-        logger.warn('Failed to initialize with React Native persistence, using default', persistenceError);
+        logger.warn(
+          "Failed to initialize with React Native persistence, using default",
+          persistenceError,
+        );
         return initializeAuth(firebaseApp);
       }
     } else {
@@ -67,10 +81,13 @@ const ensureAuth = (firebaseApp: FirebaseApp) => {
       return initializeAuth(firebaseApp);
     }
   } catch (error: any) {
-    if (error?.code === 'auth/already-initialized') {
+    if (error?.code === "auth/already-initialized") {
       return getAuth(firebaseApp);
     }
-    if (error?.code === 'ERR_MODULE_NOT_FOUND' || error?.message?.includes('firebase/auth/react-native')) {
+    if (
+      error?.code === "ERR_MODULE_NOT_FOUND" ||
+      error?.message?.includes("firebase/auth/react-native")
+    ) {
       // Fallback to default persistence (memory) when the helper isn't available
       return initializeAuth(firebaseApp);
     }
@@ -105,7 +122,9 @@ if (!getApps().length) {
 
 // Lazy database initialization function with retry logic
 // Firebase v11 should work better with React Native than v12
-const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | null => {
+const initializeDatabase = (
+  retry = false,
+): ReturnType<typeof getDatabase> | null => {
   // If already initialized, return it
   if (database) {
     return database;
@@ -120,7 +139,9 @@ const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | nul
 
   try {
     if (!firebaseConfig.databaseURL) {
-      logger.warn('Firebase Realtime Database URL is not configured. Database features will not be available.');
+      logger.warn(
+        "Firebase Realtime Database URL is not configured. Database features will not be available.",
+      );
       databaseInitializationAttempted = false; // Allow retry if URL is added later
       return null;
     }
@@ -133,13 +154,13 @@ const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | nul
       database = getDatabase(app, firebaseConfig.databaseURL);
 
       // Verify the database instance is valid by checking if it has the expected properties
-      if (database && typeof database === 'object') {
-        logger.info('Firebase Realtime Database initialized successfully', {
+      if (database && typeof database === "object") {
+        logger.info("Firebase Realtime Database initialized successfully", {
           databaseURL: firebaseConfig.databaseURL,
         });
         return database;
       } else {
-        throw new Error('Database instance is invalid');
+        throw new Error("Database instance is invalid");
       }
     } catch (immediateError: any) {
       const errorMessage = immediateError?.message || String(immediateError);
@@ -147,12 +168,17 @@ const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | nul
 
       // If "Service database is not available", try to work around it
       // This can happen if the database service isn't registered yet
-      if (errorMessage.includes('Service database is not available') ||
-        errorMessage.includes('service-unavailable') ||
-        errorCode === 'database/service-unavailable') {
-        logger.warn('Database service reported unavailable. Will retry with delay...', {
-          databaseURL: firebaseConfig.databaseURL,
-        });
+      if (
+        errorMessage.includes("Service database is not available") ||
+        errorMessage.includes("service-unavailable") ||
+        errorCode === "database/service-unavailable"
+      ) {
+        logger.warn(
+          "Database service reported unavailable. Will retry with delay...",
+          {
+            databaseURL: firebaseConfig.databaseURL,
+          },
+        );
         // Reset flag to allow retry
         databaseInitializationAttempted = false;
         return null;
@@ -160,24 +186,29 @@ const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | nul
 
       // Try fallback: without explicit URL (let Firebase use default from app config)
       try {
-        logger.warn('Trying fallback database initialization without explicit URL...');
+        logger.warn(
+          "Trying fallback database initialization without explicit URL...",
+        );
         database = getDatabase(app);
 
-        if (database && typeof database === 'object') {
-          logger.info('\n\n\n [Firebase]  ✅ Realtime Database initialized successfully (fallback method)', {
-            databaseURL: firebaseConfig.databaseURL,
-          });
+        if (database && typeof database === "object") {
+          logger.info(
+            "\n\n\n [Firebase]  ✅ Realtime Database initialized successfully (fallback method)",
+            {
+              databaseURL: firebaseConfig.databaseURL,
+            },
+          );
           return database;
         } else {
-          throw new Error('Fallback database instance is invalid');
+          throw new Error("Fallback database instance is invalid");
         }
       } catch (fallbackError: any) {
         const fallbackMessage = fallbackError?.message || String(fallbackError);
-        logger.error('All database initialization methods failed', {
+        logger.error("All database initialization methods failed", {
           primaryError: errorMessage,
           fallbackError: fallbackMessage,
           databaseURL: firebaseConfig.databaseURL,
-          hint: 'Database may not be properly configured or Firebase v12 has compatibility issues with React Native',
+          hint: "Database may not be properly configured or Firebase v12 has compatibility issues with React Native",
         });
         databaseInitializationAttempted = false; // Allow retry
         return null;
@@ -185,11 +216,11 @@ const initializeDatabase = (retry = false): ReturnType<typeof getDatabase> | nul
     }
   } catch (error: any) {
     const errorMessage = error?.message || String(error);
-    logger.error('Unexpected error during database initialization:', {
+    logger.error("Unexpected error during database initialization:", {
       error: errorMessage,
       errorCode: error?.code,
       databaseURL: firebaseConfig.databaseURL,
-      hint: 'Make sure Realtime Database is enabled in Firebase Console and databaseURL is correct',
+      hint: "Make sure Realtime Database is enabled in Firebase Console and databaseURL is correct",
     });
     databaseInitializationAttempted = false; // Allow retry
     return null;
@@ -205,7 +236,9 @@ export const messagingSenderId = firebaseConfig.messagingSenderId;
 
 // Export function to get database instance with retry logic
 // This is the main entry point for services that need the database
-export const getDatabaseInstance = (): ReturnType<typeof getDatabase> | null => {
+export const getDatabaseInstance = (): ReturnType<
+  typeof getDatabase
+> | null => {
   // If already initialized, return it
   if (database) {
     return database;
@@ -216,12 +249,14 @@ export const getDatabaseInstance = (): ReturnType<typeof getDatabase> | null => 
   const retriedDb = initializeDatabase(true);
 
   if (retriedDb) {
-    logger.info('Firebase Realtime Database initialized successfully on retry');
+    logger.info("Firebase Realtime Database initialized successfully on retry");
     return retriedDb;
   }
 
   // If all retries failed, log a final warning
-  logger.warn('Database instance is not available after all retry attempts. Chat and presence features will not work.');
+  logger.warn(
+    "Database instance is not available after all retry attempts. Chat and presence features will not work.",
+  );
   return null;
 };
 

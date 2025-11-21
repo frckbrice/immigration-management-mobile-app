@@ -1,9 +1,13 @@
-import { create } from 'zustand';
-import { messagesService } from '../../lib/services/messagesService';
-import { chatService, ChatMessage, Conversation } from '../../lib/services/chat';
-import { mergeMessageIntoList } from '../../lib/utils/chatMessages';
-import { logger } from '../../lib/utils/logger';
-import type { Message } from '../../lib/types';
+import { create } from "zustand";
+import { messagesService } from "../../lib/services/messagesService";
+import {
+  chatService,
+  ChatMessage,
+  Conversation,
+} from "../../lib/services/chat";
+import { mergeMessageIntoList } from "../../lib/utils/chatMessages";
+import { logger } from "../../lib/utils/logger";
+import type { Message } from "../../lib/types";
 
 const EMAIL_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 const CONVERSATIONS_CACHE_TTL = 60 * 1000; // 1 minute
@@ -44,15 +48,13 @@ interface MessagesState {
   refreshEmailSegments: () => void;
   fetchConversations: (userId: string, force?: boolean) => Promise<void>;
   subscribeToConversations: (userId: string) => () => void;
-  loadChatMessages: (
-    params: {
-      caseId: string;
-      roomId?: string | null;
-      clientId?: string | null;
-      agentId?: string | null;
-      force?: boolean;
-    }
-  ) => Promise<{
+  loadChatMessages: (params: {
+    caseId: string;
+    roomId?: string | null;
+    clientId?: string | null;
+    agentId?: string | null;
+    force?: boolean;
+  }) => Promise<{
     roomId: string | null;
     messages: ChatMessage[];
     hasMore: boolean;
@@ -62,28 +64,31 @@ interface MessagesState {
     caseId: string,
     beforeTimestamp: number,
     clientId?: string,
-    agentId?: string
+    agentId?: string,
   ) => Promise<void>;
   sendChatMessage: (
     caseId: string,
     senderId: string,
     senderName: string,
-    senderRole: 'CLIENT' | 'AGENT' | 'ADMIN',
+    senderRole: "CLIENT" | "AGENT" | "ADMIN",
     message: string,
-    attachments?: ChatMessage['attachments'],
+    attachments?: ChatMessage["attachments"],
     clientId?: string,
-    agentId?: string
+    agentId?: string,
   ) => Promise<boolean>;
   subscribeToChatMessages: (
     roomId: string,
     onNewMessage: (message: ChatMessage) => void,
-    lastKnownTimestamp?: number
+    lastKnownTimestamp?: number,
   ) => () => void;
   markChatAsRead: (roomId: string, userId: string) => Promise<void>;
   markAsRead: (messageId: string) => Promise<void>;
   markAsUnread: (messageId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  setCurrentConversation: (conversationId: string | null, caseId?: string | null) => void;
+  setCurrentConversation: (
+    conversationId: string | null,
+    caseId?: string | null,
+  ) => void;
   addChatMessage: (message: ChatMessage) => void;
   setConversationUnread: (roomId: string, unread: number) => void;
   clearError: () => void;
@@ -97,10 +102,10 @@ const segmentEmails = (messages: Message[]) => {
   messages.forEach((message) => {
     const direction =
       message.direction ||
-      ((message.role || '').toLowerCase() === 'sent' ? 'outgoing' : 'incoming');
+      ((message.role || "").toLowerCase() === "sent" ? "outgoing" : "incoming");
 
     // Only count unread for incoming messages (not outgoing)
-    if (direction === 'incoming') {
+    if (direction === "incoming") {
       const isUnread = message.unread ?? !message.isRead;
       if (isUnread) {
         unread += 1;
@@ -126,7 +131,10 @@ const segmentEmails = (messages: Message[]) => {
 };
 
 const computeUnreadChatTotal = (conversations: Conversation[]) =>
-  conversations.reduce((total, conversation) => total + (conversation.unreadCount || 0), 0);
+  conversations.reduce(
+    (total, conversation) => total + (conversation.unreadCount || 0),
+    0,
+  );
 
 export const useMessagesStore = create<MessagesState>((set, get) => ({
   messages: [],
@@ -165,8 +173,16 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const [inboxMessages, sentMessages] = await Promise.all([
-        messagesService.getEmails({ direction: 'incoming', page: 1, limit: 50 }),
-        messagesService.getEmails({ direction: 'outgoing', page: 1, limit: 50 }),
+        messagesService.getEmails({
+          direction: "incoming",
+          page: 1,
+          limit: 50,
+        }),
+        messagesService.getEmails({
+          direction: "outgoing",
+          page: 1,
+          limit: 50,
+        }),
       ]);
 
       const combined = [...inboxMessages, ...sentMessages].sort((a, b) => {
@@ -187,8 +203,10 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       });
     } catch (error: any) {
       const errorMessage =
-        error.response?.data?.error || error.message || 'Failed to fetch messages';
-      logger.error('Error fetching messages', error);
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to fetch messages";
+      logger.error("Error fetching messages", error);
       set({ error: errorMessage, isLoading: false });
     }
   },
@@ -249,8 +267,8 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         lastConversationsUserId: userId,
       });
     } catch (error: any) {
-      const message = error?.message || 'Failed to load conversations';
-      logger.error('Error loading conversations', error);
+      const message = error?.message || "Failed to load conversations";
+      logger.error("Error loading conversations", error);
       set({
         conversationsError: message,
         isConversationsLoading: false,
@@ -268,45 +286,54 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       existing();
     }
 
-    const unsubscribe = chatService.subscribeToConversationSummaries(userId, (conversations) => {
-      set((state) => {
-        // Merge backend conversations with local state to preserve optimistic updates
-        // If a conversation was marked as read locally (unreadCount: 0), preserve that
-        // unless the backend shows a newer last message (indicating new messages arrived)
-        const backendConvMap = new Map(conversations.map((c) => [c.id, c]));
-        const localConvMap = new Map(state.conversations.map((c) => [c.id, c]));
+    const unsubscribe = chatService.subscribeToConversationSummaries(
+      userId,
+      (conversations) => {
+        set((state) => {
+          // Merge backend conversations with local state to preserve optimistic updates
+          // If a conversation was marked as read locally (unreadCount: 0), preserve that
+          // unless the backend shows a newer last message (indicating new messages arrived)
+          const backendConvMap = new Map(conversations.map((c) => [c.id, c]));
+          const localConvMap = new Map(
+            state.conversations.map((c) => [c.id, c]),
+          );
 
-        const mergedConversations = conversations.map((backendConv) => {
-          const localConv = localConvMap.get(backendConv.id);
-          // If locally marked as read (unreadCount: 0) and backend still shows unread,
-          // check if backend has a newer message - if not, preserve the local optimistic update
-          if (localConv && localConv.unreadCount === 0 && backendConv.unreadCount > 0) {
-            const localLastMessageTime = localConv.lastMessageTime ?? 0;
-            const backendLastMessageTime = backendConv.lastMessageTime ?? 0;
-            // Only preserve local update if backend doesn't have a newer message
-            if (backendLastMessageTime <= localLastMessageTime) {
-              return { ...backendConv, unreadCount: 0 };
+          const mergedConversations = conversations.map((backendConv) => {
+            const localConv = localConvMap.get(backendConv.id);
+            // If locally marked as read (unreadCount: 0) and backend still shows unread,
+            // check if backend has a newer message - if not, preserve the local optimistic update
+            if (
+              localConv &&
+              localConv.unreadCount === 0 &&
+              backendConv.unreadCount > 0
+            ) {
+              const localLastMessageTime = localConv.lastMessageTime ?? 0;
+              const backendLastMessageTime = backendConv.lastMessageTime ?? 0;
+              // Only preserve local update if backend doesn't have a newer message
+              if (backendLastMessageTime <= localLastMessageTime) {
+                return { ...backendConv, unreadCount: 0 };
+              }
             }
-          }
-          return backendConv;
-        });
+            return backendConv;
+          });
 
-        // Add any local conversations that aren't in the backend (shouldn't happen often, but handle it)
-        localConvMap.forEach((localConv, id) => {
-          if (!backendConvMap.has(id)) {
-            mergedConversations.push(localConv);
-          }
-        });
+          // Add any local conversations that aren't in the backend (shouldn't happen often, but handle it)
+          localConvMap.forEach((localConv, id) => {
+            if (!backendConvMap.has(id)) {
+              mergedConversations.push(localConv);
+            }
+          });
 
-        return {
-          conversations: mergedConversations,
-          unreadChatTotal: computeUnreadChatTotal(mergedConversations),
-          conversationsError: null, // Clear error on successful update
-          lastConversationsFetchedAt: Date.now(),
-          lastConversationsUserId: userId,
-        };
-      });
-    });
+          return {
+            conversations: mergedConversations,
+            unreadChatTotal: computeUnreadChatTotal(mergedConversations),
+            conversationsError: null, // Clear error on successful update
+            lastConversationsFetchedAt: Date.now(),
+            lastConversationsUserId: userId,
+          };
+        });
+      },
+    );
 
     // Note: Permission errors are now handled gracefully in chatService
     // The callback will receive an empty array if permission is denied
@@ -327,7 +354,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     roomId?: string | null;
     clientId?: string | null;
     agentId?: string | null;
-      force?: boolean;
+    force?: boolean;
   }) => {
     set({ error: null, currentCaseId: caseId });
     try {
@@ -339,11 +366,19 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         }
 
         if (!resolvedRoomId && clientId) {
-          resolvedRoomId = await chatService.findRoomIdForCase(clientId, caseId);
+          resolvedRoomId = await chatService.findRoomIdForCase(
+            clientId,
+            caseId,
+          );
         }
 
         if (!resolvedRoomId) {
-          logger.warn('loadChatMessages missing identifiers', { caseId, roomId, clientId, agentId });
+          logger.warn("loadChatMessages missing identifiers", {
+            caseId,
+            roomId,
+            clientId,
+            agentId,
+          });
           set({ chatMessages: [], currentRoomId: null, isLoading: false });
           return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
         }
@@ -351,7 +386,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
       const { chatMessagesCache } = get();
       const cacheKey = resolvedRoomId;
-      const cacheEntry = chatMessagesCache[cacheKey ?? ''];
+      const cacheEntry = chatMessagesCache[cacheKey ?? ""];
       const now = Date.now();
 
       if (
@@ -378,7 +413,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
       const result = await chatService.loadMessagesForRoom(resolvedRoomId, 50);
 
-      logger.info('Loaded chat messages', {
+      logger.info("Loaded chat messages", {
         caseId,
         roomId: resolvedRoomId,
         messages: result.messages.length,
@@ -386,7 +421,9 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         totalCount: result.totalCount,
       });
 
-      const sorted = (result.messages ?? []).slice().sort((a, b) => a.timestamp - b.timestamp);
+      const sorted = (result.messages ?? [])
+        .slice()
+        .sort((a, b) => a.timestamp - b.timestamp);
       const limited =
         sorted.length > MAX_CHAT_MESSAGES
           ? sorted.slice(sorted.length - MAX_CHAT_MESSAGES)
@@ -410,24 +447,35 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
       return { ...result, roomId: resolvedRoomId };
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to load chat messages';
-      logger.error('Error loading chat messages', error);
+      const errorMessage = error.message || "Failed to load chat messages";
+      logger.error("Error loading chat messages", error);
       set({ error: errorMessage, isLoading: false });
       return { roomId: null, messages: [], hasMore: false, totalCount: 0 };
     }
   },
 
-  loadOlderChatMessages: async (caseId: string, beforeTimestamp: number, clientId?: string, agentId?: string) => {
+  loadOlderChatMessages: async (
+    caseId: string,
+    beforeTimestamp: number,
+    clientId?: string,
+    agentId?: string,
+  ) => {
     try {
       const roomId = get().currentRoomId || caseId;
       if (!roomId) {
         return;
       }
-      const result = await chatService.loadOlderMessages(roomId, beforeTimestamp, 20);
+      const result = await chatService.loadOlderMessages(
+        roomId,
+        beforeTimestamp,
+        20,
+      );
       set((state) => {
         const existingIds = new Set(state.chatMessages.map((m) => m.id));
         const uniqueNew = result.messages.filter((m) => !existingIds.has(m.id));
-        const combined = [...uniqueNew, ...state.chatMessages].sort((a, b) => a.timestamp - b.timestamp);
+        const combined = [...uniqueNew, ...state.chatMessages].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        );
         const limited =
           combined.length > MAX_CHAT_MESSAGES
             ? combined.slice(combined.length - MAX_CHAT_MESSAGES)
@@ -437,20 +485,23 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
           chatMessages: limited,
           chatMessagesCache: existingCache
             ? {
-              ...state.chatMessagesCache,
-              [roomId]: {
-                ...existingCache,
-                messages: limited,
-                hasMore: result.hasMore,
-                totalCount: Math.max(existingCache.totalCount, limited.length),
-                lastFetchedAt: Date.now(),
-              },
-            }
+                ...state.chatMessagesCache,
+                [roomId]: {
+                  ...existingCache,
+                  messages: limited,
+                  hasMore: result.hasMore,
+                  totalCount: Math.max(
+                    existingCache.totalCount,
+                    limited.length,
+                  ),
+                  lastFetchedAt: Date.now(),
+                },
+              }
             : state.chatMessagesCache,
         };
       });
     } catch (error: any) {
-      logger.error('Error loading older chat messages', error);
+      logger.error("Error loading older chat messages", error);
     }
   },
 
@@ -458,16 +509,18 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     caseId: string,
     senderId: string,
     senderName: string,
-    senderRole: 'CLIENT' | 'AGENT' | 'ADMIN',
+    senderRole: "CLIENT" | "AGENT" | "ADMIN",
     message: string,
-    attachments?: ChatMessage['attachments'],
+    attachments?: ChatMessage["attachments"],
     clientId?: string,
-    agentId?: string
+    agentId?: string,
   ) => {
     try {
       const roomId = get().currentRoomId || caseId;
       if (!roomId) {
-        logger.warn('sendChatMessage aborted - no active chat room', { caseId });
+        logger.warn("sendChatMessage aborted - no active chat room", {
+          caseId,
+        });
         return false;
       }
 
@@ -479,16 +532,20 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         message,
         attachments,
         clientId,
-        agentId
+        agentId,
       );
       return success;
     } catch (error: any) {
-      logger.error('Error sending chat message', error);
+      logger.error("Error sending chat message", error);
       return false;
     }
   },
 
-  subscribeToChatMessages: (roomId: string, onNewMessage: (message: ChatMessage) => void, lastKnownTimestamp?: number) => {
+  subscribeToChatMessages: (
+    roomId: string,
+    onNewMessage: (message: ChatMessage) => void,
+    lastKnownTimestamp?: number,
+  ) => {
     const currentUnsubscribe = get().unsubscribeMessages;
     if (currentUnsubscribe) {
       currentUnsubscribe();
@@ -501,16 +558,18 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
         set((state) => {
           const exists = state.chatMessages.some(
-            (m) => m.id === newMessage.id || m.tempId === newMessage.id
+            (m) => m.id === newMessage.id || m.tempId === newMessage.id,
           );
           if (exists) {
             const tempIndex = state.chatMessages.findIndex(
-              (m) => m.tempId && m.id === newMessage.id
+              (m) => m.tempId && m.id === newMessage.id,
             );
             if (tempIndex !== -1) {
               const updated = [...state.chatMessages];
               updated[tempIndex] = newMessage;
-              return { chatMessages: updated.sort((a, b) => a.timestamp - b.timestamp) };
+              return {
+                chatMessages: updated.sort((a, b) => a.timestamp - b.timestamp),
+              };
             }
             return state;
           }
@@ -522,7 +581,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
                   m.tempId &&
                   m.message === newMessage.message &&
                   Math.abs(m.timestamp - newMessage.timestamp) < 5000
-                )
+                ),
             )
             .concat([newMessage])
             .sort((a, b) => a.timestamp - b.timestamp);
@@ -534,9 +593,8 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
 
           return { chatMessages: limited };
         });
-
       },
-      lastKnownTimestamp
+      lastKnownTimestamp,
     );
 
     set({ unsubscribeMessages: unsubscribe });
@@ -554,7 +612,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         const updated = state.conversations.map((conversation) =>
           conversation.id === activeRoomId
             ? { ...conversation, unreadCount: 0 }
-            : conversation
+            : conversation,
         );
         return {
           conversations: updated,
@@ -562,7 +620,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         };
       });
     } catch (error: any) {
-      logger.error('Error marking chat as read', error);
+      logger.error("Error marking chat as read", error);
     }
   },
 
@@ -589,7 +647,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         };
       });
     } catch (error: any) {
-      logger.error('Error marking message as read', error);
+      logger.error("Error marking message as read", error);
     }
   },
 
@@ -602,7 +660,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     }
 
     if (backendError) {
-      logger.warn('Falling back to optimistic unread state', {
+      logger.warn("Falling back to optimistic unread state", {
         messageId,
         error: backendError?.message,
       });
@@ -639,11 +697,14 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
         unreadEmailTotal: 0,
       }));
     } catch (error: any) {
-      logger.error('Error marking all messages as read', error);
+      logger.error("Error marking all messages as read", error);
     }
   },
 
-  setCurrentConversation: (conversationId: string | null, caseId?: string | null) => {
+  setCurrentConversation: (
+    conversationId: string | null,
+    caseId?: string | null,
+  ) => {
     const currentUnsubscribe = get().unsubscribeMessages;
     if (!conversationId && currentUnsubscribe) {
       currentUnsubscribe();
@@ -690,7 +751,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       const updated = state.conversations.map((conversation) =>
         conversation.id === roomId
           ? { ...conversation, unreadCount: unread }
-          : conversation
+          : conversation,
       );
       return {
         conversations: updated,
@@ -703,4 +764,3 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     set({ error: null, conversationsError: null });
   },
 }));
-

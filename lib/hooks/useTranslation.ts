@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useCallback } from "react";
+import { useTranslation as useI18nTranslation } from "react-i18next";
 
 /**
  * Custom hook for translations with type safety
@@ -13,20 +13,22 @@ export const useTranslation = () => {
   const translate = useCallback(
     (key: string, options?: any): string => {
       const result = i18nT(key, options);
-      return typeof result === 'string' ? result : String(result);
+      return typeof result === "string" ? result : String(result);
     },
-    [i18nT] // Depend on i18nT so it updates when language changes
+    [i18nT], // Depend on i18nT so it updates when language changes
   );
 
   const changeLanguage = useCallback(
-    async (lang: 'en' | 'fr') => {
+    async (lang: "en" | "fr") => {
       // Save to AsyncStorage immediately to ensure consistency
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      await AsyncStorage.setItem('language_preference', lang);
+      const AsyncStorage = (
+        await import("@react-native-async-storage/async-storage")
+      ).default;
+      await AsyncStorage.setItem("language_preference", lang);
       // Change language in i18n - this will trigger re-renders in all components using useTranslation
       await i18n.changeLanguage(lang);
     },
-    [i18n]
+    [i18n],
   );
 
   // Return object directly - react-i18next's useTranslation already handles re-renders
@@ -37,4 +39,3 @@ export const useTranslation = () => {
     currentLanguage: i18n.language,
   };
 };
-

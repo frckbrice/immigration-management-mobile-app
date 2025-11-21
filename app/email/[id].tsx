@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,8 +17,15 @@ import {
   View,
   Linking,
 } from "react-native";
-import { BottomSheetModal, BottomSheetTextInput, BottomSheetView } from "@gorhom/bottom-sheet";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  BottomSheetModal,
+  BottomSheetTextInput,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import { BackButton } from "@/components/BackButton";
@@ -56,14 +69,16 @@ const AttachmentRow = ({
 }: {
   attachment: EmailAttachment;
   onDownload: (attachment: EmailAttachment) => void;
-    onPreview: (attachment: EmailAttachment) => void;
+  onPreview: (attachment: EmailAttachment) => void;
   isLoading: boolean;
-    isPreviewing: boolean;
-    accentColor: string;
-    isDark: boolean;
-    mutedColor: string;
+  isPreviewing: boolean;
+  accentColor: string;
+  isDark: boolean;
+  mutedColor: string;
 }) => {
-  const backgroundColor = isDark ? withOpacity(accentColor, 0.18) : withOpacity(accentColor, 0.1);
+  const backgroundColor = isDark
+    ? withOpacity(accentColor, 0.18)
+    : withOpacity(accentColor, 0.1);
 
   return (
     <View
@@ -77,7 +92,11 @@ const AttachmentRow = ({
       <View
         style={[
           styles.attachmentIcon,
-          { backgroundColor: isDark ? withOpacity(accentColor, 0.25) : withOpacity(accentColor, 0.18) },
+          {
+            backgroundColor: isDark
+              ? withOpacity(accentColor, 0.25)
+              : withOpacity(accentColor, 0.18),
+          },
         ]}
       >
         <IconSymbol name="paperclip" size={18} color={accentColor} />
@@ -94,7 +113,10 @@ const AttachmentRow = ({
       </View>
       <View style={styles.attachmentActions}>
         <Pressable
-          style={[styles.attachmentActionButton, { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) }]}
+          style={[
+            styles.attachmentActionButton,
+            { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) },
+          ]}
           onPress={() => onPreview(attachment)}
           disabled={isPreviewing}
           accessibilityRole="button"
@@ -106,7 +128,10 @@ const AttachmentRow = ({
           )}
         </Pressable>
         <Pressable
-          style={[styles.attachmentActionButton, { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) }]}
+          style={[
+            styles.attachmentActionButton,
+            { borderColor: withOpacity(accentColor, isDark ? 0.4 : 0.2) },
+          ]}
           onPress={() => onDownload(attachment)}
           disabled={isLoading}
           accessibilityRole="button"
@@ -114,7 +139,11 @@ const AttachmentRow = ({
           {isLoading ? (
             <ActivityIndicator size="small" color={accentColor} />
           ) : (
-            <IconSymbol name="arrow.down.circle.fill" size={16} color={accentColor} />
+            <IconSymbol
+              name="arrow.down.circle.fill"
+              size={16}
+              color={accentColor}
+            />
           )}
         </Pressable>
       </View>
@@ -177,13 +206,18 @@ export default function EmailDetailScreen() {
         }
       } catch (loadError: any) {
         logger.error("Failed to load email", loadError);
-        setError(loadError?.message || t("email.loadError", { defaultValue: "Unable to load this email." }));
+        setError(
+          loadError?.message ||
+            t("email.loadError", {
+              defaultValue: "Unable to load this email.",
+            }),
+        );
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [id, markAsRead, t]
+    [id, markAsRead, t],
   );
 
   useEffect(() => {
@@ -194,7 +228,12 @@ export default function EmailDetailScreen() {
     if (!email) return;
     if (email.unread) {
       void markAsRead(email.id);
-      setEmail({ ...email, unread: false, isRead: true, readAt: new Date().toISOString() });
+      setEmail({
+        ...email,
+        unread: false,
+        isRead: true,
+        readAt: new Date().toISOString(),
+      });
     } else {
       void markAsUnread(email.id);
       setEmail({ ...email, unread: true, isRead: false, readAt: undefined });
@@ -218,24 +257,32 @@ export default function EmailDetailScreen() {
         }
         showToast({
           type: "success",
-          title: t("email.downloadSuccessTitle", { defaultValue: "Download complete" }),
+          title: t("email.downloadSuccessTitle", {
+            defaultValue: "Download complete",
+          }),
           message: t("email.downloadSuccessMessage", {
-            defaultValue: "You can find this file under Downloads in Documents.",
+            defaultValue:
+              "You can find this file under Downloads in Documents.",
           }),
         });
       } catch (downloadError: any) {
         logger.error("Failed to download attachment", downloadError);
         showAlert({
-          title: t("email.downloadFailedTitle", { defaultValue: "Download failed" }),
+          title: t("email.downloadFailedTitle", {
+            defaultValue: "Download failed",
+          }),
           message:
-            downloadError?.message || t("email.downloadFailedMessage", { defaultValue: "Unable to download this attachment." }),
+            downloadError?.message ||
+            t("email.downloadFailedMessage", {
+              defaultValue: "Unable to download this attachment.",
+            }),
           actions: [{ text: t("common.close"), variant: "primary" }],
         });
       } finally {
         setDownloadingId(null);
       }
     },
-    [email, showAlert, t]
+    [email, showAlert, t],
   );
 
   const handlePreviewAttachment = useCallback(
@@ -247,9 +294,12 @@ export default function EmailDetailScreen() {
 
         if (!canOpen) {
           showAlert({
-            title: t("email.previewUnavailableTitle", { defaultValue: "Preview unavailable" }),
+            title: t("email.previewUnavailableTitle", {
+              defaultValue: "Preview unavailable",
+            }),
             message: t("email.previewUnavailableMessage", {
-              defaultValue: "We could not open this attachment. Please download it instead.",
+              defaultValue:
+                "We could not open this attachment. Please download it instead.",
             }),
             actions: [{ text: t("common.close"), variant: "primary" }],
           });
@@ -260,11 +310,14 @@ export default function EmailDetailScreen() {
       } catch (error: any) {
         logger.error("Failed to open attachment preview", error);
         showAlert({
-          title: t("email.previewUnavailableTitle", { defaultValue: "Preview unavailable" }),
+          title: t("email.previewUnavailableTitle", {
+            defaultValue: "Preview unavailable",
+          }),
           message:
             error?.message ||
             t("email.previewUnavailableMessage", {
-              defaultValue: "We could not open this attachment. Please download it instead.",
+              defaultValue:
+                "We could not open this attachment. Please download it instead.",
             }),
           actions: [{ text: t("common.close"), variant: "primary" }],
         });
@@ -272,14 +325,18 @@ export default function EmailDetailScreen() {
         setPreviewingId(null);
       }
     },
-    [resolveAttachmentUrl, showAlert, t]
+    [resolveAttachmentUrl, showAlert, t],
   );
 
   const handleOpenReply = useCallback(() => {
     if (!email?.threadId || !user) {
       showAlert({
-        title: t("email.replyNotSupportedTitle", { defaultValue: "Unable to reply" }),
-        message: t("email.replyNotSupportedMessage", { defaultValue: "This email thread cannot be replied to." }),
+        title: t("email.replyNotSupportedTitle", {
+          defaultValue: "Unable to reply",
+        }),
+        message: t("email.replyNotSupportedMessage", {
+          defaultValue: "This email thread cannot be replied to.",
+        }),
         actions: [{ text: t("common.close"), variant: "primary" }],
       });
       return;
@@ -296,8 +353,12 @@ export default function EmailDetailScreen() {
     if (!email || !replyText.trim() || !user) return;
     if (!email.threadId) {
       showAlert({
-        title: t("email.replyNotSupportedTitle", { defaultValue: "Unable to reply" }),
-        message: t("email.replyNotSupportedMessage", { defaultValue: "This email thread cannot be replied to." }),
+        title: t("email.replyNotSupportedTitle", {
+          defaultValue: "Unable to reply",
+        }),
+        message: t("email.replyNotSupportedMessage", {
+          defaultValue: "This email thread cannot be replied to.",
+        }),
         actions: [{ text: t("common.close"), variant: "primary" }],
       });
       return;
@@ -313,7 +374,9 @@ export default function EmailDetailScreen() {
       showToast({
         type: "success",
         title: t("email.replySentTitle", { defaultValue: "Reply sent" }),
-        message: t("email.replySentMessage", { defaultValue: "Your message has been delivered to your advisor." }),
+        message: t("email.replySentMessage", {
+          defaultValue: "Your message has been delivered to your advisor.",
+        }),
       });
       setReplyText("");
       handleCloseReply();
@@ -321,7 +384,11 @@ export default function EmailDetailScreen() {
       logger.error("Failed to send reply", replyError);
       showAlert({
         title: t("email.replyFailedTitle", { defaultValue: "Reply failed" }),
-        message: replyError?.message || t("email.replyFailedMessage", { defaultValue: "Unable to send this reply. Please try again later." }),
+        message:
+          replyError?.message ||
+          t("email.replyFailedMessage", {
+            defaultValue: "Unable to send this reply. Please try again later.",
+          }),
         actions: [{ text: t("common.close"), variant: "primary" }],
       });
     } finally {
@@ -339,40 +406,73 @@ export default function EmailDetailScreen() {
 
   const contentParagraphs = useMemo(() => {
     if (!email?.content) return [];
-    return email.content.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
+    return email.content
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
   }, [email]);
 
   const canReply = !!email?.threadId && !!user;
   const isInboxEmail = email?.direction !== "outgoing";
   const directionIcon = isInboxEmail ? "envelope.fill" : "paperplane.fill";
   const sentAtLabel = email?.sentAt ? formatFullDate(email.sentAt) : "";
-  const cardBackground = theme.dark ? theme.colors.surfaceElevated : COLORS.card;
+  const cardBackground = theme.dark
+    ? theme.colors.surfaceElevated
+    : COLORS.card;
   const surfaceBackground = theme.dark ? theme.colors.surface : COLORS.surface;
   const mutedTextColor = withOpacity(theme.colors.text, theme.dark ? 0.7 : 0.6);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, {
-        backgroundColor: theme.dark ? "#1f2937" : theme.colors.background, paddingTop: insets.top, paddingBottom: insets.bottom
-      }]} edges={["top"]}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+        edges={["top"]}
+      >
         <View
           style={[
             styles.header,
             {
-              backgroundColor: theme.dark ? theme.colors.surface : COLORS.surface,
-              borderBottomColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.4 : 0.18),
+              backgroundColor: theme.dark
+                ? theme.colors.surface
+                : COLORS.surface,
+              borderBottomColor: withOpacity(
+                theme.colors.borderStrong,
+                theme.dark ? 0.4 : 0.18,
+              ),
             },
           ]}
         >
-          <BackButton onPress={() => router.back()} iconSize={22} style={styles.backButton} />
+          <BackButton
+            onPress={() => router.back()}
+            iconSize={22}
+            style={styles.backButton}
+          />
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: theme.colors.text }]} numberOfLines={1}>
+            <Text
+              style={[styles.headerTitle, { color: theme.colors.text }]}
+              numberOfLines={1}
+            >
               {t("email.detailTitle", { defaultValue: "Email" })}
             </Text>
             {email?.subject ? (
               <Text
-                style={[styles.headerSubtitle, { color: withOpacity(theme.colors.text, theme.dark ? 0.7 : 0.55) }]}
+                style={[
+                  styles.headerSubtitle,
+                  {
+                    color: withOpacity(
+                      theme.colors.text,
+                      theme.dark ? 0.7 : 0.55,
+                    ),
+                  },
+                ]}
                 numberOfLines={1}
               >
                 {email.subject}
@@ -384,8 +484,13 @@ export default function EmailDetailScreen() {
               style={[
                 styles.headerActionButton,
                 {
-                  backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.18) : withOpacity(theme.colors.primary, 0.12),
-                  borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.45 : 0.25),
+                  backgroundColor: theme.dark
+                    ? withOpacity(theme.colors.primary, 0.18)
+                    : withOpacity(theme.colors.primary, 0.12),
+                  borderColor: withOpacity(
+                    theme.colors.primary,
+                    theme.dark ? 0.45 : 0.25,
+                  ),
                 },
               ]}
               onPress={handleToggleRead}
@@ -400,13 +505,22 @@ export default function EmailDetailScreen() {
               style={[
                 styles.headerActionButton,
                 {
-                  backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.18) : withOpacity(theme.colors.primary, 0.12),
-                  borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.45 : 0.25),
+                  backgroundColor: theme.dark
+                    ? withOpacity(theme.colors.primary, 0.18)
+                    : withOpacity(theme.colors.primary, 0.12),
+                  borderColor: withOpacity(
+                    theme.colors.primary,
+                    theme.dark ? 0.45 : 0.25,
+                  ),
                 },
               ]}
               onPress={handleGoToProfile}
             >
-              <IconSymbol name="person.circle.fill" size={20} color={theme.colors.primary} />
+              <IconSymbol
+                name="person.circle.fill"
+                size={20}
+                color={theme.colors.primary}
+              />
             </Pressable>
           </View>
         </View>
@@ -417,8 +531,13 @@ export default function EmailDetailScreen() {
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: theme.colors.text }]}>{error}</Text>
-            <Pressable style={styles.retryButton} onPress={() => loadEmail(true)}>
+            <Text style={[styles.errorText, { color: theme.colors.text }]}>
+              {error}
+            </Text>
+            <Pressable
+              style={styles.retryButton}
+              onPress={() => loadEmail(true)}
+            >
               <Text style={[styles.retryText, { color: theme.colors.primary }]}>
                 {t("common.retry", { defaultValue: "Retry" })}
               </Text>
@@ -429,102 +548,152 @@ export default function EmailDetailScreen() {
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               refreshControl={
-                <RefreshControl refreshing={isRefreshing} onRefresh={() => loadEmail(true)} />
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={() => loadEmail(true)}
+                />
               }
             >
-                  <View
-                    style={[
-                      styles.heroCard,
-                      {
-                        backgroundColor: cardBackground,
-                        borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.5 : 0.16),
-                        shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.25 : 0.12),
-                      },
-                    ]}
-                  >
-                    {/* <View style={styles.subjectRow}>
+              <View
+                style={[
+                  styles.heroCard,
+                  {
+                    backgroundColor: cardBackground,
+                    borderColor: withOpacity(
+                      theme.colors.borderStrong,
+                      theme.dark ? 0.5 : 0.16,
+                    ),
+                    shadowColor: withOpacity(
+                      theme.colors.primary,
+                      theme.dark ? 0.25 : 0.12,
+                    ),
+                  },
+                ]}
+              >
+                {/* <View style={styles.subjectRow}>
                       <IconSymbol name={directionIcon} size={18} color={theme.colors.primary} />
                       <Text style={[styles.subjectText, { color: theme.colors.text }]} numberOfLines={2}>
                         {email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
                       </Text>
                     </View> */}
-                    <View style={[styles.metaRow, { marginTop: 4 }]}>
-                      {sentAtLabel ? (
-                        <View style={styles.metaItem}>
-                          <IconSymbol name="clock.fill" size={14} color={mutedTextColor} />
-                          <Text style={[styles.metaText, { color: mutedTextColor }]}>{sentAtLabel}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.metaDivider} />
-                      <View
-                        style={[
-                          styles.directionPill,
-                          {
-                            backgroundColor: theme.dark
-                              ? withOpacity(theme.colors.primary, 0.25)
-                              : withOpacity(theme.colors.primary, 0.12),
-                          },
-                        ]}
+                <View style={[styles.metaRow, { marginTop: 4 }]}>
+                  {sentAtLabel ? (
+                    <View style={styles.metaItem}>
+                      <IconSymbol
+                        name="clock.fill"
+                        size={14}
+                        color={mutedTextColor}
+                      />
+                      <Text
+                        style={[styles.metaText, { color: mutedTextColor }]}
                       >
-                        <Text style={[styles.pillText, { color: theme.colors.primary }]}>
+                        {sentAtLabel}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.metaDivider} />
+                  <View
+                    style={[
+                      styles.directionPill,
+                      {
+                        backgroundColor: theme.dark
+                          ? withOpacity(theme.colors.primary, 0.25)
+                          : withOpacity(theme.colors.primary, 0.12),
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.pillText, { color: theme.colors.primary }]}
+                    >
                       {isInboxEmail
                         ? t("messages.inbox", { defaultValue: "Inbox" })
                         : t("messages.sent", { defaultValue: "Sent" })}
                     </Text>
-                      </View>
+                  </View>
                 </View>
               </View>
 
-                  <View
-                    style={[
-                      styles.bodyCard,
-                      {
-                        backgroundColor: surfaceBackground,
-                        borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.16),
-                      },
-                    ]}
-                  >
+              <View
+                style={[
+                  styles.bodyCard,
+                  {
+                    backgroundColor: surfaceBackground,
+                    borderColor: withOpacity(
+                      theme.colors.borderStrong,
+                      theme.dark ? 0.45 : 0.16,
+                    ),
+                  },
+                ]}
+              >
                 {contentParagraphs.length > 0 ? (
                   contentParagraphs.map((paragraph, index) => (
-                    <Text key={index} style={[styles.bodyText, { color: theme.colors.text }]}>
+                    <Text
+                      key={index}
+                      style={[styles.bodyText, { color: theme.colors.text }]}
+                    >
                       {paragraph}
                     </Text>
                   ))
                 ) : (
-                        <Text style={[styles.bodyText, { color: mutedTextColor }]}>
-                    {t("email.emptyBody", { defaultValue: "No message content." })}
+                  <Text style={[styles.bodyText, { color: mutedTextColor }]}>
+                    {t("email.emptyBody", {
+                      defaultValue: "No message content.",
+                    })}
                   </Text>
                 )}
               </View>
 
               {email.attachments && email.attachments.length > 0 ? (
-                    <View
+                <View
+                  style={[
+                    styles.attachmentsCard,
+                    {
+                      backgroundColor: surfaceBackground,
+                      borderColor: withOpacity(
+                        theme.colors.borderStrong,
+                        theme.dark ? 0.45 : 0.16,
+                      ),
+                    },
+                  ]}
+                >
+                  <View style={styles.attachmentsHeader}>
+                    <IconSymbol
+                      name="paperclip"
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                    <Text
                       style={[
-                        styles.attachmentsCard,
-                        {
-                          backgroundColor: surfaceBackground,
-                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.16),
-                        },
+                        styles.sectionTitle,
+                        { color: theme.colors.text },
                       ]}
                     >
-                      <View style={styles.attachmentsHeader}>
-                        <IconSymbol name="paperclip" size={18} color={theme.colors.primary} />
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                          {t("email.attachmentsTitle", { defaultValue: "Attachments" })}
-                        </Text>
-                        <View style={styles.metaDivider} />
-                        <Text style={[styles.attachmentsCount, { color: mutedTextColor }]}>
-                          {email.attachments.length}
-                        </Text>
-                      </View>
+                      {t("email.attachmentsTitle", {
+                        defaultValue: "Attachments",
+                      })}
+                    </Text>
+                    <View style={styles.metaDivider} />
+                    <Text
+                      style={[
+                        styles.attachmentsCount,
+                        { color: mutedTextColor },
+                      ]}
+                    >
+                      {email.attachments.length}
+                    </Text>
+                  </View>
                   {email.attachments.map((attachment) => (
                     <AttachmentRow
                       key={attachment.url || attachment.name}
                       attachment={attachment}
                       onDownload={handleDownloadAttachment}
                       onPreview={handlePreviewAttachment}
-                      isLoading={downloadingId === (attachment.url || attachment.name)}
-                      isPreviewing={previewingId === (attachment.url || attachment.name)}
+                      isLoading={
+                        downloadingId === (attachment.url || attachment.name)
+                      }
+                      isPreviewing={
+                        previewingId === (attachment.url || attachment.name)
+                      }
                       accentColor={theme.colors.primary}
                       isDark={theme.dark}
                       mutedColor={mutedTextColor}
@@ -538,169 +707,249 @@ export default function EmailDetailScreen() {
               behavior={Platform.OS === "ios" ? "padding" : undefined}
               keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
             >
-                  <View
+              <View
+                style={[
+                  styles.actionBar,
+                  {
+                    borderTopColor: withOpacity(
+                      theme.colors.borderStrong,
+                      theme.dark ? 0.45 : 0.18,
+                    ),
+                    backgroundColor: surfaceBackground,
+                  },
+                ]}
+              >
+                <Pressable
+                  style={[
+                    styles.secondaryButton,
+                    {
+                      backgroundColor: theme.dark
+                        ? withOpacity(theme.colors.primary, 0.1)
+                        : withOpacity(theme.colors.primary, 0.06),
+                    },
+                  ]}
+                  onPress={handleToggleRead}
+                >
+                  <View style={styles.buttonContent}>
+                    <IconSymbol
+                      name={email?.unread ? "envelope.fill" : "envelope"}
+                      size={16}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.secondaryButtonText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      {email?.unread
+                        ? t("messages.markAsRead", {
+                            defaultValue: "Mark as read",
+                          })
+                        : t("messages.markAsUnread", {
+                            defaultValue: "Mark as unread",
+                          })}
+                    </Text>
+                  </View>
+                </Pressable>
+                {email?.caseId ? (
+                  <Pressable
                     style={[
-                      styles.actionBar,
+                      styles.secondaryButton,
                       {
-                        borderTopColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.45 : 0.18),
-                        backgroundColor: surfaceBackground,
+                        backgroundColor: theme.dark
+                          ? withOpacity(theme.colors.accent, 0.12)
+                          : withOpacity(theme.colors.accent, 0.06),
                       },
                     ]}
+                    onPress={handleViewCase}
                   >
-                    <Pressable
-                      style={[
-                        styles.secondaryButton,
-                        {
-                          backgroundColor: theme.dark
-                            ? withOpacity(theme.colors.primary, 0.1)
-                            : withOpacity(theme.colors.primary, 0.06),
-                        },
-                      ]}
-                      onPress={handleToggleRead}
-                    >
-                      <View style={styles.buttonContent}>
-                        <IconSymbol
-                          name={email?.unread ? "envelope.fill" : "envelope"}
-                          size={16}
-                          color={theme.colors.primary}
-                        />
-                        <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
-                          {email?.unread
-                            ? t("messages.markAsRead", { defaultValue: "Mark as read" })
-                            : t("messages.markAsUnread", { defaultValue: "Mark as unread" })}
-                        </Text>
-                      </View>
-                </Pressable>
-                    {email?.caseId ? (
-                      <Pressable
+                    <View style={styles.buttonContent}>
+                      <IconSymbol
+                        name="folder.fill"
+                        size={16}
+                        color={theme.colors.accent}
+                      />
+                      <Text
                         style={[
-                          styles.secondaryButton,
-                          {
-                            backgroundColor: theme.dark
-                              ? withOpacity(theme.colors.accent, 0.12)
-                              : withOpacity(theme.colors.accent, 0.06),
-                          },
+                          styles.secondaryButtonText,
+                          { color: theme.colors.accent },
                         ]}
-                        onPress={handleViewCase}
                       >
-                        <View style={styles.buttonContent}>
-                          <IconSymbol name="folder.fill" size={16} color={theme.colors.accent} />
-                          <Text style={[styles.secondaryButtonText, { color: theme.colors.accent }]}>
-                            {t("email.viewCase", { defaultValue: "View case" })}
-                          </Text>
-                        </View>
+                        {t("email.viewCase", { defaultValue: "View case" })}
+                      </Text>
+                    </View>
                   </Pressable>
                 ) : null}
-                    {canReply && (
-                      <Pressable
-                        style={[
-                          styles.primaryButton,
-                          {
-                            backgroundColor: theme.colors.primary,
-                            shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.4 : 0.25),
-                          },
-                        ]}
-                        onPress={handleOpenReply}
-                      >
-                        <View style={styles.buttonContent}>
-                          <IconSymbol name="paperplane.fill" size={16} color={theme.colors.onPrimary} />
-                          <Text style={styles.primaryButtonText}>
-                            {t("email.reply", { defaultValue: "Reply" })}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    )}
+                {canReply && (
+                  <Pressable
+                    style={[
+                      styles.primaryButton,
+                      {
+                        backgroundColor: theme.colors.primary,
+                        shadowColor: withOpacity(
+                          theme.colors.primary,
+                          theme.dark ? 0.4 : 0.25,
+                        ),
+                      },
+                    ]}
+                    onPress={handleOpenReply}
+                  >
+                    <View style={styles.buttonContent}>
+                      <IconSymbol
+                        name="paperplane.fill"
+                        size={16}
+                        color={theme.colors.onPrimary}
+                      />
+                      <Text style={styles.primaryButtonText}>
+                        {t("email.reply", { defaultValue: "Reply" })}
+                      </Text>
+                    </View>
+                  </Pressable>
+                )}
               </View>
             </KeyboardAvoidingView>
 
-                <BottomSheetModal
-                  ref={replyBottomSheetRef}
-                  index={0}
-                  snapPoints={['75%', '90%']}
-                  enablePanDownToClose
-                  enableDismissOnClose
-                  backgroundStyle={{
-                    backgroundColor: theme.dark ? "#111827" : "#FFFFFF",
-                  }}
-                  handleIndicatorStyle={{
-                    backgroundColor: theme.dark ? "#374151" : "#D1D5DB",
-                  }}
-                  keyboardBehavior="interactive"
-                  keyboardBlurBehavior="restore"
-                  android_keyboardInputMode="adjustResize"
-                >
-                  <BottomSheetView style={styles.replySheetContent}>
-                    <View style={styles.replySheetHeader}>
-                      <Text style={[styles.replyTitle, { color: theme.colors.text }]}>
-                        {t("email.reply", { defaultValue: "Reply" })}
-                      </Text>
-                      <Pressable onPress={handleCloseReply} style={styles.closeButton}>
-                        <IconSymbol name="xmark.circle.fill" size={24} color={theme.colors.muted} />
-                      </Pressable>
-                    </View>
-
-                    {email && (
-                      <View style={[styles.replyContext, {
-                        backgroundColor: theme.dark ? withOpacity(theme.colors.primary, 0.1) : withOpacity(theme.colors.primary, 0.05),
-                        borderColor: withOpacity(theme.colors.primary, theme.dark ? 0.3 : 0.2),
-                      }]}>
-                        <View style={styles.replyContextHeader}>
-                          <IconSymbol name="envelope.fill" size={16} color={theme.colors.primary} />
-                          <Text style={[styles.replyContextLabel, { color: theme.colors.primary }]}>
-                            {t("email.replyingTo", { defaultValue: "Replying to" })}
-                          </Text>
-                        </View>
-                        <Text style={[styles.replyContextSubject, { color: theme.colors.text }]} numberOfLines={1}>
-                          {email.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
-                        </Text>
-                      </View>
-                    )}
-
-                    <BottomSheetTextInput
-                      style={[
-                        styles.replyInput,
-                        {
-                          color: theme.colors.text,
-                          borderColor: withOpacity(theme.colors.borderStrong, theme.dark ? 0.6 : 0.3),
-                          backgroundColor: theme.dark
-                            ? withOpacity(theme.colors.surfaceAlt, 0.75)
-                            : COLORS.surface,
-                        },
-                      ]}
-                      multiline
-                      placeholder={t("email.replyPlaceholder", { defaultValue: "Write your reply..." })}
-                      placeholderTextColor={withOpacity(theme.colors.text, theme.dark ? 0.45 : 0.4)}
-                      value={replyText}
-                      onChangeText={setReplyText}
-                      autoFocus
-                      textAlignVertical="top"
+            <BottomSheetModal
+              ref={replyBottomSheetRef}
+              index={0}
+              snapPoints={["75%", "90%"]}
+              enablePanDownToClose
+              enableDismissOnClose
+              backgroundStyle={{
+                backgroundColor: theme.dark ? "#111827" : "#FFFFFF",
+              }}
+              handleIndicatorStyle={{
+                backgroundColor: theme.dark ? "#374151" : "#D1D5DB",
+              }}
+              keyboardBehavior="interactive"
+              keyboardBlurBehavior="restore"
+              android_keyboardInputMode="adjustResize"
+            >
+              <BottomSheetView style={styles.replySheetContent}>
+                <View style={styles.replySheetHeader}>
+                  <Text
+                    style={[styles.replyTitle, { color: theme.colors.text }]}
+                  >
+                    {t("email.reply", { defaultValue: "Reply" })}
+                  </Text>
+                  <Pressable
+                    onPress={handleCloseReply}
+                    style={styles.closeButton}
+                  >
+                    <IconSymbol
+                      name="xmark.circle.fill"
+                      size={24}
+                      color={theme.colors.muted}
                     />
+                  </Pressable>
+                </View>
 
-                    <Pressable
+                {email && (
+                  <View
+                    style={[
+                      styles.replyContext,
+                      {
+                        backgroundColor: theme.dark
+                          ? withOpacity(theme.colors.primary, 0.1)
+                          : withOpacity(theme.colors.primary, 0.05),
+                        borderColor: withOpacity(
+                          theme.colors.primary,
+                          theme.dark ? 0.3 : 0.2,
+                        ),
+                      },
+                    ]}
+                  >
+                    <View style={styles.replyContextHeader}>
+                      <IconSymbol
+                        name="envelope.fill"
+                        size={16}
+                        color={theme.colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.replyContextLabel,
+                          { color: theme.colors.primary },
+                        ]}
+                      >
+                        {t("email.replyingTo", { defaultValue: "Replying to" })}
+                      </Text>
+                    </View>
+                    <Text
                       style={[
-                        styles.replySendButton,
-                        {
-                          backgroundColor: theme.colors.primary,
-                          opacity: replyText.trim() && !isSendingReply ? 1 : 0.6,
-                          shadowColor: withOpacity(theme.colors.primary, theme.dark ? 0.4 : 0.25),
-                        },
+                        styles.replyContextSubject,
+                        { color: theme.colors.text },
                       ]}
-                      onPress={handleReplySubmit}
-                      disabled={!replyText.trim() || isSendingReply}
+                      numberOfLines={1}
                     >
-                      {isSendingReply ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                          <>
-                            <IconSymbol name="paperplane.fill" size={18} color="#fff" />
-                            <Text style={styles.replySendButtonText}>
+                      {email.subject ||
+                        t("messages.noSubject", {
+                          defaultValue: "(No subject)",
+                        })}
+                    </Text>
+                  </View>
+                )}
+
+                <BottomSheetTextInput
+                  style={[
+                    styles.replyInput,
+                    {
+                      color: theme.colors.text,
+                      borderColor: withOpacity(
+                        theme.colors.borderStrong,
+                        theme.dark ? 0.6 : 0.3,
+                      ),
+                      backgroundColor: theme.dark
+                        ? withOpacity(theme.colors.surfaceAlt, 0.75)
+                        : COLORS.surface,
+                    },
+                  ]}
+                  multiline
+                  placeholder={t("email.replyPlaceholder", {
+                    defaultValue: "Write your reply...",
+                  })}
+                  placeholderTextColor={withOpacity(
+                    theme.colors.text,
+                    theme.dark ? 0.45 : 0.4,
+                  )}
+                  value={replyText}
+                  onChangeText={setReplyText}
+                  autoFocus
+                  textAlignVertical="top"
+                />
+
+                <Pressable
+                  style={[
+                    styles.replySendButton,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      opacity: replyText.trim() && !isSendingReply ? 1 : 0.6,
+                      shadowColor: withOpacity(
+                        theme.colors.primary,
+                        theme.dark ? 0.4 : 0.25,
+                      ),
+                    },
+                  ]}
+                  onPress={handleReplySubmit}
+                  disabled={!replyText.trim() || isSendingReply}
+                >
+                  {isSendingReply ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <IconSymbol
+                        name="paperplane.fill"
+                        size={18}
+                        color="#fff"
+                      />
+                      <Text style={styles.replySendButtonText}>
                         {t("email.sendReply", { defaultValue: "Send reply" })}
                       </Text>
-                          </>
-                      )}
-                    </Pressable>
-                  </BottomSheetView>
-                </BottomSheetModal>
+                    </>
+                  )}
+                </Pressable>
+              </BottomSheetView>
+            </BottomSheetModal>
           </>
         ) : null}
       </SafeAreaView>
@@ -1032,5 +1281,3 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
   },
 });
-
-

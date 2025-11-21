@@ -1,13 +1,13 @@
-import { apiClient } from '../api/axios';
-import { logger } from '../utils/logger';
-import { auth } from '../firebase/config';
+import { apiClient } from "../api/axios";
+import { logger } from "../utils/logger";
+import { auth } from "../firebase/config";
 import type {
   Message,
   ChatMessage,
   CreateMessageRequest,
   EmailAttachment,
   MessageDirection,
-} from '../types';
+} from "../types";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -60,7 +60,7 @@ interface EmailListParams {
   caseId?: string;
   search?: string;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 }
 
 interface SendEmailPayload {
@@ -78,11 +78,17 @@ interface EmailReplyPayload {
   subject?: string;
 }
 
-const formatDisplayName = (participant?: RawParticipant | null, fallback?: string) => {
+const formatDisplayName = (
+  participant?: RawParticipant | null,
+  fallback?: string,
+) => {
   if (!participant) {
-    return fallback || 'Unknown';
+    return fallback || "Unknown";
   }
-  const parts = [participant.firstName, participant.lastName].filter(Boolean).join(' ').trim();
+  const parts = [participant.firstName, participant.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   if (parts.length > 0) {
     return parts;
   }
@@ -92,14 +98,17 @@ const formatDisplayName = (participant?: RawParticipant | null, fallback?: strin
   if (participant.id) {
     return participant.id;
   }
-  return fallback || 'Unknown';
+  return fallback || "Unknown";
 };
 
 const stripHtml = (value?: string | null) => {
   if (!value) {
-    return '';
+    return "";
   }
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const truncate = (value: string, max = 140) => {
@@ -111,38 +120,43 @@ const truncate = (value: string, max = 140) => {
 
 const formatListTime = (iso?: string | null) => {
   if (!iso) {
-    return '';
+    return "";
   }
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
-    return '';
+    return "";
   }
   const now = new Date();
   const sameDay = now.toDateString() === date.toDateString();
   if (sameDay) {
     return date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
   return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
+    month: "short",
+    day: "numeric",
   });
 };
 
-const resolveDirection = (email: RawEmail, explicit?: MessageDirection): MessageDirection => {
+const resolveDirection = (
+  email: RawEmail,
+  explicit?: MessageDirection,
+): MessageDirection => {
   if (explicit) {
     return explicit;
   }
   const currentUserId = auth.currentUser?.uid;
   if (currentUserId && email.recipientId === currentUserId) {
-    return 'incoming';
+    return "incoming";
   }
-  return 'outgoing';
+  return "outgoing";
 };
 
-const normalizeAttachments = (attachments?: EmailAttachment[] | null): EmailAttachment[] => {
+const normalizeAttachments = (
+  attachments?: EmailAttachment[] | null,
+): EmailAttachment[] => {
   if (!attachments || !Array.isArray(attachments)) {
     return [];
   }
@@ -157,21 +171,24 @@ const normalizeAttachments = (attachments?: EmailAttachment[] | null): EmailAtta
     }));
 };
 
-const mapEmailToMessage = (email: RawEmail, direction?: MessageDirection): Message => {
+const mapEmailToMessage = (
+  email: RawEmail,
+  direction?: MessageDirection,
+): Message => {
   const derivedDirection = resolveDirection(email, direction);
   const attachments = normalizeAttachments(email.attachments);
-  const content = stripHtml(email.content || '');
-  const preview = truncate(content || email.subject || '', 160);
-  const subject = email.subject || '(No subject)';
+  const content = stripHtml(email.content || "");
+  const preview = truncate(content || email.subject || "", 160);
+  const subject = email.subject || "(No subject)";
   const displayName =
-    derivedDirection === 'incoming'
-      ? formatDisplayName(email.sender, 'Advisor')
-      : formatDisplayName(email.recipient, 'Recipient');
+    derivedDirection === "incoming"
+      ? formatDisplayName(email.sender, "Advisor")
+      : formatDisplayName(email.recipient, "Recipient");
 
   return {
     id: email.id,
     name: displayName,
-    role: derivedDirection === 'incoming' ? 'Inbox' : 'Sent',
+    role: derivedDirection === "incoming" ? "Inbox" : "Sent",
     message: preview || subject,
     time: formatListTime(email.sentAt),
     unread: !(email.isRead ?? true),
@@ -210,46 +227,52 @@ export const messagesService = {
     const searchParams = new URLSearchParams();
     const page = params.page ?? 1;
     const limit = params.limit ?? 20;
-    searchParams.set('page', page.toString());
-    searchParams.set('limit', Math.min(limit, 100).toString());
+    searchParams.set("page", page.toString());
+    searchParams.set("limit", Math.min(limit, 100).toString());
 
     if (params.direction) {
-      searchParams.set('direction', params.direction);
+      searchParams.set("direction", params.direction);
     }
     if (params.isRead !== undefined) {
-      searchParams.set('isRead', params.isRead ? 'true' : 'false');
+      searchParams.set("isRead", params.isRead ? "true" : "false");
     }
     if (params.caseId) {
-      searchParams.set('caseId', params.caseId);
+      searchParams.set("caseId", params.caseId);
     }
     if (params.search) {
-      searchParams.set('search', params.search);
+      searchParams.set("search", params.search);
     }
     if (params.sortBy) {
-      searchParams.set('sortBy', params.sortBy);
+      searchParams.set("sortBy", params.sortBy);
     }
     if (params.sortOrder) {
-      searchParams.set('sortOrder', params.sortOrder);
+      searchParams.set("sortOrder", params.sortOrder);
     }
 
     try {
       const response = await apiClient.get<ApiResponse<EmailListResponse>>(
-        `/emails?${searchParams.toString()}`
+        `/emails?${searchParams.toString()}`,
       );
       const rawEmails = response.data.data?.emails ?? [];
-      logger.info('Emails fetched', {
+      logger.info("Emails fetched", {
         count: rawEmails.length,
         direction: params.direction,
         page,
       });
-      return rawEmails.map((email) => mapEmailToMessage(email, params.direction));
+      return rawEmails.map((email) =>
+        mapEmailToMessage(email, params.direction),
+      );
     } catch (error: any) {
-      logger.error('Error fetching emails', error);
+      logger.error("Error fetching emails", error);
       throw error;
     }
   },
 
-  async getMessages(page = 1, pageSize = 20, filters?: { caseId?: string; isRead?: boolean }) {
+  async getMessages(
+    page = 1,
+    pageSize = 20,
+    filters?: { caseId?: string; isRead?: boolean },
+  ) {
     return this.getEmails({
       page,
       limit: pageSize,
@@ -262,7 +285,7 @@ export const messagesService = {
     const now = Date.now();
     const cached = emailDetailCache.get(messageId);
     if (cached && cached.expiresAt > now) {
-      logger.info('Email fetched (cache hit)', { messageId });
+      logger.info("Email fetched (cache hit)", { messageId });
       return cached.data;
     }
 
@@ -273,20 +296,22 @@ export const messagesService = {
 
     const request = (async (): Promise<Message> => {
       try {
-        const response = await apiClient.get<ApiResponse<{ email: RawEmail }>>(`/emails/${messageId}`);
+        const response = await apiClient.get<ApiResponse<{ email: RawEmail }>>(
+          `/emails/${messageId}`,
+        );
         const email = response.data.data?.email;
         if (!email) {
-          throw new Error(response.data.error || 'Message not found');
+          throw new Error(response.data.error || "Message not found");
         }
         const mapped = mapEmailToMessage(email);
         emailDetailCache.set(messageId, {
           data: mapped,
           expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
         });
-        logger.info('Email fetched', { messageId });
+        logger.info("Email fetched", { messageId });
         return mapped;
       } catch (error: any) {
-        logger.error('Error fetching message', error);
+        logger.error("Error fetching message", error);
         throw error;
       } finally {
         emailDetailInFlight.delete(messageId);
@@ -299,16 +324,16 @@ export const messagesService = {
 
   async sendEmail(payload: SendEmailPayload) {
     try {
-      await apiClient.post('/emails/send', {
+      await apiClient.post("/emails/send", {
         caseId: payload.caseId,
         subject: payload.subject,
         content: payload.content,
         attachments: payload.attachments,
         ...(payload.recipientId ? { recipientId: payload.recipientId } : {}),
       });
-      logger.info('Email sent', { caseId: payload.caseId });
+      logger.info("Email sent", { caseId: payload.caseId });
     } catch (error: any) {
-      logger.error('Failed to send email', {
+      logger.error("Failed to send email", {
         error: error?.response?.data || error.message,
       });
       throw error;
@@ -317,44 +342,50 @@ export const messagesService = {
 
   async replyToEmail(payload: EmailReplyPayload) {
     try {
-      await apiClient.post('/emails/incoming', {
+      await apiClient.post("/emails/incoming", {
         threadId: payload.threadId,
         senderId: payload.senderId,
         content: payload.content,
         ...(payload.subject ? { subject: payload.subject } : {}),
       });
-      logger.info('Email reply sent', { threadId: payload.threadId });
+      logger.info("Email reply sent", { threadId: payload.threadId });
     } catch (error: any) {
-      logger.error('Failed to reply to email', {
+      logger.error("Failed to reply to email", {
         error: error?.response?.data || error.message,
       });
       throw error;
     }
   },
 
-  async getConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  async getConversationMessages(
+    conversationId: string,
+  ): Promise<ChatMessage[]> {
     try {
-      logger.info('Chat messages should use chatService.loadInitialMessages', { conversationId });
+      logger.info("Chat messages should use chatService.loadInitialMessages", {
+        conversationId,
+      });
       return [];
     } catch (error: any) {
-      logger.error('Error fetching conversation messages', error);
+      logger.error("Error fetching conversation messages", error);
       throw error;
     }
   },
 
   async sendMessage(data: CreateMessageRequest): Promise<ChatMessage> {
     try {
-      logger.info('Chat messages should use chatService.sendMessage', data);
-      throw new Error('Use chatService.sendMessage for chat messages');
+      logger.info("Chat messages should use chatService.sendMessage", data);
+      throw new Error("Use chatService.sendMessage for chat messages");
     } catch (error: any) {
-      logger.error('Error sending message', error);
+      logger.error("Error sending message", error);
       throw error;
     }
   },
 
   async markAsRead(messageId: string): Promise<void> {
     try {
-      await apiClient.put<ApiResponse<void>>(`/emails/${encodeURIComponent(messageId)}`);
+      await apiClient.put<ApiResponse<void>>(
+        `/emails/${encodeURIComponent(messageId)}`,
+      );
       const cached = emailDetailCache.get(messageId);
       if (cached) {
         emailDetailCache.set(messageId, {
@@ -367,30 +398,33 @@ export const messagesService = {
           expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
         });
       }
-      logger.info('Message marked as read', { messageId });
+      logger.info("Message marked as read", { messageId });
     } catch (error: any) {
-      logger.error('Error marking message as read', error);
+      logger.error("Error marking message as read", error);
       throw error;
     }
   },
 
   async markAllAsRead(): Promise<void> {
     try {
-      await apiClient.put<ApiResponse<void>>('/emails/mark-read', {
+      await apiClient.put<ApiResponse<void>>("/emails/mark-read", {
         emailIds: [],
       });
-      logger.info('All messages marked as read');
+      logger.info("All messages marked as read");
     } catch (error: any) {
-      logger.error('Error marking all messages as read', error);
+      logger.error("Error marking all messages as read", error);
       throw error;
     }
   },
 
   async markAsUnread(messageId: string): Promise<void> {
     try {
-      await apiClient.put<ApiResponse<void>>(`/emails/${encodeURIComponent(messageId)}`, {
-        unread: true,
-      });
+      await apiClient.put<ApiResponse<void>>(
+        `/emails/${encodeURIComponent(messageId)}`,
+        {
+          unread: true,
+        },
+      );
       const cached = emailDetailCache.get(messageId);
       if (cached) {
         emailDetailCache.set(messageId, {
@@ -403,12 +437,15 @@ export const messagesService = {
           expiresAt: Date.now() + EMAIL_DETAIL_CACHE_TTL,
         });
       }
-      logger.info('Message marked as unread', { messageId });
+      logger.info("Message marked as unread", { messageId });
     } catch (error: any) {
-      logger.warn('Backend does not support mark-as-unread; falling back to local state', {
-        messageId,
-        error: error.response?.data || error.message,
-      });
+      logger.warn(
+        "Backend does not support mark-as-unread; falling back to local state",
+        {
+          messageId,
+          error: error.response?.data || error.message,
+        },
+      );
       throw error;
     }
   },
@@ -418,14 +455,13 @@ export const messagesService = {
       const unread = await this.getEmails({
         page: 1,
         limit: 100,
-        direction: 'incoming',
+        direction: "incoming",
         isRead: false,
       });
       return unread.length;
     } catch (error: any) {
-      logger.error('Error getting unread count', error);
+      logger.error("Error getting unread count", error);
       return 0;
     }
   },
 };
-

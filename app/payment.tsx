@@ -14,20 +14,20 @@ export default function PaymentScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]} 
-      edges={['top']}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["top"]}
     >
       <View style={styles.content}>
         <IconSymbol name="creditcard.fill" size={64} color="#2196F3" />
         <Text style={[styles.title, { color: theme.colors.text }]}>
           Payment Screen
         </Text>
-        <Text style={[styles.message, { color: theme.dark ? '#999' : '#666' }]}>
+        <Text style={[styles.message, { color: theme.dark ? "#999" : "#666" }]}>
           Please use the platform-specific payment screen
         </Text>
-        <Pressable 
-          style={[styles.button, { backgroundColor: '#2196F3' }]}
+        <Pressable
+          style={[styles.button, { backgroundColor: "#2196F3" }]}
           onPress={() => router.back()}
         >
           <Text style={styles.buttonText}>Go Back</Text>
@@ -43,19 +43,19 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 20,
     marginBottom: 12,
   },
   message: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
   },
   button: {
@@ -64,9 +64,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
-

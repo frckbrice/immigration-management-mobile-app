@@ -1,5 +1,10 @@
-
-import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,7 +16,10 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -32,7 +40,11 @@ import { logger } from "@/lib/utils/logger";
 type SegmentKey = "chat" | "email";
 type EmailFolderKey = "inbox" | "sent";
 
-const formatRelativeTime = (timestamp?: number | null, fallback = "", t?: (key: string) => string) => {
+const formatRelativeTime = (
+  timestamp?: number | null,
+  fallback = "",
+  t?: (key: string) => string,
+) => {
   if (!timestamp) {
     return fallback;
   }
@@ -45,7 +57,8 @@ const formatRelativeTime = (timestamp?: number | null, fallback = "", t?: (key: 
   const diffMs = now.getTime() - date.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-  if (diffMinutes < 1) return t ? t('common.now', { defaultValue: 'Now' }) : 'Now';
+  if (diffMinutes < 1)
+    return t ? t("common.now", { defaultValue: "Now" }) : "Now";
   if (diffMinutes < 60) return `${diffMinutes}m`;
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
@@ -67,7 +80,7 @@ export default function MessagesScreen() {
     useShallow((state) => ({
       user: state.user,
       isAuthenticated: state.isAuthenticated,
-    }))
+    })),
   );
   const { setScrollDirection, setAtBottom } = useScrollContext();
   const lastScrollOffsetRef = useRef(0);
@@ -110,7 +123,7 @@ export default function MessagesScreen() {
       markAsUnread: state.markAsUnread,
       refreshEmailSegments: state.refreshEmailSegments,
       clearError: state.clearError,
-    }))
+    })),
   );
 
   // Initialize segment from URL params if provided, otherwise default to "chat"
@@ -122,8 +135,10 @@ export default function MessagesScreen() {
     return "chat" as SegmentKey;
   }, [params.segment]);
 
-  const [activeSegment, setActiveSegment] = useState<SegmentKey>(initialSegment);
-  const [activeEmailFolder, setActiveEmailFolder] = useState<EmailFolderKey>("inbox");
+  const [activeSegment, setActiveSegment] =
+    useState<SegmentKey>(initialSegment);
+  const [activeEmailFolder, setActiveEmailFolder] =
+    useState<EmailFolderKey>("inbox");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Update segment when params change (e.g., when navigating from home page bell icon)
@@ -141,18 +156,23 @@ export default function MessagesScreen() {
   useEffect(() => {
     // Only subscribe when user is authenticated and has a valid uid
     if (user?.uid && isAuthenticated) {
-      logger.info('Setting up conversation subscription', { userId: user.uid });
+      logger.info("Setting up conversation subscription", { userId: user.uid });
       fetchConversations(user.uid);
       const unsubscribe = subscribeToConversations(user.uid);
       return unsubscribe;
     } else {
-      logger.debug('Skipping conversation subscription', { 
-        hasUser: !!user, 
-        hasUid: !!user?.uid, 
-        isAuthenticated 
+      logger.debug("Skipping conversation subscription", {
+        hasUser: !!user,
+        hasUid: !!user?.uid,
+        isAuthenticated,
       });
     }
-  }, [user?.uid, isAuthenticated, fetchConversations, subscribeToConversations]);
+  }, [
+    user?.uid,
+    isAuthenticated,
+    fetchConversations,
+    subscribeToConversations,
+  ]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -183,7 +203,7 @@ export default function MessagesScreen() {
 
   const emailData = useMemo(
     () => (activeEmailFolder === "inbox" ? emailInbox : emailSent),
-    [activeEmailFolder, emailInbox, emailSent]
+    [activeEmailFolder, emailInbox, emailSent],
   );
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -223,53 +243,74 @@ export default function MessagesScreen() {
     });
   }, [normalizedSearch, emailData]);
 
-  const handleEmailPress = useCallback((message: Message) => {
-    if (message.unread) {
-      markAsRead(message.id).catch(() => { });
-    }
-    router.push({
-      pathname: "/email/[id]",
-      params: { id: message.id },
-    });
-  }, [markAsRead, router]);
+  const handleEmailPress = useCallback(
+    (message: Message) => {
+      if (message.unread) {
+        markAsRead(message.id).catch(() => {});
+      }
+      router.push({
+        pathname: "/email/[id]",
+        params: { id: message.id },
+      });
+    },
+    [markAsRead, router],
+  );
 
-  const handleToggleEmailReadStatus = useCallback((message: Message) => {
-    if (message.unread) {
-      markAsRead(message.id).catch(() => { });
-    } else {
-      markAsUnread(message.id).catch(() => { });
-    }
-  }, [markAsRead, markAsUnread]);
+  const handleToggleEmailReadStatus = useCallback(
+    (message: Message) => {
+      if (message.unread) {
+        markAsRead(message.id).catch(() => {});
+      } else {
+        markAsUnread(message.id).catch(() => {});
+      }
+    },
+    [markAsRead, markAsUnread],
+  );
 
-  const handleConversationPress = useCallback((conversation: Conversation) => {
-    const roomId = conversation.id;
-    const caseId = conversation.caseId;
-    router.push({
-      pathname: "/chat",
-      params: {
-        id: roomId || caseId,
-        roomId: roomId || undefined,
-        caseId: caseId || undefined,
-        caseReference: conversation.caseReference || undefined,
-      },
-    });
-  }, [router]);
+  const handleConversationPress = useCallback(
+    (conversation: Conversation) => {
+      const roomId = conversation.id;
+      const caseId = conversation.caseId;
+      router.push({
+        pathname: "/chat",
+        params: {
+          id: roomId || caseId,
+          roomId: roomId || undefined,
+          caseId: caseId || undefined,
+          caseReference: conversation.caseReference || undefined,
+        },
+      });
+    },
+    [router],
+  );
 
-  const renderConversationItem: ListRenderItem<typeof sortedConversations[number]> = useCallback(
+  const renderConversationItem: ListRenderItem<
+    (typeof sortedConversations)[number]
+  > = useCallback(
     ({ item }) => {
       const participantName =
-        item.participants?.agentName || item.participants?.clientName || t("messages.agent", { defaultValue: "Advisor" });
+        item.participants?.agentName ||
+        item.participants?.clientName ||
+        t("messages.agent", { defaultValue: "Advisor" });
       const isUnread = item.unreadCount > 0;
       const accentColor = isUnread ? colors.success : colors.primary;
-      const neutralBorderColor = withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.24);
-      const cardBorderColor = isUnread ? withOpacity(accentColor, theme.dark ? 0.6 : 0.4) : neutralBorderColor;
+      const neutralBorderColor = withOpacity(
+        colors.borderStrong,
+        theme.dark ? 0.55 : 0.24,
+      );
+      const cardBorderColor = isUnread
+        ? withOpacity(accentColor, theme.dark ? 0.6 : 0.4)
+        : neutralBorderColor;
       const cardBackgroundColor = theme.dark
         ? withOpacity(colors.surfaceElevated, isUnread ? 0.98 : 0.9)
         : withOpacity(colors.surfaceAlt, isUnread ? 0.97 : 0.92);
       const avatarBorderColor = isUnread
         ? withOpacity(accentColor, theme.dark ? 0.65 : 0.45)
         : neutralBorderColor;
-      const avatarBackground = withOpacity(accentColor, theme.dark ? 0.32 : 0.18);
+      const avatarBackground = withOpacity(
+        accentColor,
+        theme.dark ? 0.32 : 0.18,
+      );
 
       return (
         <Pressable
@@ -278,7 +319,7 @@ export default function MessagesScreen() {
             {
               backgroundColor: cardBackgroundColor,
               borderColor: cardBorderColor,
-              shadowColor: 'green',
+              shadowColor: "green",
             },
           ]}
           onPress={() => handleConversationPress(item)}
@@ -289,7 +330,7 @@ export default function MessagesScreen() {
               {
                 backgroundColor: avatarBackground,
                 borderColor: avatarBorderColor,
-                shadowColor: 'green',
+                shadowColor: "green",
               },
             ]}
           >
@@ -298,29 +339,42 @@ export default function MessagesScreen() {
                 styles.avatar,
                 {
                   // backgroundColor: withOpacity(accentColor, theme.dark ? 0.3 : 0.22),
-                  backgroundColor: withOpacity(colors.primary, theme.dark ? 0.3 : 0.6),
+                  backgroundColor: withOpacity(
+                    colors.primary,
+                    theme.dark ? 0.3 : 0.6,
+                  ),
                   borderColor: avatarBorderColor,
                 },
               ]}
             >
-              <IconSymbol name="person.fill" size={22} color={'white'} />
+              <IconSymbol name="person.fill" size={22} color={"white"} />
             </View>
             {isUnread && (
               <View
                 style={[
                   styles.onlineIndicator,
-                  { backgroundColor: colors.success, borderColor: theme.dark ? colors.surface : "#fff" },
+                  {
+                    backgroundColor: colors.success,
+                    borderColor: theme.dark ? colors.surface : "#fff",
+                  },
                 ]}
               />
             )}
           </View>
           <View style={styles.conversationContent}>
             <View style={styles.messageHeader}>
-              <Text style={[styles.messageName, { color: colors.text }]} numberOfLines={1}>
+              <Text
+                style={[styles.messageName, { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {participantName}
               </Text>
               <Text style={[styles.messageTime, { color: colors.muted }]}>
-                {formatRelativeTime(item.lastMessageTime, t("messages.justNow", { defaultValue: "Just now" }), t)}
+                {formatRelativeTime(
+                  item.lastMessageTime,
+                  t("messages.justNow", { defaultValue: "Just now" }),
+                  t,
+                )}
               </Text>
             </View>
             <Text
@@ -352,7 +406,9 @@ export default function MessagesScreen() {
                 backgroundColor: isUnread
                   ? withOpacity(accentColor, 0.9)
                   : withOpacity(colors.surfaceAlt, theme.dark ? 0.6 : 0.4),
-                borderColor: isUnread ? withOpacity(accentColor, theme.dark ? 0.6 : 0.32) : neutralBorderColor,
+                borderColor: isUnread
+                  ? withOpacity(accentColor, theme.dark ? 0.6 : 0.32)
+                  : neutralBorderColor,
               },
             ]}
           >
@@ -360,9 +416,11 @@ export default function MessagesScreen() {
               style={[
                 styles.unreadBadgeText,
                 {
-                  color: isUnread ? colors.onPrimary : withOpacity(colors.text, 0.82),
+                  color: isUnread
+                    ? colors.onPrimary
+                    : withOpacity(colors.text, 0.82),
                   // create a card shadow
-                  shadowColor: 'green',
+                  shadowColor: "green",
                 },
               ]}
             >
@@ -376,161 +434,223 @@ export default function MessagesScreen() {
         </Pressable>
       );
     },
-    [colors, handleConversationPress, t, theme.dark]
+    [colors, handleConversationPress, t, theme.dark],
   );
 
-  const renderEmailItem: ListRenderItem<typeof emailData[number]> = useCallback(
-    ({ item }) => {
-      const isUnread = Boolean(item.unread);
-      const baseAccent = item.role === "System" ? colors.accent : colors.primary;
-      const neutralBorderColor = withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.24);
-      const cardBorderColor = isUnread ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.4) : neutralBorderColor;
-      const cardBackgroundColor = theme.dark
-        ? withOpacity(colors.surfaceElevated, isUnread ? 0.96 : 0.9)
-        : withOpacity(colors.surfaceAlt, isUnread ? 0.96 : 0.92);
-      const avatarBackground = withOpacity(baseAccent, theme.dark ? 0.3 : 0.18);
-      const avatarBorder = isUnread
-        ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.45)
-        : neutralBorderColor;
+  const renderEmailItem: ListRenderItem<(typeof emailData)[number]> =
+    useCallback(
+      ({ item }) => {
+        const isUnread = Boolean(item.unread);
+        const baseAccent =
+          item.role === "System" ? colors.accent : colors.primary;
+        const neutralBorderColor = withOpacity(
+          colors.borderStrong,
+          theme.dark ? 0.55 : 0.24,
+        );
+        const cardBorderColor = isUnread
+          ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.4)
+          : neutralBorderColor;
+        const cardBackgroundColor = theme.dark
+          ? withOpacity(colors.surfaceElevated, isUnread ? 0.96 : 0.9)
+          : withOpacity(colors.surfaceAlt, isUnread ? 0.96 : 0.92);
+        const avatarBackground = withOpacity(
+          baseAccent,
+          theme.dark ? 0.3 : 0.18,
+        );
+        const avatarBorder = isUnread
+          ? withOpacity(colors.warning, theme.dark ? 0.6 : 0.45)
+          : neutralBorderColor;
 
-      return (
-        <Pressable
-          style={[
-            styles.messageCard,
-            {
-              backgroundColor: cardBackgroundColor,
-              borderColor: cardBorderColor,
-              shadowColor: withOpacity(isUnread ? colors.warning : baseAccent, theme.dark ? 0.45 : 0.2),
-            },
-          ]}
-          onPress={() => handleEmailPress(item)}
-        >
-          <View
+        return (
+          <Pressable
             style={[
-              styles.avatarContainer,
+              styles.messageCard,
               {
-                backgroundColor: avatarBackground,
-                borderColor: avatarBorder,
-                shadowColor: withOpacity(isUnread ? colors.warning : baseAccent, theme.dark ? 0.45 : 0.22),
+                backgroundColor: cardBackgroundColor,
+                borderColor: cardBorderColor,
+                shadowColor: withOpacity(
+                  isUnread ? colors.warning : baseAccent,
+                  theme.dark ? 0.45 : 0.2,
+                ),
               },
             ]}
+            onPress={() => handleEmailPress(item)}
           >
             <View
               style={[
-                styles.avatar,
+                styles.avatarContainer,
                 {
-                  backgroundColor: withOpacity(baseAccent, theme.dark ? 0.26 : 0.16),
+                  backgroundColor: avatarBackground,
                   borderColor: avatarBorder,
+                  shadowColor: withOpacity(
+                    isUnread ? colors.warning : baseAccent,
+                    theme.dark ? 0.45 : 0.22,
+                  ),
                 },
               ]}
             >
-              {item.role === "System" ? (
-                <IconSymbol name="gear" size={20} color={baseAccent} />
-              ) : (
-                <IconSymbol name="envelope.fill" size={20} color={baseAccent} />
-              )}
-            </View>
-            {isUnread && (
               <View
                 style={[
-                  styles.onlineIndicator,
-                  { backgroundColor: colors.warning, borderColor: theme.dark ? colors.surface : "#fff" },
-                ]}
-              />
-            )}
-          </View>
-          <View style={styles.messageContent}>
-            <View style={styles.messageHeader}>
-              <Text style={[styles.messageSubject, { color: colors.text }]} numberOfLines={1}>
-                {item.subject || t("messages.noSubject", { defaultValue: "(No subject)" })}
-              </Text>
-              <Text style={[styles.messageTime, { color: colors.muted }]} numberOfLines={1}>
-                {item.time}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.messageMeta,
-                { color: withOpacity(baseAccent, theme.dark ? 0.85 : 0.6) },
-              ]}
-              numberOfLines={1}
-            >
-              {item.direction === "outgoing"
-                ? t("messages.toLabel", { defaultValue: "To {{name}}", name: item.name })
-                : t("messages.fromLabel", { defaultValue: "From {{name}}", name: item.name })}
-              {item.caseReference
-                ? ` • ${t("messages.caseLabel", {
-                  defaultValue: "Case {{reference}}",
-                  reference: item.caseReference,
-                })}`
-                : ""}
-            </Text>
-            <Text
-              style={[
-                styles.messageText,
-                { color: colors.muted },
-                isUnread && { fontWeight: "600", color: colors.text },
-              ]}
-              numberOfLines={2}
-            >
-              {item.preview || item.message}
-            </Text>
-          </View>
-          <View style={styles.messageActions}>
-            {item.attachments && item.attachments.length > 0 && (
-              <View
-                style={[
-                  styles.attachmentBadge,
+                  styles.avatar,
                   {
-                    backgroundColor: withOpacity(colors.success, theme.dark ? 0.28 : 0.16),
-                    borderColor: withOpacity(colors.success, theme.dark ? 0.55 : 0.32),
+                    backgroundColor: withOpacity(
+                      baseAccent,
+                      theme.dark ? 0.26 : 0.16,
+                    ),
+                    borderColor: avatarBorder,
                   },
                 ]}
               >
-                <IconSymbol name="doc.text.fill" size={16} color={colors.success} />
-                <Text style={[styles.attachmentText, { color: colors.success }]}>
-                  {item.attachments.length}
+                {item.role === "System" ? (
+                  <IconSymbol name="gear" size={20} color={baseAccent} />
+                ) : (
+                  <IconSymbol
+                    name="envelope.fill"
+                    size={20}
+                    color={baseAccent}
+                  />
+                )}
+              </View>
+              {isUnread && (
+                <View
+                  style={[
+                    styles.onlineIndicator,
+                    {
+                      backgroundColor: colors.warning,
+                      borderColor: theme.dark ? colors.surface : "#fff",
+                    },
+                  ]}
+                />
+              )}
+            </View>
+            <View style={styles.messageContent}>
+              <View style={styles.messageHeader}>
+                <Text
+                  style={[styles.messageSubject, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  {item.subject ||
+                    t("messages.noSubject", { defaultValue: "(No subject)" })}
+                </Text>
+                <Text
+                  style={[styles.messageTime, { color: colors.muted }]}
+                  numberOfLines={1}
+                >
+                  {item.time}
                 </Text>
               </View>
-            )}
-            <Pressable
-              style={[
-                styles.toggleButton,
-                {
-                  backgroundColor: withOpacity(isUnread ? colors.warning : colors.success, 0.12),
-                  borderColor: withOpacity(isUnread ? colors.warning : colors.success, 0.32),
-                },
-              ]}
-              onPress={(event: GestureResponderEvent) => {
-                event.stopPropagation?.();
-                handleToggleEmailReadStatus(item);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={
-                item.unread
-                  ? t("messages.markAsRead", { defaultValue: "Mark as read" })
-                  : t("messages.markAsUnread", { defaultValue: "Mark as unread" })
-              }
-            >
-              <IconSymbol
-                name={item.unread ? "envelope.fill" : "checkmark.circle.fill"}
-                size={20}
-                color={isUnread ? colors.warning : colors.success}
-              />
-            </Pressable>
-          </View>
-        </Pressable>
-      );
-    },
-    [colors, handleEmailPress, handleToggleEmailReadStatus, t, theme.dark]
-  );
+              <Text
+                style={[
+                  styles.messageMeta,
+                  { color: withOpacity(baseAccent, theme.dark ? 0.85 : 0.6) },
+                ]}
+                numberOfLines={1}
+              >
+                {item.direction === "outgoing"
+                  ? t("messages.toLabel", {
+                      defaultValue: "To {{name}}",
+                      name: item.name,
+                    })
+                  : t("messages.fromLabel", {
+                      defaultValue: "From {{name}}",
+                      name: item.name,
+                    })}
+                {item.caseReference
+                  ? ` • ${t("messages.caseLabel", {
+                      defaultValue: "Case {{reference}}",
+                      reference: item.caseReference,
+                    })}`
+                  : ""}
+              </Text>
+              <Text
+                style={[
+                  styles.messageText,
+                  { color: colors.muted },
+                  isUnread && { fontWeight: "600", color: colors.text },
+                ]}
+                numberOfLines={2}
+              >
+                {item.preview || item.message}
+              </Text>
+            </View>
+            <View style={styles.messageActions}>
+              {item.attachments && item.attachments.length > 0 && (
+                <View
+                  style={[
+                    styles.attachmentBadge,
+                    {
+                      backgroundColor: withOpacity(
+                        colors.success,
+                        theme.dark ? 0.28 : 0.16,
+                      ),
+                      borderColor: withOpacity(
+                        colors.success,
+                        theme.dark ? 0.55 : 0.32,
+                      ),
+                    },
+                  ]}
+                >
+                  <IconSymbol
+                    name="doc.text.fill"
+                    size={16}
+                    color={colors.success}
+                  />
+                  <Text
+                    style={[styles.attachmentText, { color: colors.success }]}
+                  >
+                    {item.attachments.length}
+                  </Text>
+                </View>
+              )}
+              <Pressable
+                style={[
+                  styles.toggleButton,
+                  {
+                    backgroundColor: withOpacity(
+                      isUnread ? colors.warning : colors.success,
+                      0.12,
+                    ),
+                    borderColor: withOpacity(
+                      isUnread ? colors.warning : colors.success,
+                      0.32,
+                    ),
+                  },
+                ]}
+                onPress={(event: GestureResponderEvent) => {
+                  event.stopPropagation?.();
+                  handleToggleEmailReadStatus(item);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  item.unread
+                    ? t("messages.markAsRead", { defaultValue: "Mark as read" })
+                    : t("messages.markAsUnread", {
+                        defaultValue: "Mark as unread",
+                      })
+                }
+              >
+                <IconSymbol
+                  name={item.unread ? "envelope.fill" : "checkmark.circle.fill"}
+                  size={20}
+                  color={isUnread ? colors.warning : colors.success}
+                />
+              </Pressable>
+            </View>
+          </Pressable>
+        );
+      },
+      [colors, handleEmailPress, handleToggleEmailReadStatus, t, theme.dark],
+    );
 
-  const renderEmptyState = useCallback((title: string) => (
-    <View style={styles.emptyContainer}>
-      <IconSymbol name="message.fill" size={64} color={colors.muted} />
-      <Text style={[styles.emptyText, { color: colors.muted }]}>{title}</Text>
-    </View>
-  ), [colors.muted]);
+  const renderEmptyState = useCallback(
+    (title: string) => (
+      <View style={styles.emptyContainer}>
+        <IconSymbol name="message.fill" size={64} color={colors.muted} />
+        <Text style={[styles.emptyText, { color: colors.muted }]}>{title}</Text>
+      </View>
+    ),
+    [colors.muted],
+  );
 
   const chatRefreshing = isConversationsLoading;
   const emailRefreshing = isLoading;
@@ -569,8 +689,9 @@ export default function MessagesScreen() {
   }, [handleEmailRefresh]);
 
   const chatEmptyTitle = useMemo(
-    () => t("messages.noConversations", { defaultValue: "No conversations yet" }),
-    [t]
+    () =>
+      t("messages.noConversations", { defaultValue: "No conversations yet" }),
+    [t],
   );
 
   const emailEmptyTitle = useMemo(
@@ -578,13 +699,17 @@ export default function MessagesScreen() {
       activeEmailFolder === "inbox"
         ? t("messages.noInboxMessages", { defaultValue: "Inbox is empty" })
         : t("messages.noSentMessages", { defaultValue: "No sent messages" }),
-    [activeEmailFolder, t]
+    [activeEmailFolder, t],
   );
 
   const showChatLoadingOverlay =
-    activeSegment === "chat" && chatRefreshing && filteredConversations.length === 0;
+    activeSegment === "chat" &&
+    chatRefreshing &&
+    filteredConversations.length === 0;
   const showEmailLoadingOverlay =
-    activeSegment === "email" && emailRefreshing && filteredEmailData.length === 0;
+    activeSegment === "email" &&
+    emailRefreshing &&
+    filteredEmailData.length === 0;
   const showLoadingOverlay = showChatLoadingOverlay || showEmailLoadingOverlay;
 
   const listEmptyComponent = useMemo(() => {
@@ -615,27 +740,25 @@ export default function MessagesScreen() {
       (isChatSegment ? filteredConversations : filteredEmailData) as Array<
         Conversation | Message
       >,
-    [filteredConversations, filteredEmailData, isChatSegment]
+    [filteredConversations, filteredEmailData, isChatSegment],
   );
 
   const keyExtractor = useCallback(
     (item: Conversation | Message, _index: number) =>
-      isChatSegment
-        ? (item as Conversation).id
-        : (item as Message).id,
-    [isChatSegment]
+      isChatSegment ? (item as Conversation).id : (item as Message).id,
+    [isChatSegment],
   );
 
   const renderListItem = useCallback(
     (info: ListRenderItemInfo<Conversation | Message>) =>
       isChatSegment
         ? renderConversationItem(
-          info as ListRenderItemInfo<typeof filteredConversations[number]>
-        )
+            info as ListRenderItemInfo<(typeof filteredConversations)[number]>,
+          )
         : renderEmailItem(
-          info as ListRenderItemInfo<typeof filteredEmailData[number]>
-        ),
-    [isChatSegment, renderConversationItem, renderEmailItem]
+            info as ListRenderItemInfo<(typeof filteredEmailData)[number]>,
+          ),
+    [isChatSegment, renderConversationItem, renderEmailItem],
   );
 
   const refreshing = isChatSegment
@@ -645,264 +768,370 @@ export default function MessagesScreen() {
 
   const totalConversationCount = sortedConversations.length;
 
-  const listHeaderComponent = useMemo(() => (
-    <View style={styles.listHeader}>
-      <View
-        style={[
-          styles.summaryCard,
-          {
-            backgroundColor: theme.dark
-              ? withOpacity(colors.surfaceElevated, 0.92)
-              : withOpacity(colors.primary, 0.12),
-            borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.32),
-            shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.25),
-          },
-        ]}
-      >
-        <View style={styles.summaryItem}>
-          <View
-            style={[
-              styles.summaryIcon,
-              {
-                backgroundColor: withOpacity(colors.primary, theme.dark ? 0.35 : 0.18),
-                borderColor: withOpacity(colors.primary, theme.dark ? 0.55 : 0.38),
-              },
-            ]}
-          >
-            <IconSymbol name="message.fill" size={18} color={colors.primary} />
-          </View>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{totalConversationCount}</Text>
-          <Text style={[styles.summaryLabel, { color: withOpacity(colors.text, 0.7) }]}>
-            {t("messages.activeChats", { defaultValue: "Active chats" })}
-          </Text>
-        </View>
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.listHeader}>
         <View
           style={[
-            styles.summaryItem,
-            styles.summaryDivider,
+            styles.summaryCard,
             {
-              borderLeftColor: withOpacity(colors.primary, theme.dark ? 0.28 : 0.14),
+              backgroundColor: theme.dark
+                ? withOpacity(colors.surfaceElevated, 0.92)
+                : withOpacity(colors.primary, 0.12),
+              borderColor: withOpacity(
+                colors.primary,
+                theme.dark ? 0.55 : 0.32,
+              ),
+              shadowColor: withOpacity(
+                colors.primary,
+                theme.dark ? 0.45 : 0.25,
+              ),
             },
           ]}
         >
-          <View
-            style={[
-              styles.summaryIcon,
-              {
-                backgroundColor: withOpacity(colors.warning, theme.dark ? 0.36 : 0.18),
-                borderColor: withOpacity(colors.warning, theme.dark ? 0.55 : 0.4),
-              },
-            ]}
-          >
-            <IconSymbol name="bell.fill" size={18} color={colors.warning} />
-          </View>
-          <Text style={[styles.summaryValue, { color: colors.warning }]}>{unreadChatTotal}</Text>
-          <Text style={[styles.summaryLabel, { color: withOpacity(colors.warning, 0.85) }]}>
-            {t("messages.unreadChats", { defaultValue: "Unread chat" })}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.summaryItem,
-            styles.summaryDivider,
-            {
-              borderLeftColor: withOpacity(colors.primary, theme.dark ? 0.28 : 0.14),
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.summaryIcon,
-              {
-                backgroundColor: withOpacity(colors.success, theme.dark ? 0.38 : 0.2),
-                borderColor: withOpacity(colors.success, theme.dark ? 0.6 : 0.46),
-              },
-            ]}
-          >
-            <IconSymbol name="envelope.fill" size={18} color={colors.success} />
-          </View>
-          <Text style={[styles.summaryValue, { color: colors.success }]}>{unreadEmailTotal}</Text>
-          <Text style={[styles.summaryLabel, { color: withOpacity(colors.success, 0.85) }]}>
-            {t("messages.unreadEmails", { defaultValue: "Unread email" })}
-          </Text>
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.segmentContainer,
-          {
-            backgroundColor: theme.dark ? colors.surfaceElevated : colors.surface,
-            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.45 : 0.16),
-          },
-        ]}
-      >
-        {(["chat", "email"] as SegmentKey[]).map((segment, index) => {
-          const isActive = activeSegment === segment;
-          const label =
-            segment === "chat"
-              ? t("messages.chat")
-              : t("messages.email", { defaultValue: "Email" });
-          const badgeValue = segment === "chat" ? unreadChatTotal : unreadEmailTotal;
-          return (
-            <Pressable
-              key={segment}
-              onPress={() => setActiveSegment(segment)}
+          <View style={styles.summaryItem}>
+            <View
               style={[
-                styles.segmentButton,
-                index === 0 && styles.segmentButtonSpacing,
+                styles.summaryIcon,
                 {
-                  backgroundColor: isActive
-                    ? withOpacity(colors.primary, theme.dark ? 0.32 : 0.12)
-                    : withOpacity(colors.surfaceAlt, theme.dark ? 0.35 : 0.08),
-                  borderColor: isActive
-                    ? withOpacity(colors.primary, theme.dark ? 0.6 : 0.28)
-                    : withOpacity(colors.primary, theme.dark ? 0.45 : 0.24),
-                  borderWidth: isActive ? StyleSheet.hairlineWidth : 2,
+                  backgroundColor: withOpacity(
+                    colors.primary,
+                    theme.dark ? 0.35 : 0.18,
+                  ),
+                  borderColor: withOpacity(
+                    colors.primary,
+                    theme.dark ? 0.55 : 0.38,
+                  ),
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.segmentLabel,
-                  { color: isActive ? colors.primary : colors.muted },
-                ]}
-              >
-                {label}
-              </Text>
-              {badgeValue > 0 && (
-                <View style={[styles.segmentBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.segmentBadgeText, { color: colors.onPrimary }]}>
-                    {badgeValue > 99 ? "99+" : badgeValue}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
+              <IconSymbol
+                name="message.fill"
+                size={18}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
+              {totalConversationCount}
+            </Text>
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: withOpacity(colors.text, 0.7) },
+              ]}
+            >
+              {t("messages.activeChats", { defaultValue: "Active chats" })}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.summaryItem,
+              styles.summaryDivider,
+              {
+                borderLeftColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.28 : 0.14,
+                ),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.summaryIcon,
+                {
+                  backgroundColor: withOpacity(
+                    colors.warning,
+                    theme.dark ? 0.36 : 0.18,
+                  ),
+                  borderColor: withOpacity(
+                    colors.warning,
+                    theme.dark ? 0.55 : 0.4,
+                  ),
+                },
+              ]}
+            >
+              <IconSymbol name="bell.fill" size={18} color={colors.warning} />
+            </View>
+            <Text style={[styles.summaryValue, { color: colors.warning }]}>
+              {unreadChatTotal}
+            </Text>
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: withOpacity(colors.warning, 0.85) },
+              ]}
+            >
+              {t("messages.unreadChats", { defaultValue: "Unread chat" })}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.summaryItem,
+              styles.summaryDivider,
+              {
+                borderLeftColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.28 : 0.14,
+                ),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.summaryIcon,
+                {
+                  backgroundColor: withOpacity(
+                    colors.success,
+                    theme.dark ? 0.38 : 0.2,
+                  ),
+                  borderColor: withOpacity(
+                    colors.success,
+                    theme.dark ? 0.6 : 0.46,
+                  ),
+                },
+              ]}
+            >
+              <IconSymbol
+                name="envelope.fill"
+                size={18}
+                color={colors.success}
+              />
+            </View>
+            <Text style={[styles.summaryValue, { color: colors.success }]}>
+              {unreadEmailTotal}
+            </Text>
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: withOpacity(colors.success, 0.85) },
+              ]}
+            >
+              {t("messages.unreadEmails", { defaultValue: "Unread email" })}
+            </Text>
+          </View>
+        </View>
 
-      {activeSegment === "email" && (
-        <View style={styles.folderToggle}>
-          {(["inbox", "sent"] as EmailFolderKey[]).map((folder, index) => {
-            const isActive = activeEmailFolder === folder;
+        <View
+          style={[
+            styles.segmentContainer,
+            {
+              backgroundColor: theme.dark
+                ? colors.surfaceElevated
+                : colors.surface,
+              borderColor: withOpacity(
+                colors.borderStrong,
+                theme.dark ? 0.45 : 0.16,
+              ),
+            },
+          ]}
+        >
+          {(["chat", "email"] as SegmentKey[]).map((segment, index) => {
+            const isActive = activeSegment === segment;
+            const label =
+              segment === "chat"
+                ? t("messages.chat")
+                : t("messages.email", { defaultValue: "Email" });
+            const badgeValue =
+              segment === "chat" ? unreadChatTotal : unreadEmailTotal;
             return (
               <Pressable
-                key={folder}
-                onPress={() => setActiveEmailFolder(folder)}
+                key={segment}
+                onPress={() => setActiveSegment(segment)}
                 style={[
-                  styles.folderButton,
-                  index === 0 && styles.folderButtonSpacing,
+                  styles.segmentButton,
+                  index === 0 && styles.segmentButtonSpacing,
                   {
                     backgroundColor: isActive
-                      ? withOpacity(colors.primary, theme.dark ? 0.24 : 0.1)
-                      : theme.dark
-                        ? colors.surfaceElevated
-                        : colors.surfaceAlt,
+                      ? withOpacity(colors.primary, theme.dark ? 0.32 : 0.12)
+                      : withOpacity(
+                          colors.surfaceAlt,
+                          theme.dark ? 0.35 : 0.08,
+                        ),
                     borderColor: isActive
                       ? withOpacity(colors.primary, theme.dark ? 0.6 : 0.28)
-                      : withOpacity(colors.borderStrong, theme.dark ? 0.4 : 0.12),
+                      : withOpacity(colors.primary, theme.dark ? 0.45 : 0.24),
+                    borderWidth: isActive ? StyleSheet.hairlineWidth : 2,
                   },
                 ]}
               >
                 <Text
                   style={[
-                    styles.folderLabel,
+                    styles.segmentLabel,
                     { color: isActive ? colors.primary : colors.muted },
                   ]}
                 >
-                  {folder === "inbox"
-                    ? t("messages.inbox", { defaultValue: "Inbox" })
-                    : t("messages.sent", { defaultValue: "Sent" })}
+                  {label}
                 </Text>
+                {badgeValue > 0 && (
+                  <View
+                    style={[
+                      styles.segmentBadge,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentBadgeText,
+                        { color: colors.onPrimary },
+                      ]}
+                    >
+                      {badgeValue > 99 ? "99+" : badgeValue}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             );
           })}
         </View>
-      )}
 
-      <SearchField
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        onClear={() => setSearchQuery("")}
-        placeholder={
-          activeSegment === "chat"
-            ? t("messages.searchConversations", { defaultValue: "Search conversations" })
-            : t("messages.searchEmails", { defaultValue: "Search messages" })
-        }
-        containerStyle={[
-          styles.searchFieldContainer,
-          {
-            backgroundColor: theme.dark
-              ? withOpacity(colors.surfaceElevated, 0.96)
-              : withOpacity(colors.surfaceAlt, 0.94),
-            borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.6 : 0.28),
-            borderWidth: 1,
-            shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.25),
-            shadowOpacity: theme.dark ? 0.32 : 0.2,
-            shadowRadius: 14,
-            elevation: 4,
-          },
-        ]}
-      />
+        {activeSegment === "email" && (
+          <View style={styles.folderToggle}>
+            {(["inbox", "sent"] as EmailFolderKey[]).map((folder, index) => {
+              const isActive = activeEmailFolder === folder;
+              return (
+                <Pressable
+                  key={folder}
+                  onPress={() => setActiveEmailFolder(folder)}
+                  style={[
+                    styles.folderButton,
+                    index === 0 && styles.folderButtonSpacing,
+                    {
+                      backgroundColor: isActive
+                        ? withOpacity(colors.primary, theme.dark ? 0.24 : 0.1)
+                        : theme.dark
+                          ? colors.surfaceElevated
+                          : colors.surfaceAlt,
+                      borderColor: isActive
+                        ? withOpacity(colors.primary, theme.dark ? 0.6 : 0.28)
+                        : withOpacity(
+                            colors.borderStrong,
+                            theme.dark ? 0.4 : 0.12,
+                          ),
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.folderLabel,
+                      { color: isActive ? colors.primary : colors.muted },
+                    ]}
+                  >
+                    {folder === "inbox"
+                      ? t("messages.inbox", { defaultValue: "Inbox" })
+                      : t("messages.sent", { defaultValue: "Sent" })}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
-      {activeSegment === "chat" && conversationsError ? (
-        <Pressable
-          onPress={handleConversationsRetry}
-          style={[
-            styles.errorContainer,
+        <SearchField
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onClear={() => setSearchQuery("")}
+          placeholder={
+            activeSegment === "chat"
+              ? t("messages.searchConversations", {
+                  defaultValue: "Search conversations",
+                })
+              : t("messages.searchEmails", { defaultValue: "Search messages" })
+          }
+          containerStyle={[
+            styles.searchFieldContainer,
             {
-              backgroundColor: withOpacity(colors.danger, theme.dark ? 0.25 : 0.12),
-              borderColor: withOpacity(colors.danger, theme.dark ? 0.55 : 0.3),
+              backgroundColor: theme.dark
+                ? withOpacity(colors.surfaceElevated, 0.96)
+                : withOpacity(colors.surfaceAlt, 0.94),
+              borderColor: withOpacity(
+                colors.borderStrong,
+                theme.dark ? 0.6 : 0.28,
+              ),
+              borderWidth: 1,
+              shadowColor: withOpacity(
+                colors.primary,
+                theme.dark ? 0.45 : 0.25,
+              ),
+              shadowOpacity: theme.dark ? 0.32 : 0.2,
+              shadowRadius: 14,
+              elevation: 4,
             },
           ]}
-        >
-          <Text style={[styles.errorText, { color: colors.danger }]}>
-            {conversationsError}
-          </Text>
-        </Pressable>
-      ) : null}
+        />
 
-      {activeSegment === "email" && error ? (
-        <Pressable
-          onPress={handleEmailsRetry}
-          style={[
-            styles.errorContainer,
-            {
-              backgroundColor: withOpacity(colors.danger, theme.dark ? 0.25 : 0.12),
-              borderColor: withOpacity(colors.danger, theme.dark ? 0.55 : 0.3),
-            },
-          ]}
-        >
-          <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  ), [
-    activeEmailFolder,
-    activeSegment,
-    colors.borderStrong,
-    colors.danger,
-    colors.muted,
-    colors.onPrimary,
-    colors.primary,
-    colors.success,
-    colors.surface,
-    colors.surfaceAlt,
-    colors.surfaceElevated,
-    colors.text,
-    colors.warning,
-    conversationsError,
-    error,
-    handleConversationsRetry,
-    handleEmailsRetry,
-    searchQuery,
-    t,
-    theme.dark,
-    totalConversationCount,
-    unreadChatTotal,
-    unreadEmailTotal,
-  ]);
+        {activeSegment === "chat" && conversationsError ? (
+          <Pressable
+            onPress={handleConversationsRetry}
+            style={[
+              styles.errorContainer,
+              {
+                backgroundColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.25 : 0.12,
+                ),
+                borderColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.55 : 0.3,
+                ),
+              },
+            ]}
+          >
+            <Text style={[styles.errorText, { color: colors.danger }]}>
+              {conversationsError}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {activeSegment === "email" && error ? (
+          <Pressable
+            onPress={handleEmailsRetry}
+            style={[
+              styles.errorContainer,
+              {
+                backgroundColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.25 : 0.12,
+                ),
+                borderColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.55 : 0.3,
+                ),
+              },
+            ]}
+          >
+            <Text style={[styles.errorText, { color: colors.danger }]}>
+              {error}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ),
+    [
+      activeEmailFolder,
+      activeSegment,
+      colors.borderStrong,
+      colors.danger,
+      colors.muted,
+      colors.onPrimary,
+      colors.primary,
+      colors.success,
+      colors.surface,
+      colors.surfaceAlt,
+      colors.surfaceElevated,
+      colors.text,
+      colors.warning,
+      conversationsError,
+      error,
+      handleConversationsRetry,
+      handleEmailsRetry,
+      searchQuery,
+      t,
+      theme.dark,
+      totalConversationCount,
+      unreadChatTotal,
+      unreadEmailTotal,
+    ],
+  );
 
   useEffect(() => {
     setAtBottom(true);
@@ -928,7 +1157,9 @@ export default function MessagesScreen() {
         style={[
           styles.container,
           {
-            backgroundColor: theme.dark ? "#1f2937" : withOpacity(colors.primary, 0.06),
+            backgroundColor: theme.dark
+              ? "#1f2937"
+              : withOpacity(colors.primary, 0.06),
             paddingTop: insets.top,
           },
         ]}
@@ -953,7 +1184,8 @@ export default function MessagesScreen() {
             </Text>
             <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
               {t("messages.subtitle", {
-                defaultValue: "Stay connected with your advisors and keep track of updates.",
+                defaultValue:
+                  "Stay connected with your advisors and keep track of updates.",
               })}
             </Text>
           </View>
@@ -962,11 +1194,18 @@ export default function MessagesScreen() {
             style={[
               styles.headerAction,
               {
-                backgroundColor: withOpacity(colors.primary, theme.dark ? 0.22 : 0.12),
+                backgroundColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.22 : 0.12,
+                ),
               },
             ]}
           >
-            <IconSymbol name="square.and.pencil" size={22} color={colors.text} />
+            <IconSymbol
+              name="square.and.pencil"
+              size={22}
+              color={colors.text}
+            />
           </Pressable>
         </View>
 
@@ -977,8 +1216,14 @@ export default function MessagesScreen() {
               backgroundColor: theme.dark
                 ? withOpacity(colors.surface, 0.96)
                 : withOpacity(colors.surface, 0.98),
-              borderColor: withOpacity(colors.borderStrong, theme.dark ? 0.55 : 0.18),
-              shadowColor: withOpacity(colors.primary, theme.dark ? 0.45 : 0.18),
+              borderColor: withOpacity(
+                colors.borderStrong,
+                theme.dark ? 0.55 : 0.18,
+              ),
+              shadowColor: withOpacity(
+                colors.primary,
+                theme.dark ? 0.45 : 0.18,
+              ),
             },
           ]}
         >
@@ -990,13 +1235,16 @@ export default function MessagesScreen() {
             ListEmptyComponent={listEmptyComponent}
             showsVerticalScrollIndicator={false}
             onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-              const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+              const { contentOffset, layoutMeasurement, contentSize } =
+                event.nativeEvent;
               if (scrollTimeoutRef.current) {
                 clearTimeout(scrollTimeoutRef.current);
               }
               scrollTimeoutRef.current = setTimeout(() => {
                 const currentY = contentOffset.y;
-                const isAtBottom = currentY + layoutMeasurement.height >= contentSize.height - 50;
+                const isAtBottom =
+                  currentY + layoutMeasurement.height >=
+                  contentSize.height - 50;
                 setAtBottom(isAtBottom);
                 const diff = currentY - lastScrollOffsetRef.current;
                 if (Math.abs(diff) > 5) {
@@ -1008,7 +1256,9 @@ export default function MessagesScreen() {
             scrollEventThrottle={16}
             contentContainerStyle={[
               styles.listContent,
-              listData.length === 0 && !showLoadingOverlay ? styles.listEmptyPadding : null,
+              listData.length === 0 && !showLoadingOverlay
+                ? styles.listEmptyPadding
+                : null,
               { paddingBottom: contentPaddingBottom },
             ]}
             refreshing={refreshing}

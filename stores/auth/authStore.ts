@@ -3,14 +3,18 @@
  * Manages authentication state with persistence
  */
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { onAuthStateChanged, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
-import { auth, database } from '../../lib/firebase/config';
-import { secureStorage } from '../../lib/storage/secureStorage';
-import { logger } from '../../lib/utils/logger';
-import type { PushNotificationToken } from '../../lib/services/pushNotifications';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  onAuthStateChanged,
+  signOut as firebaseSignOut,
+  User as FirebaseUser,
+} from "firebase/auth";
+import { auth, database } from "../../lib/firebase/config";
+import { secureStorage } from "../../lib/storage/secureStorage";
+import { logger } from "../../lib/utils/logger";
+import type { PushNotificationToken } from "../../lib/services/pushNotifications";
 
 interface AuthState {
   // State
@@ -19,7 +23,7 @@ interface AuthState {
   isAuthenticated: boolean;
   error: string | null;
   pushToken: string | null;
-  pushTokenPlatform: PushNotificationToken['platform'] | null;
+  pushTokenPlatform: PushNotificationToken["platform"] | null;
   pushTokenDeviceId: string | null;
 
   // Actions
@@ -52,7 +56,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Set user (called by auth state listener)
       setUser: (user: FirebaseUser | null) => {
-        logger.info('Auth store: User state updated', {
+        logger.info("Auth store: User state updated", {
           userId: user?.uid || null,
           email: user?.email || null,
         });
@@ -83,41 +87,40 @@ export const useAuthStore = create<AuthState>()(
       refreshAuth: async () => {
         try {
           set({ isLoading: true });
-          
+
           // Firebase Auth automatically persists sessions
           // We just need to wait for the auth state to be ready
           return new Promise<void>((resolve) => {
-
             const unsubscribe = onAuthStateChanged(
               auth,
               (firebaseUser) => {
                 get().setUser(firebaseUser);
-                
+
                 // If user exists, store their token
                 if (firebaseUser) {
                   firebaseUser.getIdToken().then((token) => {
                     secureStorage.setAuthToken(token).catch((err) => {
-                      logger.warn('Failed to store auth token', err);
+                      logger.warn("Failed to store auth token", err);
                     });
                   });
                 }
-                
+
                 unsubscribe();
                 resolve();
               },
               (error) => {
-                logger.error('Auth state change error during refresh', error);
+                logger.error("Auth state change error during refresh", error);
                 get().setUser(null);
                 get().setError(error.message);
                 unsubscribe();
                 resolve();
-              }
+              },
             );
           });
         } catch (error: any) {
-          logger.error('Error refreshing auth', error);
+          logger.error("Error refreshing auth", error);
           set({
-            error: error.message || 'Failed to refresh authentication',
+            error: error.message || "Failed to refresh authentication",
             isLoading: false,
           });
         }
@@ -135,17 +138,26 @@ export const useAuthStore = create<AuthState>()(
           try {
             await get().unregisterPushToken();
           } catch (cleanupError) {
-            logger.warn('Failed to remove push token during logout', cleanupError);
+            logger.warn(
+              "Failed to remove push token during logout",
+              cleanupError,
+            );
           }
 
           // Clear all user-specific caches before logout
           if (userId) {
             try {
-              const { useCasesStore } = await import('../cases/casesStore');
-              const { useNotificationsStore } = await import('../notifications/notificationsStore');
-              const { useSubscriptionStore } = await import('../subscription/subscriptionStore');
-              const { useDocumentsStore } = await import('../documents/documentsStore');
-              
+              const { useCasesStore } = await import("../cases/casesStore");
+              const { useNotificationsStore } = await import(
+                "../notifications/notificationsStore"
+              );
+              const { useSubscriptionStore } = await import(
+                "../subscription/subscriptionStore"
+              );
+              const { useDocumentsStore } = await import(
+                "../documents/documentsStore"
+              );
+
               // Clear all caches for this user
               await Promise.all([
                 useCasesStore.getState().clearCache(),
@@ -153,10 +165,10 @@ export const useAuthStore = create<AuthState>()(
                 useSubscriptionStore.getState().clearSubscriptionStatus(),
                 useDocumentsStore.getState().clearCache(),
               ]);
-              
-              logger.info('Cleared all user caches on logout', { userId });
+
+              logger.info("Cleared all user caches on logout", { userId });
             } catch (cacheError) {
-              logger.warn('Failed to clear some caches on logout', cacheError);
+              logger.warn("Failed to clear some caches on logout", cacheError);
               // Non-blocking - continue with logout
             }
           }
@@ -178,11 +190,11 @@ export const useAuthStore = create<AuthState>()(
             pushTokenDeviceId: null,
           });
 
-          logger.info('User logged out successfully');
+          logger.info("User logged out successfully");
         } catch (error: any) {
-          logger.error('Error during logout', error);
+          logger.error("Error during logout", error);
           set({
-            error: error.message || 'Failed to logout',
+            error: error.message || "Failed to logout",
             isLoading: false,
           });
           throw error;
@@ -192,7 +204,8 @@ export const useAuthStore = create<AuthState>()(
       // Register push token
       registerPushToken: async () => {
         try {
-          const { registerForPushNotifications, registerPushTokenWithBackend } = await import('../../lib/services/pushNotifications');
+          const { registerForPushNotifications, registerPushTokenWithBackend } =
+            await import("../../lib/services/pushNotifications");
           const tokenData = await registerForPushNotifications();
 
           if (tokenData) {
@@ -201,13 +214,17 @@ export const useAuthStore = create<AuthState>()(
               pushTokenPlatform: tokenData.platform,
               pushTokenDeviceId: tokenData.deviceId || null,
             });
-            await registerPushTokenWithBackend(tokenData.token, tokenData.platform, tokenData.deviceId);
-            logger.info('Push token registered successfully');
+            await registerPushTokenWithBackend(
+              tokenData.token,
+              tokenData.platform,
+              tokenData.deviceId,
+            );
+            logger.info("Push token registered successfully");
             return tokenData;
           }
           return null;
         } catch (error: any) {
-          logger.warn('Failed to register push token (non-blocking)', error);
+          logger.warn("Failed to register push token (non-blocking)", error);
           // Non-blocking - app continues normally
           return null;
         }
@@ -215,18 +232,27 @@ export const useAuthStore = create<AuthState>()(
 
       unregisterPushToken: async () => {
         try {
-          const { unregisterPushTokenWithBackend } = await import('../../lib/services/pushNotifications');
+          const { unregisterPushTokenWithBackend } = await import(
+            "../../lib/services/pushNotifications"
+          );
           const { pushTokenPlatform, pushTokenDeviceId } = get();
-          await unregisterPushTokenWithBackend(pushTokenPlatform || undefined, pushTokenDeviceId || undefined);
+          await unregisterPushTokenWithBackend(
+            pushTokenPlatform || undefined,
+            pushTokenDeviceId || undefined,
+          );
         } catch (error: any) {
-          logger.warn('Failed to unregister push token (non-blocking)', error);
+          logger.warn("Failed to unregister push token (non-blocking)", error);
         } finally {
-          set({ pushToken: null, pushTokenPlatform: null, pushTokenDeviceId: null });
+          set({
+            pushToken: null,
+            pushTokenPlatform: null,
+            pushTokenDeviceId: null,
+          });
         }
       },
     }),
     {
-      name: 'auth-storage', // Storage key
+      name: "auth-storage", // Storage key
       storage: createJSONStorage(() => AsyncStorage),
       // Only persist non-sensitive data
       partialize: (state) => ({
@@ -236,8 +262,8 @@ export const useAuthStore = create<AuthState>()(
         isLoading: state.isLoading,
         error: state.error,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Initialize auth state listener on app start
@@ -245,31 +271,30 @@ let authListenerInitialized = false;
 
 export const initializeAuthListener = () => {
   if (authListenerInitialized) return;
-  
+
   authListenerInitialized = true;
-  
+
   // Listen to Firebase auth state changes
   onAuthStateChanged(
     auth,
     (firebaseUser) => {
       useAuthStore.getState().setUser(firebaseUser);
-      
+
       // Store token if user exists
       if (firebaseUser) {
         firebaseUser.getIdToken().then((token) => {
           secureStorage.setAuthToken(token).catch((err) => {
-            logger.warn('Failed to store auth token', err);
+            logger.warn("Failed to store auth token", err);
           });
         });
       }
     },
     (error) => {
-      logger.error('Auth state listener error', error);
+      logger.error("Auth state listener error", error);
       useAuthStore.getState().setUser(null);
       useAuthStore.getState().setError(error.message);
-    }
+    },
   );
-  
-  logger.info('Auth state listener initialized');
-};
 
+  logger.info("Auth state listener initialized");
+};

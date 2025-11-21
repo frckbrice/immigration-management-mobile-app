@@ -1,17 +1,17 @@
-import { useEffect, useState, useRef } from 'react';
-import { Redirect, useRouter } from 'expo-router';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { useAuthStore } from '../stores/auth/authStore';
-import { initializeAuthListener } from '../stores/auth/authStore';
-import { hasCompletedOnboarding } from '../lib/utils/onboarding';
-import { COLORS } from '../lib/constants';
-import { presenceService } from '@/lib/services/presenceService';
-import { useTranslation } from '@/lib/hooks/useTranslation';
+import { useEffect, useState, useRef } from "react";
+import { Redirect, useRouter } from "expo-router";
+import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { useAuthStore } from "../stores/auth/authStore";
+import { initializeAuthListener } from "../stores/auth/authStore";
+import { hasCompletedOnboarding } from "../lib/utils/onboarding";
+import { COLORS } from "../lib/constants";
+import { presenceService } from "@/lib/services/presenceService";
+import { useTranslation } from "@/lib/hooks/useTranslation";
 
-console.log('[App] index.tsx loaded');
+console.log("[App] index.tsx loaded");
 
 export default function Index() {
-  console.log('[App] Index component rendering');
+  console.log("[App] Index component rendering");
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -29,9 +29,8 @@ export default function Index() {
   useEffect(() => {
     refreshAuthRef.current = refreshAuth;
   }, [refreshAuth]);
-  const [hasCompletedOnboardingState, setHasCompletedOnboardingState] = useState<boolean | null>(
-    null
-  );
+  const [hasCompletedOnboardingState, setHasCompletedOnboardingState] =
+    useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize auth and check onboarding
@@ -43,7 +42,7 @@ export default function Index() {
     }
     initRef.current = true;
 
-    console.log('[App] Index useEffect running');
+    console.log("[App] Index useEffect running");
 
     try {
       // Initialize auth state listener once
@@ -56,19 +55,21 @@ export default function Index() {
       const checkOnboarding = async () => {
         try {
           const completed = await hasCompletedOnboarding();
-          console.log('[App] Onboarding check:', completed);
+          console.log("[App] Onboarding check:", completed);
           setHasCompletedOnboardingState(completed);
         } catch (err) {
-          console.error('[App] Onboarding check error:', err);
-          setError(err instanceof Error ? err.message : 'Failed to check onboarding');
+          console.error("[App] Onboarding check error:", err);
+          setError(
+            err instanceof Error ? err.message : "Failed to check onboarding",
+          );
           // Default to showing get started/onboarding if check fails
           setHasCompletedOnboardingState(false);
         }
       };
       checkOnboarding();
     } catch (err) {
-      console.error('[App] Index initialization error:', err);
-      setError(err instanceof Error ? err.message : 'Initialization failed');
+      console.error("[App] Index initialization error:", err);
+      setError(err instanceof Error ? err.message : "Initialization failed");
     }
   }, []);
 
@@ -81,29 +82,42 @@ export default function Index() {
     // If user hasn't completed onboarding, show get started (which leads to onboarding)
     // Get started and onboarding are treated as one feature
     if (!hasCompletedOnboardingState) {
-      console.log('[App] Navigating to get started (onboarding flow)');
-      router.replace('/getstarted');
+      console.log("[App] Navigating to get started (onboarding flow)");
+      router.replace("/getstarted");
       return;
     }
 
     // User has completed onboarding, check auth status
     if (isAuthenticated) {
-      console.log('[App] Navigating to home');
-      router.replace('/(tabs)/(home)');
+      console.log("[App] Navigating to home");
+      router.replace("/(tabs)/(home)");
       return;
     }
 
-    console.log('[App] Navigating to login');
-    router.replace('/login');
-  }, [authLoading, hasCompletedOnboardingState, isAuthenticated, error, router]);
+    console.log("[App] Navigating to login");
+    router.replace("/login");
+  }, [
+    authLoading,
+    hasCompletedOnboardingState,
+    isAuthenticated,
+    error,
+    router,
+  ]);
 
-  console.log('[App] Index state:', { authLoading, hasCompletedOnboardingState, isAuthenticated, error });
+  console.log("[App] Index state:", {
+    authLoading,
+    hasCompletedOnboardingState,
+    isAuthenticated,
+    error,
+  });
 
   // Show error if something failed
   if (error) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>{t('common.error')}: {error}</Text>
+        <Text style={styles.errorText}>
+          {t("common.error")}: {error}
+        </Text>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -129,14 +143,14 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   errorText: {
     color: COLORS.error,
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 20,
   },
 });

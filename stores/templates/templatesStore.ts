@@ -1,9 +1,12 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { templatesService, type Template } from '@/lib/services/templatesService';
-import { logger } from '@/lib/utils/logger';
+import {
+  templatesService,
+  type Template,
+} from "@/lib/services/templatesService";
+import { logger } from "@/lib/utils/logger";
 
 const TEMPLATE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -37,11 +40,13 @@ export const useTemplatesStore = create<TemplatesState>()(
         const shouldUseCache =
           !options?.force &&
           templates.length > 0 &&
-          typeof lastFetchedAt === 'number' &&
+          typeof lastFetchedAt === "number" &&
           now - lastFetchedAt < TEMPLATE_CACHE_TTL;
 
         if (shouldUseCache) {
-          logger.debug('Templates cache hit', { templatesCount: templates.length });
+          logger.debug("Templates cache hit", {
+            templatesCount: templates.length,
+          });
           return templates;
         }
 
@@ -56,8 +61,8 @@ export const useTemplatesStore = create<TemplatesState>()(
           });
           return fetchedTemplates;
         } catch (error: any) {
-          const message = error?.message || 'Unable to load templates.';
-          logger.error('Failed to fetch templates', error);
+          const message = error?.message || "Unable to load templates.";
+          logger.error("Failed to fetch templates", error);
           set({ error: message, isLoading: false });
           throw error;
         }
@@ -82,7 +87,7 @@ export const useTemplatesStore = create<TemplatesState>()(
       },
     }),
     {
-      name: 'templates-store',
+      name: "templates-store",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         templates: state.templates,
@@ -91,4 +96,3 @@ export const useTemplatesStore = create<TemplatesState>()(
     },
   ),
 );
-

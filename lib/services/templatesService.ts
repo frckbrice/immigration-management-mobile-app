@@ -1,9 +1,9 @@
-import { apiClient } from '../api/axios';
-import { logger } from '../utils/logger';
-import * as FileSystem from 'expo-file-system/legacy';
-import { auth } from '../firebase/config';
+import { apiClient } from "../api/axios";
+import { logger } from "../utils/logger";
+import * as FileSystem from "expo-file-system/legacy";
+import { auth } from "../firebase/config";
 
-import { templateCache } from './templateCache';
+import { templateCache } from "./templateCache";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -41,22 +41,22 @@ export interface TemplateDownloadResult {
 }
 
 const getAuthStore = () => {
-  return require('../../stores/auth/authStore').useAuthStore;
+  return require("../../stores/auth/authStore").useAuthStore;
 };
 
 const sanitizeFileName = (name: string) => {
   return (
     name
       .trim()
-      .replace(/[^a-z0-9_\-.]+/gi, '_')
-      .replace(/_{2,}/g, '_')
-      .slice(0, 80) || 'template'
+      .replace(/[^a-z0-9_\-.]+/gi, "_")
+      .replace(/_{2,}/g, "_")
+      .slice(0, 80) || "template"
   );
 };
 
 const resolveDownloadUrl = (url: string) => {
   if (!url) {
-    throw new Error('No download URL available for this template.');
+    throw new Error("No download URL available for this template.");
   }
 
   if (/^https?:\/\//i.test(url)) {
@@ -65,25 +65,29 @@ const resolveDownloadUrl = (url: string) => {
 
   const baseURL = apiClient.defaults.baseURL;
   if (!baseURL) {
-    throw new Error('Missing API base URL for template download.');
+    throw new Error("Missing API base URL for template download.");
   }
 
-  const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+  const normalizedPath = url.startsWith("/") ? url : `/${url}`;
 
   try {
     const base = new URL(baseURL);
     const origin = base.origin;
-    const basePath = base.pathname.replace(/\/$/, '');
+    const basePath = base.pathname.replace(/\/$/, "");
 
     if (basePath && normalizedPath.startsWith(basePath)) {
       return `${origin}${normalizedPath}`;
     }
 
-    const combinedPath = `${basePath}${normalizedPath}`.replace(/\/{2,}/g, '/');
-    return `${origin}${combinedPath.startsWith('/') ? combinedPath : `/${combinedPath}`}`;
+    const combinedPath = `${basePath}${normalizedPath}`.replace(/\/{2,}/g, "/");
+    return `${origin}${combinedPath.startsWith("/") ? combinedPath : `/${combinedPath}`}`;
   } catch (error) {
-    logger.warn('Failed to normalize template download URL with URL API', { baseURL, url, error });
-    const sanitizedBase = baseURL.replace(/\/$/, '');
+    logger.warn("Failed to normalize template download URL with URL API", {
+      baseURL,
+      url,
+      error,
+    });
+    const sanitizedBase = baseURL.replace(/\/$/, "");
     return `${sanitizedBase}${normalizedPath}`;
   }
 };
@@ -92,7 +96,7 @@ const ensureDirectoryExists = async (directory: string) => {
   const dirInfo = await FileSystem.getInfoAsync(directory);
   if (dirInfo.exists) {
     if (!dirInfo.isDirectory) {
-      throw new Error('Download directory is not accessible.');
+      throw new Error("Download directory is not accessible.");
     }
     return;
   }
@@ -103,13 +107,13 @@ const ensureDirectoryExists = async (directory: string) => {
 const resolveFileExtension = (template: Template, remoteUrl: string) => {
   const explicitType = template.fileType?.trim();
   if (explicitType) {
-    const cleaned = explicitType.replace(/^\./, '').toLowerCase();
-    if (cleaned.length > 0 && cleaned.length <= 8 && !cleaned.includes('/')) {
+    const cleaned = explicitType.replace(/^\./, "").toLowerCase();
+    if (cleaned.length > 0 && cleaned.length <= 8 && !cleaned.includes("/")) {
       return `.${cleaned}`;
     }
   }
 
-  const deriveFromMime = template.mimeType?.split('/').pop();
+  const deriveFromMime = template.mimeType?.split("/").pop();
   if (deriveFromMime && deriveFromMime.length <= 8) {
     return `.${deriveFromMime.toLowerCase()}`;
   }
@@ -121,13 +125,13 @@ const resolveFileExtension = (template: Template, remoteUrl: string) => {
     }
   }
 
-  const pathSegment = remoteUrl.split('?')[0] || '';
+  const pathSegment = remoteUrl.split("?")[0] || "";
   const extensionMatch = pathSegment.match(/\.([a-z0-9]{1,8})$/i);
   if (extensionMatch?.[1]) {
     return `.${extensionMatch[1].toLowerCase()}`;
   }
 
-  return '';
+  return "";
 };
 
 const getAuthToken = async (): Promise<string | undefined> => {
@@ -137,7 +141,10 @@ const getAuthToken = async (): Promise<string | undefined> => {
       try {
         return await user.getIdToken();
       } catch (firebaseError) {
-        logger.warn('Failed to obtain Firebase token for template download', firebaseError);
+        logger.warn(
+          "Failed to obtain Firebase token for template download",
+          firebaseError,
+        );
       }
     }
 
@@ -146,11 +153,17 @@ const getAuthToken = async (): Promise<string | undefined> => {
       try {
         return await authStore.user.getIdToken();
       } catch (storeError) {
-        logger.warn('Failed to obtain auth store token for template download', storeError);
+        logger.warn(
+          "Failed to obtain auth store token for template download",
+          storeError,
+        );
       }
     }
   } catch (tokenError) {
-    logger.warn('Unexpected error while retrieving auth token for template download', tokenError);
+    logger.warn(
+      "Unexpected error while retrieving auth token for template download",
+      tokenError,
+    );
   }
 
   return undefined;
@@ -172,36 +185,36 @@ const normalizeTemplate = (raw: any): Template => {
   const mimeType = raw?.mimeType || raw?.mime_type || undefined;
 
   const extensionFromType =
-    typeof fileTypeCandidate === 'string'
-      ? fileTypeCandidate.replace(/^\./, '').toLowerCase()
+    typeof fileTypeCandidate === "string"
+      ? fileTypeCandidate.replace(/^\./, "").toLowerCase()
       : undefined;
 
   const extensionFromMime =
-    typeof mimeType === 'string' && mimeType.includes('/')
-      ? mimeType.split('/').pop()?.toLowerCase()
+    typeof mimeType === "string" && mimeType.includes("/")
+      ? mimeType.split("/").pop()?.toLowerCase()
       : undefined;
 
   const extensionFromName =
-    typeof fileName === 'string' && fileName.includes('.')
-      ? fileName.split('.').pop()?.toLowerCase()
+    typeof fileName === "string" && fileName.includes(".")
+      ? fileName.split(".").pop()?.toLowerCase()
       : undefined;
 
   const extensionFromUrl =
-    typeof downloadUrl === 'string' && downloadUrl.includes('.')
-      ? downloadUrl.split('?')[0]?.split('.').pop()?.toLowerCase()
+    typeof downloadUrl === "string" && downloadUrl.includes(".")
+      ? downloadUrl.split("?")[0]?.split(".").pop()?.toLowerCase()
       : undefined;
 
   const normalizedFileSize =
-    typeof raw?.fileSize === 'number'
+    typeof raw?.fileSize === "number"
       ? raw.fileSize
-      : typeof raw?.file_size === 'number'
+      : typeof raw?.file_size === "number"
         ? raw.file_size
         : undefined;
 
   const normalizedDownloadCount =
-    typeof raw?.downloadCount === 'number'
+    typeof raw?.downloadCount === "number"
       ? raw.downloadCount
-      : typeof raw?.download_count === 'number'
+      : typeof raw?.download_count === "number"
         ? raw.download_count
         : undefined;
 
@@ -223,9 +236,9 @@ const normalizeTemplate = (raw: any): Template => {
     mimeType,
     serviceType: raw?.serviceType || raw?.service_type,
     isRequired:
-      typeof raw?.isRequired === 'boolean'
+      typeof raw?.isRequired === "boolean"
         ? raw.isRequired
-        : typeof raw?.required === 'boolean'
+        : typeof raw?.required === "boolean"
           ? raw.required
           : undefined,
     downloadCount: normalizedDownloadCount,
@@ -237,10 +250,7 @@ const normalizeTemplate = (raw: any): Template => {
 
 const resolveTemplateRemoteUrl = (template: Template) => {
   const candidate =
-    template.downloadUrl ||
-    template.fileUrl ||
-    template.previewUrl ||
-    '';
+    template.downloadUrl || template.fileUrl || template.previewUrl || "";
   return resolveDownloadUrl(candidate);
 };
 
@@ -250,14 +260,19 @@ export const templatesService = {
    */
   async getTemplates(): Promise<Template[]> {
     try {
-      const response = await apiClient.get<ApiResponse<{ templates: any[] }>>('/templates');
+      const response =
+        await apiClient.get<ApiResponse<{ templates: any[] }>>("/templates");
       const rawTemplates = response.data.data?.templates || [];
       const templates = rawTemplates.map(normalizeTemplate);
-      logger.info('Templates fetched successfully', { count: templates.length });
+      logger.info("Templates fetched successfully", {
+        count: templates.length,
+      });
       return templates;
     } catch (error: any) {
-      logger.error('Error fetching templates', error);
-      throw new Error(error?.response?.data?.error || 'Unable to load templates');
+      logger.error("Error fetching templates", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to load templates",
+      );
     }
   },
 
@@ -287,23 +302,30 @@ export const templatesService = {
     };
 
     try {
-      const baseDirectory = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      const baseDirectory =
+        FileSystem.documentDirectory || FileSystem.cacheDirectory;
       if (!baseDirectory) {
-        logger.warn('File storage unavailable, returning remote URL for template download', {
-          templateId: template.id,
-        });
+        logger.warn(
+          "File storage unavailable, returning remote URL for template download",
+          {
+            templateId: template.id,
+          },
+        );
         return buildRemoteFallback();
       }
 
       const cachedEntry = await templateCache.get(normalizedTemplate);
       if (cachedEntry) {
-        logger.info('Serving template from cache', { templateId: template.id });
+        logger.info("Serving template from cache", { templateId: template.id });
         const info = await FileSystem.getInfoAsync(cachedEntry.localUri);
         return {
           localUri: cachedEntry.localUri,
           remoteUrl: cachedEntry.downloadUrl || remoteUrl,
-          fileName: cachedEntry.fileName || template.fileName || sanitizeFileName(template.name),
-          fileSize: typeof info.size === 'number' ? info.size : undefined,
+          fileName:
+            cachedEntry.fileName ||
+            template.fileName ||
+            sanitizeFileName(template.name),
+          fileSize: typeof info.size === "number" ? info.size : undefined,
           mimeType: template.mimeType,
           fromCache: true,
         };
@@ -334,14 +356,14 @@ export const templatesService = {
 
       const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
       const fallbackMime =
-        template.mimeType && template.mimeType.includes('/')
+        template.mimeType && template.mimeType.includes("/")
           ? template.mimeType
-          : template.fileType && template.fileType.includes('/')
+          : template.fileType && template.fileType.includes("/")
             ? template.fileType
             : undefined;
       const mimeType =
-        downloadResult.headers?.['Content-Type'] ||
-        downloadResult.headers?.['content-type'] ||
+        downloadResult.headers?.["Content-Type"] ||
+        downloadResult.headers?.["content-type"] ||
         fallbackMime;
 
       await templateCache.set(normalizedTemplate, downloadResult.uri, {
@@ -351,19 +373,24 @@ export const templatesService = {
         updatedAt: normalizedTemplate.updatedAt,
       });
 
-      logger.info('Template download completed', { templateId: template.id, path: downloadResult.uri });
+      logger.info("Template download completed", {
+        templateId: template.id,
+        path: downloadResult.uri,
+      });
 
       return {
         localUri: downloadResult.uri,
         remoteUrl,
         fileName: finalFileName,
-        fileSize: typeof fileInfo.size === 'number' ? fileInfo.size : undefined,
+        fileSize: typeof fileInfo.size === "number" ? fileInfo.size : undefined,
         mimeType,
         fromCache: false,
       };
     } catch (error: any) {
-      logger.error('Error downloading template', error);
-      logger.warn('Falling back to remote URL for template download', { templateId: template.id });
+      logger.error("Error downloading template", error);
+      logger.warn("Falling back to remote URL for template download", {
+        templateId: template.id,
+      });
       return buildRemoteFallback();
     }
   },
@@ -372,4 +399,3 @@ export const templatesService = {
     return resolveTemplateRemoteUrl(template);
   },
 };
-

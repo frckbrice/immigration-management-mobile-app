@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScrollView, Pressable, StyleSheet, View, Text } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -6,7 +5,7 @@ import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import { useTranslation } from '@/lib/hooks/useTranslation';
+import { useTranslation } from "@/lib/hooks/useTranslation";
 
 export default function PaymentScreen() {
   const { t } = useTranslation();
@@ -15,45 +14,60 @@ export default function PaymentScreen() {
   const params = useLocalSearchParams();
 
   // Get payment details from params or use defaults
-  const amount = params.amount ? parseFloat(params.amount as string) : 100.00;
-  const description = params.description as string || 'Case Processing Fee';
-  const caseReference = (params.referenceNumber as string) || (params.caseNumber as string) || 'PT-REF-0000';
+  const amount = params.amount ? parseFloat(params.amount as string) : 100.0;
+  const description = (params.description as string) || "Case Processing Fee";
+  const caseReference =
+    (params.referenceNumber as string) ||
+    (params.caseNumber as string) ||
+    "PT-REF-0000";
 
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]} 
-      edges={['top']}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["top"]}
     >
       <Stack.Screen
         options={{
           headerShown: false,
         }}
       />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => router.back()} iconSize={24} />
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('payments.title')}</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          {t("payments.title")}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Payment Summary Card */}
-        <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.dark ? "#1C1C1E" : "#fff" },
+          ]}
+        >
           <View style={styles.summaryHeader}>
             <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-              {t('payments.paymentSummary')}
+              {t("payments.paymentSummary")}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-              {t('payments.caseReference')}:
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: theme.dark ? "#999" : "#666" },
+              ]}
+            >
+              {t("payments.caseReference")}:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
               {caseReference}
@@ -61,90 +75,144 @@ export default function PaymentScreen() {
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
-              {t('payments.description')}:
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: theme.dark ? "#999" : "#666" },
+              ]}
+            >
+              {t("payments.description")}:
             </Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
               {description}
             </Text>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#E0E0E0' }]} />
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: theme.dark ? "#333" : "#E0E0E0" },
+            ]}
+          />
 
           <View style={styles.summaryRow}>
             <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
-              {t('payments.totalAmount')}:
+              {t("payments.totalAmount")}:
             </Text>
-            <Text style={[styles.totalValue, { color: '#2196F3' }]}>
+            <Text style={[styles.totalValue, { color: "#2196F3" }]}>
               ${amount.toFixed(2)}
             </Text>
           </View>
         </View>
 
         {/* Web Not Supported Notice */}
-        <View style={[styles.notSupportedCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+        <View
+          style={[
+            styles.notSupportedCard,
+            { backgroundColor: theme.dark ? "#1C1C1E" : "#fff" },
+          ]}
+        >
           <View style={styles.iconContainer}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={48} color="#FF9800" />
+            <IconSymbol
+              name="exclamationmark.triangle.fill"
+              size={48}
+              color="#FF9800"
+            />
           </View>
-          
-          <Text style={[styles.notSupportedTitle, { color: theme.colors.text }]}>
-            {t('payments.web.notAvailable')}
-          </Text>
-          
-          <Text style={[styles.notSupportedText, { color: theme.dark ? '#999' : '#666' }]}>
-            {t('payments.web.notAvailableMessage')}
+
+          <Text
+            style={[styles.notSupportedTitle, { color: theme.colors.text }]}
+          >
+            {t("payments.web.notAvailable")}
           </Text>
 
-          <View style={[styles.infoBox, { backgroundColor: theme.dark ? '#2C2C2E' : '#F5F5F5' }]}>
+          <Text
+            style={[
+              styles.notSupportedText,
+              { color: theme.dark ? "#999" : "#666" },
+            ]}
+          >
+            {t("payments.web.notAvailableMessage")}
+          </Text>
+
+          <View
+            style={[
+              styles.infoBox,
+              { backgroundColor: theme.dark ? "#2C2C2E" : "#F5F5F5" },
+            ]}
+          >
             <IconSymbol name="info.circle.fill" size={20} color="#2196F3" />
-            <Text style={[styles.infoBoxText, { color: theme.dark ? '#999' : '#666' }]}>
-              {t('payments.web.downloadApp')}
+            <Text
+              style={[
+                styles.infoBoxText,
+                { color: theme.dark ? "#999" : "#666" },
+              ]}
+            >
+              {t("payments.web.downloadApp")}
             </Text>
           </View>
         </View>
 
         {/* Alternative Options */}
-        <View style={[styles.card, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.dark ? "#1C1C1E" : "#fff" },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            {t('payments.web.alternativeOptions')}
+            {t("payments.web.alternativeOptions")}
           </Text>
-          
+
           <View style={styles.optionItem}>
             <IconSymbol name="apps.iphone" size={24} color="#2196F3" />
             <View style={styles.optionContent}>
               <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
-                {t('payments.web.useMobileApp')}
+                {t("payments.web.useMobileApp")}
               </Text>
-              <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                {t('payments.web.useMobileAppDescription')}
+              <Text
+                style={[
+                  styles.optionDescription,
+                  { color: theme.dark ? "#999" : "#666" },
+                ]}
+              >
+                {t("payments.web.useMobileAppDescription")}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#E0E0E0' }]} />
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: theme.dark ? "#333" : "#E0E0E0" },
+            ]}
+          />
 
           <View style={styles.optionItem}>
             <IconSymbol name="envelope.fill" size={24} color="#4CAF50" />
             <View style={styles.optionContent}>
               <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
-                {t('payments.web.contactSupport')}
+                {t("payments.web.contactSupport")}
               </Text>
-              <Text style={[styles.optionDescription, { color: theme.dark ? '#999' : '#666' }]}>
-                {t('payments.web.contactSupportDescription')}
+              <Text
+                style={[
+                  styles.optionDescription,
+                  { color: theme.dark ? "#999" : "#666" },
+                ]}
+              >
+                {t("payments.web.contactSupportDescription")}
               </Text>
             </View>
           </View>
         </View>
 
         {/* Back Button */}
-        <Pressable 
-          style={[styles.backToHomeButton, { backgroundColor: '#2196F3' }]}
+        <Pressable
+          style={[styles.backToHomeButton, { backgroundColor: "#2196F3" }]}
           onPress={() => router.back()}
         >
           <IconSymbol name="arrow.left" size={20} color="#fff" />
-          <Text style={styles.backToHomeText}>
-            {t('payments.web.goBack')}
-          </Text>
+          <Text style={styles.backToHomeText}>{t("payments.web.goBack")}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -156,17 +224,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   headerSpacer: { width: 40, height: 40 },
   scrollView: {
@@ -180,35 +248,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
   cardTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 12,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   summaryLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   summaryValue: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   divider: {
     height: 1,
@@ -216,18 +284,18 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   totalValue: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   notSupportedCard: {
     borderRadius: 16,
     padding: 24,
     marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -238,21 +306,21 @@ const styles = StyleSheet.create({
   },
   notSupportedTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
     marginBottom: 12,
   },
   notSupportedText: {
     fontSize: 15,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 20,
   },
   infoBox: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
     borderRadius: 12,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   infoBoxText: {
     fontSize: 14,
@@ -262,12 +330,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 16,
   },
   optionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   optionContent: {
     marginLeft: 12,
@@ -275,7 +343,7 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   optionDescription: {
@@ -285,20 +353,20 @@ const styles = StyleSheet.create({
   backToHomeButton: {
     borderRadius: 16,
     padding: 18,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 8,
-    shadowColor: '#2196F3',
+    shadowColor: "#2196F3",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   backToHomeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 8,
   },
 });

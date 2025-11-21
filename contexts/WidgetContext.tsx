@@ -25,7 +25,7 @@ export function WidgetProvider({ children }: { children: React.ReactNode }) {
         ExtensionStorage.reloadWidget();
       } catch (error) {
         // Silently fail - widgets are optional
-        console.debug('Widget reload failed (non-critical):', error);
+        console.debug("Widget reload failed (non-critical):", error);
       }
     }
   }, []);
@@ -35,7 +35,7 @@ export function WidgetProvider({ children }: { children: React.ReactNode }) {
       try {
         ExtensionStorage.reloadWidget();
       } catch (error) {
-        console.debug('Widget refresh failed (non-critical):', error);
+        console.debug("Widget refresh failed (non-critical):", error);
       }
     }
   }, []);

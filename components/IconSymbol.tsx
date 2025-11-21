@@ -17,7 +17,7 @@ const MAPPING = {
 
   // Navigation & Home
   "house.fill": "home",
-  "house": "home",
+  house: "home",
   "arrow.left": "arrow-back",
   "arrow.right": "arrow-forward",
   "arrow.up": "arrow-upward",
@@ -31,52 +31,52 @@ const MAPPING = {
 
   // Communication & Social
   "paperplane.fill": "send",
-  "paperplane": "send-outlined",
+  paperplane: "send-outlined",
   "envelope.fill": "mail",
-  "envelope": "mail-outline",
+  envelope: "mail-outline",
   "phone.fill": "phone",
-  "phone": "phone-outlined",
+  phone: "phone-outlined",
   "message.fill": "chat",
-  "message": "chat-bubble-outline",
+  message: "chat-bubble-outline",
   "bell.fill": "notifications",
-  "bell": "notifications-none",
+  bell: "notifications-none",
   "heart.fill": "favorite",
-  "heart": "favorite-border",
+  heart: "favorite-border",
 
   // Actions & Controls
-  "plus": "add",
+  plus: "add",
   "plus.circle.fill": "add-circle",
   "plus.circle": "add-circle-outline",
-  "minus": "remove",
-  "xmark": "close",
-  "checkmark": "check",
+  minus: "remove",
+  xmark: "close",
+  checkmark: "check",
   "arrow.down.circle.fill": "download",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
   "checkmark.square.fill": "check-box",
   "checkmark.square": "check-box-outline-blank",
-  "multiply": "clear",
+  multiply: "clear",
   "trash.fill": "delete",
-  "trash": "delete-outline",
+  trash: "delete-outline",
 
   // Editing & Creation
-  "pencil": "edit",
+  pencil: "edit",
   "pencil.and.list.clipboard": "edit-note",
   "square.and.pencil": "edit",
   "doc.text.fill": "description",
   "doc.text": "description",
   "folder.fill": "folder",
-  "folder": "folder-open",
+  folder: "folder-open",
   "doc.fill": "insert-drive-file",
-  "doc": "insert-drive-file",
+  doc: "insert-drive-file",
 
   // Media & Content
   "photo.fill": "image",
-  "photo": "image-outlined",
+  photo: "image-outlined",
   "camera.fill": "camera-alt",
-  "camera": "camera-alt",
+  camera: "camera-alt",
   "video.fill": "videocam",
-  "video": "videocam-off",
+  video: "videocam-off",
   "music.note": "music-note",
   "speaker.wave.2.fill": "volume-up",
   "speaker.slash.fill": "volume-off",
@@ -85,10 +85,10 @@ const MAPPING = {
   "stop.fill": "stop",
 
   // Support & Communication
-  "headphones": "headset-mic",
+  headphones: "headset-mic",
 
   // System & Settings
-  "gear": "settings",
+  gear: "settings",
   "gearshape.fill": "settings",
   "slider.horizontal.3": "tune",
   "info.circle.fill": "info",
@@ -97,26 +97,26 @@ const MAPPING = {
   "exclamationmark.triangle": "warning-amber",
   "questionmark.circle.fill": "help",
   "questionmark.circle": "help-outline",
-  "paperclip": "attach-file",
+  paperclip: "attach-file",
   "paperclip.circle.fill": "attach-file",
   "paperclip.circle": "attach-file",
-  "globe": "language",
+  globe: "language",
   "circle.lefthalf.fill": "brightness-6",
 
   // Shapes & Symbols
-  "square": "square",
+  square: "square",
   "square.grid.3x3": "apps",
-  "circle": "circle",
+  circle: "circle",
   "triangle.fill": "change-history",
   "star.fill": "star",
-  "star": "star-border",
+  star: "star-border",
   "bookmark.fill": "bookmark",
-  "bookmark": "bookmark-border",
+  bookmark: "bookmark-border",
 
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
   "qrcode.viewfinder": "qr-code",
-  "wifi": "wifi",
+  wifi: "wifi",
   "antenna.radiowaves.left.and.right": "signal-cellular-alt",
   "battery.100": "battery-full",
   "battery.25": "battery-2-bar",
@@ -125,26 +125,26 @@ const MAPPING = {
 
   // Shopping & Commerce
   "cart.fill": "shopping-cart",
-  "cart": "shopping-cart-outlined",
+  cart: "shopping-cart-outlined",
   "creditcard.fill": "credit-card",
-  "creditcard": "credit-card",
+  creditcard: "credit-card",
   "dollarsign.circle.fill": "monetization-on",
   "bag.fill": "shopping-bag",
-  "bag": "shopping-bag",
+  bag: "shopping-bag",
 
   // Location & Maps
   "location.fill": "location-on",
-  "location": "location-on",
+  location: "location-on",
   "map.fill": "map",
-  "map": "map",
+  map: "map",
   "compass.drawing": "explore",
 
   // Time & Calendar
   "clock.fill": "access-time",
-  "clock": "access-time",
-  "calendar": "event",
-  "timer": "timer",
-  "hourglass": "hourglass-empty",
+  clock: "access-time",
+  calendar: "event",
+  timer: "timer",
+  hourglass: "hourglass-empty",
 
   // Immigration / Services
   "graduationcap.fill": "school",
@@ -156,7 +156,7 @@ const MAPPING = {
   "banknote.fill": "monetization-on",
 
   // User & Profile
-  "person": "person",
+  person: "person",
   "person.fill": "person",
   // "person.2.fill": "group",
   "person.2": "group",
@@ -173,10 +173,10 @@ const MAPPING = {
   "square.and.arrow.down": "download",
   "arrow.up.doc.fill": "upload-file",
   "arrow.down.doc.fill": "file-download",
-  "link": "link",
+  link: "link",
 
   // Search & Discovery
-  "magnifyingglass": "search",
+  magnifyingglass: "search",
   "line.3.horizontal.decrease": "filter-list",
   "arrow.up.arrow.down": "sort",
 
@@ -190,7 +190,10 @@ const MAPPING = {
   // Privacy & Security
   "hand.raised.fill": "privacy-tip",
   "hand.raised": "privacy-tip",
-} as unknown as Record<string, React.ComponentProps<typeof MaterialIcons>["name"]>;
+} as unknown as Record<
+  string,
+  React.ComponentProps<typeof MaterialIcons>["name"]
+>;
 
 export type IconSymbolName = string;
 
@@ -215,7 +218,7 @@ export function IconSymbol({
     <MaterialIcons
       color={color}
       size={size}
-      name={MAPPING[name] || 'help-outline'}
+      name={MAPPING[name] || "help-outline"}
       style={style as StyleProp<TextStyle>}
     />
   );

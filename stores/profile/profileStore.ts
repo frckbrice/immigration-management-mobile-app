@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { profileService } from '../../lib/services/profileService';
-import { logger } from '../../lib/utils/logger';
-import type { UserProfile } from '../../lib/types';
+import { create } from "zustand";
+import { profileService } from "../../lib/services/profileService";
+import { logger } from "../../lib/utils/logger";
+import type { UserProfile } from "../../lib/types";
 
 interface ProfileState {
   profile: UserProfile | null;
@@ -11,7 +11,10 @@ interface ProfileState {
   // Actions
   fetchProfile: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<UserProfile>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   exportData: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   clearError: () => void;
@@ -30,11 +33,14 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch (error: any) {
       // Handle 404 gracefully - user might not exist in DB yet (being auto-provisioned)
       if (error.response?.status === 404) {
-        logger.info('Profile not found (404) - this is normal for new users');
+        logger.info("Profile not found (404) - this is normal for new users");
         set({ profile: null, isLoading: false, error: null }); // Don't set error for 404
       } else {
-        const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch profile';
-        logger.error('Error fetching profile', error);
+        const errorMessage =
+          error.response?.data?.error ||
+          error.message ||
+          "Failed to fetch profile";
+        logger.error("Error fetching profile", error);
         set({ error: errorMessage, isLoading: false });
       }
     }
@@ -47,8 +53,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       set({ profile: updatedProfile, isLoading: false });
       return updatedProfile;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
-      logger.error('Error updating profile', error);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to update profile";
+      logger.error("Error updating profile", error);
       set({ error: errorMessage, isLoading: false });
       throw error;
     }
@@ -60,8 +69,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       await profileService.changePassword(currentPassword, newPassword);
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to change password';
-      logger.error('Error changing password', error);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to change password";
+      logger.error("Error changing password", error);
       set({ error: errorMessage, isLoading: false });
       throw error;
     }
@@ -73,8 +85,9 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       await profileService.exportData();
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to export data';
-      logger.error('Error exporting data', error);
+      const errorMessage =
+        error.response?.data?.error || error.message || "Failed to export data";
+      logger.error("Error exporting data", error);
       set({ error: errorMessage, isLoading: false });
     }
   },
@@ -85,8 +98,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       await profileService.deleteAccount();
       set({ profile: null, isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete account';
-      logger.error('Error deleting account', error);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to delete account";
+      logger.error("Error deleting account", error);
       set({ error: errorMessage, isLoading: false });
       throw error;
     }
@@ -96,4 +112,3 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set({ error: null });
   },
 }));
-

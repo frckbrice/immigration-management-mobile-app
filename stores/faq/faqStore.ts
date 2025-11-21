@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { faqService, type FAQItem } from '@/lib/services/faqService';
-import { logger } from '@/lib/utils/logger';
-import { faqCache } from '@/lib/services/faqCache';
+import { create } from "zustand";
+import { faqService, type FAQItem } from "@/lib/services/faqService";
+import { logger } from "@/lib/utils/logger";
+import { faqCache } from "@/lib/services/faqCache";
 
 const STALE_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -24,7 +24,8 @@ export const useFaqStore = create<FaqState>((set, get) => ({
   fetchFAQs: async (options) => {
     const force = options?.force ?? false;
     const { faqs, lastFetchedAt } = get();
-    const isStale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_TIME_MS;
+    const isStale =
+      !lastFetchedAt || Date.now() - lastFetchedAt > STALE_TIME_MS;
 
     if (!force && faqs.length > 0 && !isStale) {
       return faqs;
@@ -57,8 +58,8 @@ export const useFaqStore = create<FaqState>((set, get) => ({
       await faqCache.set(data);
       return data;
     } catch (error: any) {
-      const message = error?.message || 'Unable to load FAQs';
-      logger.error('Failed to fetch FAQs', error);
+      const message = error?.message || "Unable to load FAQs";
+      logger.error("Failed to fetch FAQs", error);
       set({ error: message, isLoading: false });
       throw error;
     }
@@ -71,5 +72,3 @@ export const useFaqStore = create<FaqState>((set, get) => ({
     await faqCache.clear();
   },
 }));
-
-

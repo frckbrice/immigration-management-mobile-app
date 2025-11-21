@@ -1,20 +1,37 @@
-
 import React, { useState, useEffect } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform, ActivityIndicator } from "react-native";
+import {
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  View,
+  Text,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@react-navigation/native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { StripeProvider, CardField, useStripe } from '@stripe/stripe-react-native';
-import { STRIPE_PUBLISHABLE_KEY, getStripeUrlScheme } from '@/utils/stripeConfig';
-import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
-import { useToast } from '@/components/Toast';
-import { paymentsService } from '@/lib/services/paymentsService';
-import { useAuthStore } from '@/stores/auth/authStore';
-import { useSubscriptionStore } from '@/stores/subscription/subscriptionStore';
-import { logger } from '@/lib/utils/logger';
-import { useTranslation } from '@/lib/hooks/useTranslation';
+import {
+  StripeProvider,
+  CardField,
+  useStripe,
+} from "@stripe/stripe-react-native";
+import {
+  STRIPE_PUBLISHABLE_KEY,
+  getStripeUrlScheme,
+} from "@/utils/stripeConfig";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useToast } from "@/components/Toast";
+import { paymentsService } from "@/lib/services/paymentsService";
+import { useAuthStore } from "@/stores/auth/authStore";
+import { useSubscriptionStore } from "@/stores/subscription/subscriptionStore";
+import { logger } from "@/lib/utils/logger";
+import { useTranslation } from "@/lib/hooks/useTranslation";
 
 export default function PaymentScreen() {
   const { t } = useTranslation();
@@ -33,29 +50,33 @@ export default function PaymentScreen() {
 
   // Get payment details from params or use defaults
   const amount = params.amount ? parseFloat(params.amount as string) : 500.0;
-  const defaultDescription = t('payments.basicTierDescription', { defaultValue: 'Basic Tier - One-time payment' });
-  const description = params.description as string || defaultDescription;
+  const defaultDescription = t("payments.basicTierDescription", {
+    defaultValue: "Basic Tier - One-time payment",
+  });
+  const description = (params.description as string) || defaultDescription;
 
   // Get tier from params or determine from amount (for one-time payment metadata)
   const tierParam = params.tier as string;
-  const getTierFromAmount = (amt: number): 'basic' | 'standard' | 'premium' => {
-    if (amt >= 2000) return 'premium';
-    if (amt >= 1500) return 'standard';
-    return 'basic';
+  const getTierFromAmount = (amt: number): "basic" | "standard" | "premium" => {
+    if (amt >= 2000) return "premium";
+    if (amt >= 1500) return "standard";
+    return "basic";
   };
 
-  const tier = (tierParam as 'basic' | 'standard' | 'premium') || getTierFromAmount(amount);
+  const tier =
+    (tierParam as "basic" | "standard" | "premium") ||
+    getTierFromAmount(amount);
 
   const handlePayment = async () => {
     if (!cardComplete) {
-      logger.warn('Payment attempted with incomplete card details', {
+      logger.warn("Payment attempted with incomplete card details", {
         amount,
         tier,
       });
       showAlert({
-        title: t('payments.incompleteCard'),
-        message: t('payments.incompleteCardMessage'),
-        actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+        title: t("payments.incompleteCard"),
+        message: t("payments.incompleteCardMessage"),
+        actions: [{ text: t("common.close", { defaultValue: "Close" }) }],
       });
       return;
     }
@@ -64,7 +85,7 @@ export default function PaymentScreen() {
 
     let paymentWasSuccessful = false;
     try {
-      logger.info('Creating payment intent', {
+      logger.info("Creating payment intent", {
         amount,
         description,
         tier,
@@ -76,45 +97,54 @@ export default function PaymentScreen() {
       // Metadata MUST contain only: { tier: "basic"|"standard"|"premium", type: "subscription" }
       const paymentIntent = await paymentsService.createPaymentIntent({
         amount,
-        currency: 'usd',
+        currency: "usd",
         description,
         metadata: {
           tier, // Required: "basic" | "standard" | "premium"
-          type: 'subscription', // Required: despite name, this is one-time payment
+          type: "subscription", // Required: despite name, this is one-time payment
         },
       });
 
-      logger.info('Payment intent created successfully', {
+      logger.info("Payment intent created successfully", {
         paymentIntentId: paymentIntent.id,
-        metadata: { tier, type: 'subscription' },
+        metadata: { tier, type: "subscription" },
       });
 
       if (!paymentIntent.clientSecret) {
-        logger.error('Payment intent missing client secret', { paymentIntentId: paymentIntent.id });
-        throw new Error('Backend did not return client secret for payment confirmation');
+        logger.error("Payment intent missing client secret", {
+          paymentIntentId: paymentIntent.id,
+        });
+        throw new Error(
+          "Backend did not return client secret for payment confirmation",
+        );
       }
 
       // Step 2: Confirm the payment with Stripe SDK
-      logger.info('Confirming payment intent with Stripe', { paymentIntentId: paymentIntent.id });
-      const { error, paymentIntent: confirmedIntent } = await confirmPayment(paymentIntent.clientSecret, {
-        paymentMethodType: 'Card',
+      logger.info("Confirming payment intent with Stripe", {
+        paymentIntentId: paymentIntent.id,
       });
+      const { error, paymentIntent: confirmedIntent } = await confirmPayment(
+        paymentIntent.clientSecret,
+        {
+          paymentMethodType: "Card",
+        },
+      );
 
       if (error) {
-        logger.error('Stripe confirmation failed', {
+        logger.error("Stripe confirmation failed", {
           paymentIntentId: paymentIntent.id,
           error: error.message,
         });
-        showAlert({ 
-          title: t('payments.paymentFailed'),
-          message: error.message || t('payments.paymentFailedMessage'),
-          actions: [{ text: t('common.close', { defaultValue: 'Close' }) }],
+        showAlert({
+          title: t("payments.paymentFailed"),
+          message: error.message || t("payments.paymentFailedMessage"),
+          actions: [{ text: t("common.close", { defaultValue: "Close" }) }],
         });
         return;
       }
 
       if (confirmedIntent) {
-        logger.info('Stripe confirmed payment intent', {
+        logger.info("Stripe confirmed payment intent", {
           paymentIntentId: confirmedIntent.id,
           status: confirmedIntent.status,
         });
@@ -122,11 +152,18 @@ export default function PaymentScreen() {
         // Use Stripe Payment Intent ID (starts with pi_) as per API documentation
         const stripePaymentIntentId = confirmedIntent.id;
         try {
-          logger.info('Verifying payment with backend', { paymentIntentId: stripePaymentIntentId });
-          const verifiedPayment = await paymentsService.verifyPayment(stripePaymentIntentId);
-          
-          if (verifiedPayment.paymentStatus === 'COMPLETED' || verifiedPayment.stripeStatus === 'succeeded') {
-            logger.info('Payment verified and User table updated', {
+          logger.info("Verifying payment with backend", {
+            paymentIntentId: stripePaymentIntentId,
+          });
+          const verifiedPayment = await paymentsService.verifyPayment(
+            stripePaymentIntentId,
+          );
+
+          if (
+            verifiedPayment.paymentStatus === "COMPLETED" ||
+            verifiedPayment.stripeStatus === "succeeded"
+          ) {
+            logger.info("Payment verified and User table updated", {
               paymentIntentId: stripePaymentIntentId,
               hasPaid: verifiedPayment.hasPaid,
               subscriptionTier: verifiedPayment.subscriptionTier,
@@ -136,24 +173,29 @@ export default function PaymentScreen() {
             // Refresh subscription status cache after successful payment
             try {
               await refreshSubscriptionStatus();
-              logger.info('Subscription status refreshed after payment');
+              logger.info("Subscription status refreshed after payment");
             } catch (refreshError) {
-              logger.warn('Failed to refresh subscription status after payment', refreshError);
+              logger.warn(
+                "Failed to refresh subscription status after payment",
+                refreshError,
+              );
               // Non-blocking - payment was successful
             }
 
             showToast({
-              type: 'success',
-              title: t('payments.paymentSuccessful'),
-              message: t('payments.paymentSuccessfulMessage', { amount: amount.toFixed(2) }),
+              type: "success",
+              title: t("payments.paymentSuccessful"),
+              message: t("payments.paymentSuccessfulMessage", {
+                amount: amount.toFixed(2),
+              }),
             });
 
             // Navigate back after a short delay to allow user to see the success message
             setTimeout(() => {
-              router.back();    
+              router.back();
             }, 2000);
           } else {
-            logger.warn('Payment verification returned non-success status', {
+            logger.warn("Payment verification returned non-success status", {
               paymentIntentId: stripePaymentIntentId,
               paymentStatus: verifiedPayment.paymentStatus,
               stripeStatus: verifiedPayment.stripeStatus,
@@ -162,32 +204,40 @@ export default function PaymentScreen() {
             paymentWasSuccessful = false;
 
             showToast({
-              type: 'error',
-              title: t('payments.paymentVerificationFailed'),
-              message: t('payments.paymentVerificationFailedMessage'),
+              type: "error",
+              title: t("payments.paymentVerificationFailed"),
+              message: t("payments.paymentVerificationFailedMessage"),
             });
           }
         } catch (verifyError: any) {
           // Payment verification failed - do not mark as successful
           // User will need to retry or contact support
-          logger.error('Payment verification failed after Stripe confirmation', {
-            paymentIntentId: stripePaymentIntentId,
-            error: verifyError?.message,
-          });
+          logger.error(
+            "Payment verification failed after Stripe confirmation",
+            {
+              paymentIntentId: stripePaymentIntentId,
+              error: verifyError?.message,
+            },
+          );
           paymentWasSuccessful = false;
 
           // Try to refresh subscription status to check if webhook updated it
           try {
             await refreshSubscriptionStatus();
-            const currentStatus = useSubscriptionStore.getState().subscriptionStatus;
+            const currentStatus =
+              useSubscriptionStore.getState().subscriptionStatus;
             // If webhook updated the status, mark as successful
             if (currentStatus?.hasPaid && currentStatus?.isActive) {
-              logger.info('Payment status updated by webhook', { hasPaid: currentStatus.hasPaid });
+              logger.info("Payment status updated by webhook", {
+                hasPaid: currentStatus.hasPaid,
+              });
               paymentWasSuccessful = true;
               showToast({
-                type: 'success',
-                title: t('payments.paymentSuccessful'),
-                message: t('payments.paymentSuccessfulMessage', { amount: amount.toFixed(2) }),
+                type: "success",
+                title: t("payments.paymentSuccessful"),
+                message: t("payments.paymentSuccessfulMessage", {
+                  amount: amount.toFixed(2),
+                }),
               });
               setTimeout(() => {
                 router.back();
@@ -195,30 +245,30 @@ export default function PaymentScreen() {
               return;
             }
           } catch (refreshError) {
-            logger.debug('Failed to refresh subscription status', refreshError);
+            logger.debug("Failed to refresh subscription status", refreshError);
           }
 
           // Verification failed and webhook didn't update - show error
           showToast({
-            type: 'error',
-            title: t('payments.paymentVerificationFailed'),
-            message: t('payments.paymentVerificationFailedMessage'),
+            type: "error",
+            title: t("payments.paymentVerificationFailed"),
+            message: t("payments.paymentVerificationFailedMessage"),
           });
         }
       }
     } catch (error: any) {
-      logger.error('Unhandled payment error', {
+      logger.error("Unhandled payment error", {
         amount,
         tier,
         error: error?.message,
       });
       showToast({
-        type: 'error',
-        title: t('payments.paymentError'),
-        message: error.message || t('payments.unexpectedError'),
+        type: "error",
+        title: t("payments.paymentError"),
+        message: error.message || t("payments.unexpectedError"),
       });
     } finally {
-      logger.info('Payment flow finished', {
+      logger.info("Payment flow finished", {
         amount,
         tier,
         success: paymentWasSuccessful,
@@ -234,17 +284,22 @@ export default function PaymentScreen() {
       merchantIdentifier="merchant.com.yourapp"
     >
       <SafeAreaView
-        style={[styles.container, {
-          backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
-          // paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        }]}
-        edges={['top']}
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
+            // paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+        edges={["top"]}
       >
         {/* Header */}
         <View style={styles.header}>
           <BackButton onPress={() => router.back()} iconSize={24} />
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('payments.title')}</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+            {t("payments.title")}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -254,16 +309,26 @@ export default function PaymentScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Payment Summary Card */}
-          <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: theme.dark ? "#111827" : "#fff" },
+            ]}
+          >
             <View style={styles.summaryHeader}>
               <IconSymbol name="creditcard.fill" size={32} color="#2196F3" />
               <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
-                {t('payments.paymentSummary')}
+                {t("payments.paymentSummary")}
               </Text>
             </View>
 
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: theme.dark ? '#999' : '#666' }]}>
+              <Text
+                style={[
+                  styles.summaryLabel,
+                  { color: theme.dark ? "#999" : "#666" },
+                ]}
+              >
                 Description:
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
@@ -271,52 +336,71 @@ export default function PaymentScreen() {
               </Text>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.dark ? '#333' : '#E0E0E0' }]} />
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: theme.dark ? "#333" : "#E0E0E0" },
+              ]}
+            />
 
             <View style={styles.summaryRow}>
               <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
                 Total Amount:
               </Text>
-              <Text style={[styles.totalValue, { color: '#2196F3' }]}>
+              <Text style={[styles.totalValue, { color: "#2196F3" }]}>
                 ${amount.toFixed(2)}
               </Text>
             </View>
           </View>
 
           {/* Test Mode Notice */}
-          <View style={[styles.testModeNotice, { backgroundColor: '#FFF3E0' }]}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#FF9800" />
-            <Text style={[styles.testModeText, { color: '#F57C00' }]}>
-              {t('payments.testMode', { defaultValue: 'Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC' })}
+          <View style={[styles.testModeNotice, { backgroundColor: "#FFF3E0" }]}>
+            <IconSymbol
+              name="exclamationmark.triangle.fill"
+              size={20}
+              color="#FF9800"
+            />
+            <Text style={[styles.testModeText, { color: "#F57C00" }]}>
+              {t("payments.testMode", {
+                defaultValue:
+                  "Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC",
+              })}
             </Text>
           </View>
 
           {/* Card Input Section */}
-          <View style={[styles.card, { backgroundColor: theme.dark ? '#111827' : '#fff' }]}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: theme.dark ? "#111827" : "#fff" },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              {t('payments.cardDetails')}
+              {t("payments.cardDetails")}
             </Text>
 
-            <View style={[
-              styles.cardFieldContainer,
-              {
-                backgroundColor: theme.dark ? '#111827' : '#F5F5F5',
-                borderColor: theme.dark ? '#1F2937' : '#E0E0E0',
-              }
-            ]}>
+            <View
+              style={[
+                styles.cardFieldContainer,
+                {
+                  backgroundColor: theme.dark ? "#111827" : "#F5F5F5",
+                  borderColor: theme.dark ? "#1F2937" : "#E0E0E0",
+                },
+              ]}
+            >
               <CardField
                 postalCodeEnabled={false}
                 placeholders={{
-                  number: '4242 4242 4242 4242',
+                  number: "4242 4242 4242 4242",
                 }}
                 cardStyle={{
-                  backgroundColor: theme.dark ? '#111827' : '#F5F5F5',
-                  textColor: theme.dark ? '#FFFFFF' : '#000000',
-                  placeholderColor: theme.dark ? '#666666' : '#999999',
+                  backgroundColor: theme.dark ? "#111827" : "#F5F5F5",
+                  textColor: theme.dark ? "#FFFFFF" : "#000000",
+                  placeholderColor: theme.dark ? "#666666" : "#999999",
                 }}
                 style={styles.cardField}
                 onCardChange={(cardDetails) => {
-                  console.log('Card details changed:', cardDetails.complete);
+                  console.log("Card details changed:", cardDetails.complete);
                   setCardComplete(cardDetails.complete);
                 }}
               />
@@ -324,22 +408,39 @@ export default function PaymentScreen() {
 
             <View style={styles.securityNotice}>
               <IconSymbol name="lock.fill" size={16} color="#4CAF50" />
-              <Text style={[styles.securityText, { color: theme.dark ? '#999' : '#666' }]}>
-                {t('payments.securityNotice')}
+              <Text
+                style={[
+                  styles.securityText,
+                  { color: theme.dark ? "#999" : "#666" },
+                ]}
+              >
+                {t("payments.securityNotice")}
               </Text>
             </View>
           </View>
 
           {/* Payment Information */}
-          <View style={[styles.infoCard, { backgroundColor: theme.dark ? '#111827' : '#F5F5F5' }]}>
+          <View
+            style={[
+              styles.infoCard,
+              { backgroundColor: theme.dark ? "#111827" : "#F5F5F5" },
+            ]}
+          >
             <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-              {t('payments.paymentInformation')}
+              {t("payments.paymentInformation")}
             </Text>
-            <Text style={[styles.infoText, { color: theme.dark ? '#999' : '#666' }]}>
-              {t('payments.paymentInfoBullets')}
+            <Text
+              style={[styles.infoText, { color: theme.dark ? "#999" : "#666" }]}
+            >
+              {t("payments.paymentInfoBullets")}
             </Text>
-            <Pressable onPress={() => router.push('/support/contact')} style={styles.supportLinkContainer}>
-              <Text style={styles.supportLinkText}>{t('payments.contactSupport')}</Text>
+            <Pressable
+              onPress={() => router.push("/support/contact")}
+              style={styles.supportLinkContainer}
+            >
+              <Text style={styles.supportLinkText}>
+                {t("payments.contactSupport")}
+              </Text>
             </Pressable>
           </View>
 
@@ -347,7 +448,7 @@ export default function PaymentScreen() {
           <Pressable
             style={[
               styles.payButton,
-              (!cardComplete || loading) && styles.payButtonDisabled
+              (!cardComplete || loading) && styles.payButtonDisabled,
             ]}
             onPress={handlePayment}
             disabled={!cardComplete || loading}
@@ -356,9 +457,13 @@ export default function PaymentScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <IconSymbol name="checkmark.circle.fill" size={24} color="#fff" />
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={24}
+                  color="#fff"
+                />
                 <Text style={styles.payButtonText}>
-                    {t('payments.payButton', { amount: amount.toFixed(2) })}
+                  {t("payments.payButton", { amount: amount.toFixed(2) })}
                 </Text>
               </>
             )}
@@ -366,11 +471,19 @@ export default function PaymentScreen() {
 
           {/* Cancel Button */}
           <Pressable
-            style={[styles.cancelButton, { borderColor: '#2196F3', backgroundColor: theme.dark ? '#111827' : '#ffffff' }]}
+            style={[
+              styles.cancelButton,
+              {
+                borderColor: "#2196F3",
+                backgroundColor: theme.dark ? "#111827" : "#ffffff",
+              },
+            ]}
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={[styles.cancelButtonText, { color: '#2196F3' }]}>{t('payments.cancel')}</Text>
+            <Text style={[styles.cancelButtonText, { color: "#2196F3" }]}>
+              {t("payments.cancel")}
+            </Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -383,17 +496,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   headerSpacer: {
     width: 40,
@@ -410,35 +523,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
   cardTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 12,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   summaryLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   summaryValue: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   divider: {
     height: 1,
@@ -446,44 +559,44 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   totalValue: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   testModeNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
   },
   testModeText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 8,
     flex: 1,
     lineHeight: 18,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 16,
   },
   cardFieldContainer: {
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 12,
   },
   cardField: {
-    width: '100%',
+    width: "100%",
     height: 50,
   },
   securityNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 8,
   },
   securityText: {
@@ -497,7 +610,7 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   infoText: {
@@ -509,41 +622,41 @@ const styles = StyleSheet.create({
   },
   supportLinkText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1E88E5',
+    fontWeight: "600",
+    color: "#1E88E5",
   },
   payButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
     borderRadius: 16,
     padding: 18,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
-    shadowColor: '#2196F3',
+    shadowColor: "#2196F3",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   payButtonDisabled: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
     shadowOpacity: 0,
   },
   payButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 8,
   },
   cancelButton: {
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

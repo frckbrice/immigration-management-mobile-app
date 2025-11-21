@@ -1,23 +1,23 @@
 // https://docs.expo.dev/guides/using-eslint/
 module.exports = {
   extends: [
-    'expo',
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react/recommended',
-    'plugin:react/jsx-runtime'
+    "expo",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react/jsx-runtime",
   ],
-  parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'react', 'import'],
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint", "react", "import"],
   root: true,
   parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
+    ecmaVersion: "latest",
+    sourceType: "module",
     ecmaFeatures: {
-      jsx: true
-    }
+      jsx: true,
+    },
   },
-  ignorePatterns: ['/dist/*', '/public/*', '/babel-plugins/*'],
+  ignorePatterns: ["/dist/*", "/public/*", "/babel-plugins/*"],
   env: {
     browser: true,
   },
@@ -35,14 +35,14 @@ module.exports = {
     "react/prop-types": 1,
     "no-case-declarations": "off",
     "no-empty": "off",
-    "react/display-name": "off"
+    "react/display-name": "off",
   },
   overrides: [
     {
-      files: ['metro.config.js'],
+      files: ["metro.config.js"],
       rules: {
-        '@typescript-eslint/no-var-requires': 'off'
-      }
-    }
-  ]
+        "@typescript-eslint/no-var-requires": "off",
+      },
+    },
+  ],
 };

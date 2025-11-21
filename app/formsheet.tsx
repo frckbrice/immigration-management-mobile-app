@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { router } from 'expo-router';
-import { GlassView } from 'expo-glass-effect';
-import { useTheme } from '@react-navigation/native';
-import { useTranslation } from '@/lib/hooks/useTranslation';
+import { StyleSheet, Text, View, Pressable } from "react-native";
+import { router } from "expo-router";
+import { GlassView } from "expo-glass-effect";
+import { useTheme } from "@react-navigation/native";
+import { useTranslation } from "@/lib/hooks/useTranslation";
 
 export default function FormSheetModal() {
   const theme = useTheme();
@@ -10,17 +10,23 @@ export default function FormSheetModal() {
 
   // Use a visible dark gray for dark mode instead of pure black
   const backgroundColor = theme.dark
-    ? 'rgb(28, 28, 30)' // Dark gray that's visible against black backgrounds
+    ? "rgb(28, 28, 30)" // Dark gray that's visible against black backgrounds
     : theme.colors.background;
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>{t('modals.formSheetModal')}</Text>
-      <Text style={[styles.text, { color: theme.colors.text }]}>{t('modals.formSheetModalDescription')}</Text>
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        {t("modals.formSheetModal")}
+      </Text>
+      <Text style={[styles.text, { color: theme.colors.text }]}>
+        {t("modals.formSheetModalDescription")}
+      </Text>
 
       <Pressable onPress={() => router.back()}>
         <GlassView style={styles.button} glassEffectStyle="clear">
-          <Text style={[styles.buttonText, { color: theme.colors.primary }]}>{t('modals.closeModal')}</Text>
+          <Text style={[styles.buttonText, { color: theme.colors.primary }]}>
+            {t("modals.closeModal")}
+          </Text>
         </GlassView>
       </Pressable>
     </View>
@@ -30,20 +36,20 @@ export default function FormSheetModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     padding: 20,
     // backgroundColor handled dynamically
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
     // color handled dynamically
   },
   text: {
     fontSize: 16,
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
     // color handled dynamically
   },
   button: {
@@ -53,7 +59,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     // color handled dynamically
   },
 });

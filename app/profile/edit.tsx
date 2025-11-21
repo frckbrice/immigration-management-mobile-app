@@ -1,16 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@react-navigation/native';
-import { useTranslation } from '@/lib/hooks/useTranslation';
-import { useBottomSheetAlert } from '@/components/BottomSheetAlert';
-import type { UserProfile } from '@/lib/types';
-import { IconSymbol } from '@/components/IconSymbol';
-import { BackButton } from '@/components/BackButton';
-import FormInput from '@/components/FormInput';
-import { useToast } from '@/components/Toast';
-import { useProfileStore } from '@/stores/profile/profileStore';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Platform,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { Stack, useRouter } from "expo-router";
+import { useTheme } from "@react-navigation/native";
+import { useTranslation } from "@/lib/hooks/useTranslation";
+import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import type { UserProfile } from "@/lib/types";
+import { IconSymbol } from "@/components/IconSymbol";
+import { BackButton } from "@/components/BackButton";
+import FormInput from "@/components/FormInput";
+import { useToast } from "@/components/Toast";
+import { useProfileStore } from "@/stores/profile/profileStore";
 
 export default function EditProfileScreen() {
   const theme = useTheme();
@@ -24,12 +36,14 @@ export default function EditProfileScreen() {
   const updateProfile = useProfileStore((state) => state.updateProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [initialProfile, setInitialProfile] = useState<UserProfile | null>(null);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [initialProfile, setInitialProfile] = useState<UserProfile | null>(
+    null,
+  );
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const hasRequestedProfile = useRef(false);
 
   useEffect(() => {
@@ -47,9 +61,9 @@ export default function EditProfileScreen() {
     setInitialProfile(profile);
     setFirstName(nextFirst);
     setLastName(nextLast);
-    setEmail(profile.email || '');
-    setPhone(profile.phone || '');
-    setAddress(profile.address || '');
+    setEmail(profile.email || "");
+    setPhone(profile.phone || "");
+    setAddress(profile.address || "");
     setLoading(false);
   }, [profile, fetchProfile]);
 
@@ -62,10 +76,12 @@ export default function EditProfileScreen() {
       address: address.trim(),
     };
     return (
-      normalized.firstName !== (initialProfile.firstName || extractFirstName(initialProfile)) ||
-      normalized.lastName !== (initialProfile.lastName || extractLastName(initialProfile)) ||
-      normalized.phone !== (initialProfile.phone || '') ||
-      normalized.address !== (initialProfile.address || '')
+      normalized.firstName !==
+        (initialProfile.firstName || extractFirstName(initialProfile)) ||
+      normalized.lastName !==
+        (initialProfile.lastName || extractLastName(initialProfile)) ||
+      normalized.phone !== (initialProfile.phone || "") ||
+      normalized.address !== (initialProfile.address || "")
     );
   }, [initialProfile, firstName, lastName, phone, address]);
 
@@ -76,9 +92,11 @@ export default function EditProfileScreen() {
 
     if (!isDirty) {
       showToast({
-        type: 'info',
-        title: t('common.info'),
-        message: t('profile.noChanges', { defaultValue: 'No changes to save. Update a field first.' }),
+        type: "info",
+        title: t("common.info"),
+        message: t("profile.noChanges", {
+          defaultValue: "No changes to save. Update a field first.",
+        }),
       });
       return;
     }
@@ -99,17 +117,22 @@ export default function EditProfileScreen() {
       setInitialProfile(updated);
       setFirstName(updated.firstName || extractFirstName(updated));
       setLastName(updated.lastName || extractLastName(updated));
-      setEmail(updated.email || '');
-      setPhone(updated.phone || '');
-      setAddress(updated.address || '');
+      setEmail(updated.email || "");
+      setPhone(updated.phone || "");
+      setAddress(updated.address || "");
 
       showToast({
-        type: 'success',
-        title: t('common.success'),
-        message: t('profile.profileUpdated', { defaultValue: 'Your profile has been updated successfully.' }),
+        type: "success",
+        title: t("common.success"),
+        message: t("profile.profileUpdated", {
+          defaultValue: "Your profile has been updated successfully.",
+        }),
       });
     } catch (e: any) {
-      showAlert({ title: t('common.error'), message: e?.message || t('errors.generic') });
+      showAlert({
+        title: t("common.error"),
+        message: e?.message || t("errors.generic"),
+      });
     } finally {
       setSaving(false);
     }
@@ -117,30 +140,54 @@ export default function EditProfileScreen() {
 
   return (
     <>
-      {Platform.OS === 'ios' && (
+      {Platform.OS === "ios" && (
         <Stack.Screen options={{ headerShown: false }} />
       )}
-      <SafeAreaView style={[styles.safeArea, {
-        backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-      }]} edges={['top', 'bottom']}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+        edges={["top", "bottom"]}
+      >
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
         >
           <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <BackButton onPress={() => router.back()} style={{ marginRight: 12 }} />
+              <BackButton
+                onPress={() => router.back()}
+                style={{ marginRight: 12 }}
+              />
               <View style={styles.headerTextGroup}>
-                <Text style={[styles.screenTitle, { color: theme.colors.text }]}>{t('profile.editProfile')}</Text>
-                <Text style={[styles.screenSubtitle, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
-                  {t('profile.editProfileSubtitle', { defaultValue: 'Update your personal details so we can stay in touch.' })}
+                <Text
+                  style={[styles.screenTitle, { color: theme.colors.text }]}
+                >
+                  {t("profile.editProfile")}
+                </Text>
+                <Text
+                  style={[
+                    styles.screenSubtitle,
+                    { color: theme.dark ? "#8E8E93" : "#64748B" },
+                  ]}
+                >
+                  {t("profile.editProfileSubtitle", {
+                    defaultValue:
+                      "Update your personal details so we can stay in touch.",
+                  })}
                 </Text>
               </View>
               <View style={styles.headerSpacer} />
@@ -149,63 +196,96 @@ export default function EditProfileScreen() {
             {loading ? (
               <View style={styles.loadingState}>
                 <ActivityIndicator />
-                <Text style={[styles.loadingText, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
-                  {t('common.loading')}
+                <Text
+                  style={[
+                    styles.loadingText,
+                    { color: theme.dark ? "#8E8E93" : "#64748B" },
+                  ]}
+                >
+                  {t("common.loading")}
                 </Text>
               </View>
             ) : (
-                <View style={[styles.card, {
-                  backgroundColor: theme.dark ? '#111113' : '#FFFFFF',
-                  borderColor: theme.dark ? '#1F2937' : '#E2E8F0',
-                  paddingBottom: insets.bottom,
-                }]}
-                >
-                  <View style={[styles.nameRow, { paddingTop: insets.top }]}>
-                    <FormInput
-                      label={t('profile.firstName', { defaultValue: 'First Name' })}
-                      placeholder={t('profile.firstName', { defaultValue: 'First Name' })}
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      autoCapitalize="words"
-                      containerStyle={styles.nameField}
-                    />
-                    <FormInput
-                      label={t('profile.lastName', { defaultValue: 'Last Name' })}
-                      placeholder={t('profile.lastName', { defaultValue: 'Last Name' })}
-                      value={lastName}
-                      onChangeText={setLastName}
-                      autoCapitalize="words"
-                      containerStyle={styles.nameField}
-                    />
-                  </View>
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.dark ? "#111113" : "#FFFFFF",
+                    borderColor: theme.dark ? "#1F2937" : "#E2E8F0",
+                    paddingBottom: insets.bottom,
+                  },
+                ]}
+              >
+                <View style={[styles.nameRow, { paddingTop: insets.top }]}>
                   <FormInput
-                    label={t('profile.email')}
-                    placeholder={t('profile.email')}
-                    value={email}
-                    editable={false}
-                    style={{ opacity: 0.75 }}
-                    helperText={t('profile.emailReadOnly', { defaultValue: 'Email cannot be changed' })}
+                    label={t("profile.firstName", {
+                      defaultValue: "First Name",
+                    })}
+                    placeholder={t("profile.firstName", {
+                      defaultValue: "First Name",
+                    })}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    autoCapitalize="words"
+                    containerStyle={styles.nameField}
                   />
                   <FormInput
-                    label={t('profile.phone')}
-                    placeholder={t('profile.phonePlaceholder', { defaultValue: 'Add a phone number for quick contact' })}
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
+                    label={t("profile.lastName", { defaultValue: "Last Name" })}
+                    placeholder={t("profile.lastName", {
+                      defaultValue: "Last Name",
+                    })}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    autoCapitalize="words"
+                    containerStyle={styles.nameField}
                   />
-                  <FormInput
-                    label={t('profile.address')}
-                    placeholder={t('profile.addressPlaceholder', { defaultValue: 'Street, City, Country' })}
-                    value={address}
-                    onChangeText={setAddress}
-                  />
+                </View>
+                <FormInput
+                  label={t("profile.email")}
+                  placeholder={t("profile.email")}
+                  value={email}
+                  editable={false}
+                  style={{ opacity: 0.75 }}
+                  helperText={t("profile.emailReadOnly", {
+                    defaultValue: "Email cannot be changed",
+                  })}
+                />
+                <FormInput
+                  label={t("profile.phone")}
+                  placeholder={t("profile.phonePlaceholder", {
+                    defaultValue: "Add a phone number for quick contact",
+                  })}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+                <FormInput
+                  label={t("profile.address")}
+                  placeholder={t("profile.addressPlaceholder", {
+                    defaultValue: "Street, City, Country",
+                  })}
+                  value={address}
+                  onChangeText={setAddress}
+                />
 
                 <View style={styles.divider} />
 
                 <View style={styles.metaRow}>
-                  <IconSymbol name="info.circle" size={18} color={theme.dark ? '#8E8E93' : '#64748B'} />
-                  <Text style={[styles.metaText, { color: theme.dark ? '#8E8E93' : '#64748B' }]}>
-                    {t('profile.syncNotice', { defaultValue: 'Your updates sync instantly across all your devices.' })}
+                  <IconSymbol
+                    name="info.circle"
+                    size={18}
+                    color={theme.dark ? "#8E8E93" : "#64748B"}
+                  />
+                  <Text
+                    style={[
+                      styles.metaText,
+                      { color: theme.dark ? "#8E8E93" : "#64748B" },
+                    ]}
+                  >
+                    {t("profile.syncNotice", {
+                      defaultValue:
+                        "Your updates sync instantly across all your devices.",
+                    })}
                   </Text>
                 </View>
               </View>
@@ -217,27 +297,42 @@ export default function EditProfileScreen() {
           style={[
             styles.actionBar,
             {
-              backgroundColor: theme.dark ? '#000000E6' : 'transparent',
-              borderTopColor: theme.dark ? '#2C2C2E' : '#E2E8F0',
+              backgroundColor: theme.dark ? "#000000E6" : "transparent",
+              borderTopColor: theme.dark ? "#2C2C2E" : "#E2E8F0",
               // paddingBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >
           <Pressable
-            style={[styles.secondaryButton, { borderColor: theme.dark ? '#1F2937' : '#CBD5F5' }]}
+            style={[
+              styles.secondaryButton,
+              { borderColor: theme.dark ? "#1F2937" : "#CBD5F5" },
+            ]}
             onPress={() => router.back()}
             disabled={saving}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.dark ? '#E2E8F0' : '#1E293B' }]}>
-              {t('common.cancel')}
+            <Text
+              style={[
+                styles.secondaryButtonText,
+                { color: theme.dark ? "#E2E8F0" : "#1E293B" },
+              ]}
+            >
+              {t("common.cancel")}
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.primaryButton, { opacity: saving || !isDirty ? 0.6 : 1 }]}
+            style={[
+              styles.primaryButton,
+              { opacity: saving || !isDirty ? 0.6 : 1 },
+            ]}
             onPress={onSave}
             disabled={saving || !isDirty}
           >
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{t('common.save')}</Text>}
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{t("common.save")}</Text>
+            )}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -251,18 +346,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nameRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   nameField: {
     flex: 1,
-    minWidth: '48%',
+    minWidth: "48%",
   },
-  scrollContent: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 12 : 20 },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 12 : 20,
+  },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 24,
   },
   headerSpacer: {
@@ -275,7 +373,7 @@ const styles = StyleSheet.create({
   },
   screenTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
   screenSubtitle: {
@@ -283,7 +381,7 @@ const styles = StyleSheet.create({
   },
   loadingState: {
     paddingVertical: 60,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 12,
   },
   loadingText: {
@@ -295,7 +393,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#0F172A',
+    shadowColor: "#0F172A",
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 16 },
     shadowRadius: 24,
@@ -304,12 +402,12 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#33415533',
+    backgroundColor: "#33415533",
     marginVertical: 12,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   metaText: {
@@ -317,9 +415,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 18,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -329,44 +427,45 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
   },
   secondaryButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   primaryButton: {
     flex: 1,
     borderRadius: 14,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
   },
   primaryButtonText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
   },
 });
 
 function buildFullNameFromParts(first: string, last: string) {
-  return [first, last].map((part) => part.trim()).filter(Boolean).join(' ');
+  return [first, last]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 function extractFirstName(profile: UserProfile) {
   if (profile.firstName) return profile.firstName;
-  if (!profile.name) return '';
-  return profile.name.split(' ')[0] || '';
+  if (!profile.name) return "";
+  return profile.name.split(" ")[0] || "";
 }
 
 function extractLastName(profile: UserProfile) {
   if (profile.lastName) return profile.lastName;
-  if (!profile.name) return '';
-  const parts = profile.name.split(' ');
-  return parts.length > 1 ? parts.slice(1).join(' ') : '';
+  if (!profile.name) return "";
+  const parts = profile.name.split(" ");
+  return parts.length > 1 ? parts.slice(1).join(" ") : "";
 }
-
-

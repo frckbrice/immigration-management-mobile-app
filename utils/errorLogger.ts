@@ -23,28 +23,36 @@ const sendErrorToParent = (level: string, message: string, data: any) => {
   clearErrorAfterDelay(errorKey);
 
   try {
-    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-      window.parent.postMessage({
-        type: 'EXPO_ERROR',
-        level: level,
-        message: message,
-        data: data,
-        timestamp: new Date().toISOString(),
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-        source: 'expo-template'
-      }, '*');
+    if (
+      typeof window !== "undefined" &&
+      window.parent &&
+      window.parent !== window
+    ) {
+      window.parent.postMessage(
+        {
+          type: "EXPO_ERROR",
+          level: level,
+          message: message,
+          data: data,
+          timestamp: new Date().toISOString(),
+          userAgent:
+            typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+          source: "expo-template",
+        },
+        "*",
+      );
     } else {
       // Fallback to console if no parent window
-      console.error('🚨 ERROR (no parent):', level, message, data);
+      console.error("🚨 ERROR (no parent):", level, message, data);
     }
   } catch (error) {
-    console.error('❌ Failed to send error to parent:', error);
+    console.error("❌ Failed to send error to parent:", error);
   }
 };
 
 // Function to extract meaningful source location from stack trace
 const extractSourceLocation = (stack: string): string => {
-  if (!stack) return '';
+  if (!stack) return "";
 
   // Look for various patterns in the stack trace
   const patterns = [
@@ -57,7 +65,7 @@ const extractSourceLocation = (stack: string): string => {
     // Pattern for bundle files with source maps
     /at .+\/([^/]+\.bundle[^:]*):(\d+):(\d+)/,
     // Pattern for any JavaScript file
-    /at .+\/([^/\s:)]+\.[jt]sx?):(\d+):(\d+)/
+    /at .+\/([^/\s:)]+\.[jt]sx?):(\d+):(\d+)/,
   ];
 
   for (const pattern of patterns) {
@@ -73,18 +81,23 @@ const extractSourceLocation = (stack: string): string => {
     return ` | Source: ${fileMatch[1]}:${fileMatch[2]}`;
   }
 
-  return '';
+  return "";
 };
 
 // Function to get caller information from stack trace
 const getCallerInfo = (): string => {
-  const stack = new Error().stack || '';
-  const lines = stack.split('\n');
+  const stack = new Error().stack || "";
+  const lines = stack.split("\n");
 
   // Skip the first few lines (Error, getCallerInfo, console override)
   for (let i = 3; i < lines.length; i++) {
     const line = lines[i];
-    if (line.indexOf('app/') !== -1 || line.indexOf('components/') !== -1 || line.indexOf('.tsx') !== -1 || line.indexOf('.ts') !== -1) {
+    if (
+      line.indexOf("app/") !== -1 ||
+      line.indexOf("components/") !== -1 ||
+      line.indexOf(".tsx") !== -1 ||
+      line.indexOf(".ts") !== -1
+    ) {
       const match = line.match(/at .+\/([^/\s:)]+\.[jt]sx?):(\d+):(\d+)/);
       if (match) {
         return ` | Called from: ${match[1]}:${match[2]}:${match[3]}`;
@@ -92,39 +105,39 @@ const getCallerInfo = (): string => {
     }
   }
 
-  return '';
+  return "";
 };
 
 export const setupErrorLogging = () => {
   // Capture unhandled errors in web environment
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     // Override window.onerror to catch JavaScript errors
     window.onerror = (message, source, lineno, colno, error) => {
-      const sourceFile = source ? source.split('/').pop() : 'unknown';
+      const sourceFile = source ? source.split("/").pop() : "unknown";
       const errorData = {
         message: message,
         source: `${sourceFile}:${lineno}:${colno}`,
         line: lineno,
         column: colno,
         error: error?.stack || error,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
-      console.error('🚨 RUNTIME ERROR:', errorData);
-      sendErrorToParent('error', 'JavaScript Runtime Error', errorData);
+      console.error("🚨 RUNTIME ERROR:", errorData);
+      sendErrorToParent("error", "JavaScript Runtime Error", errorData);
       return false; // Don't prevent default error handling
     };
     // check if platform is web
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // Capture unhandled promise rejections
-      window.addEventListener('unhandledrejection', (event) => {
-          const errorData = {
+      window.addEventListener("unhandledrejection", (event) => {
+        const errorData = {
           reason: event.reason,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
 
-        console.error('🚨 UNHANDLED PROMISE REJECTION:', errorData);
-        sendErrorToParent('error', 'Unhandled Promise Rejection', errorData);
+        console.error("🚨 UNHANDLED PROMISE REJECTION:", errorData);
+        sendErrorToParent("error", "Unhandled Promise Rejection", errorData);
       });
     }
   }
@@ -188,18 +201,25 @@ export const setupErrorLogging = () => {
   // };
 
   // Try to intercept React Native warnings at a lower level
-  if (typeof window !== 'undefined' && (window as any).__DEV__) {
+  if (typeof window !== "undefined" && (window as any).__DEV__) {
     // Override React's warning system if available
     const originalWarn = (window as any).console?.warn || console.warn;
 
     // Monkey patch any React warning functions
-    if ((window as any).React && (window as any).React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED) {
-      const internals = (window as any).React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+    if (
+      (window as any).React &&
+      (window as any).React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
+    ) {
+      const internals = (window as any).React
+        .__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
       if (internals.ReactDebugCurrentFrame) {
-        const originalGetStackAddendum = internals.ReactDebugCurrentFrame.getStackAddendum;
-        internals.ReactDebugCurrentFrame.getStackAddendum = function() {
-          const stack = originalGetStackAddendum ? originalGetStackAddendum.call(this) : '';
-          return stack + ' | Enhanced by error logger';
+        const originalGetStackAddendum =
+          internals.ReactDebugCurrentFrame.getStackAddendum;
+        internals.ReactDebugCurrentFrame.getStackAddendum = function () {
+          const stack = originalGetStackAddendum
+            ? originalGetStackAddendum.call(this)
+            : "";
+          return stack + " | Enhanced by error logger";
         };
       }
     }

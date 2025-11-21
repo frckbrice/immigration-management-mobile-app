@@ -1,6 +1,6 @@
-import { apiClient } from '../api/axios';
-import { logger } from '../utils/logger';
-import type { PaymentIntent, PaymentRecord, RefundResponse } from '../types';
+import { apiClient } from "../api/axios";
+import { logger } from "../utils/logger";
+import type { PaymentIntent, PaymentRecord, RefundResponse } from "../types";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -17,7 +17,7 @@ export interface CreatePaymentIntentParams {
 
 export interface SubscriptionStatus {
   hasPaid: boolean;
-  subscriptionTier: 'BASIC' | 'STANDARD' | 'PREMIUM' | null;
+  subscriptionTier: "BASIC" | "STANDARD" | "PREMIUM" | null;
   paymentDate: string | null;
   subscriptionExpiresAt: string | null;
   bypassed: boolean;
@@ -36,31 +36,53 @@ export interface RefundParams {
 }
 
 export const paymentsService = {
-  async createPaymentIntent(params: CreatePaymentIntentParams): Promise<PaymentIntent> {
+  async createPaymentIntent(
+    params: CreatePaymentIntentParams,
+  ): Promise<PaymentIntent> {
     try {
-      const res = await apiClient.post<ApiResponse<PaymentIntent>>('/payments/intents', params);
-      if (!res.data.success || !res.data.data) throw new Error(res.data.error || 'Failed to create intent');
+      const res = await apiClient.post<ApiResponse<PaymentIntent>>(
+        "/payments/intents",
+        params,
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.error || "Failed to create intent");
       return res.data.data;
     } catch (error: any) {
-      logger.error('createPaymentIntent failed', error);
-      const message = error?.response?.data?.error || error?.message || 'Unable to create payment intent';
-      if (message.toLowerCase().includes('stripe') && message.toLowerCase().includes('not configured')) {
-        throw new Error('Payments are not yet configured. Please contact support.');
+      logger.error("createPaymentIntent failed", error);
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        "Unable to create payment intent";
+      if (
+        message.toLowerCase().includes("stripe") &&
+        message.toLowerCase().includes("not configured")
+      ) {
+        throw new Error(
+          "Payments are not yet configured. Please contact support.",
+        );
       }
       throw new Error(message);
     }
   },
 
-  async confirmPaymentIntent(params: ConfirmPaymentParams): Promise<PaymentIntent> {
+  async confirmPaymentIntent(
+    params: ConfirmPaymentParams,
+  ): Promise<PaymentIntent> {
     try {
-      const res = await apiClient.post<ApiResponse<PaymentIntent>>(`/payments/intents/${params.paymentIntentId}/confirm`, {
-        paymentMethodId: params.paymentMethodId,
-      });
-      if (!res.data.success || !res.data.data) throw new Error(res.data.error || 'Failed to confirm payment');
+      const res = await apiClient.post<ApiResponse<PaymentIntent>>(
+        `/payments/intents/${params.paymentIntentId}/confirm`,
+        {
+          paymentMethodId: params.paymentMethodId,
+        },
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.error || "Failed to confirm payment");
       return res.data.data;
     } catch (error: any) {
-      logger.error('confirmPaymentIntent failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to confirm payment');
+      logger.error("confirmPaymentIntent failed", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to confirm payment",
+      );
     }
   },
 
@@ -77,23 +99,27 @@ export const paymentsService = {
     subscriptionExpiresAt: string | null;
   }> {
     try {
-      const res = await apiClient.post<ApiResponse<{
-        paymentStatus: string;
-        stripeStatus: string;
-        hasPaid: boolean;
-        subscriptionTier: string | null;
-        paymentDate: string | null;
-        subscriptionExpiresAt: string | null;
-      }>>('/payments/verify', { paymentIntentId });
+      const res = await apiClient.post<
+        ApiResponse<{
+          paymentStatus: string;
+          stripeStatus: string;
+          hasPaid: boolean;
+          subscriptionTier: string | null;
+          paymentDate: string | null;
+          subscriptionExpiresAt: string | null;
+        }>
+      >("/payments/verify", { paymentIntentId });
 
       if (!res.data.success || !res.data.data) {
-        throw new Error(res.data.error || 'Failed to verify payment');
+        throw new Error(res.data.error || "Failed to verify payment");
       }
 
       return res.data.data;
     } catch (error: any) {
-      logger.error('verifyPayment failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to verify payment');
+      logger.error("verifyPayment failed", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to verify payment",
+      );
     }
   },
 
@@ -103,12 +129,17 @@ export const paymentsService = {
    */
   async verifyPaymentStatus(paymentIntentId: string): Promise<PaymentIntent> {
     try {
-      const res = await apiClient.get<ApiResponse<PaymentIntent>>(`/payments/intents/${paymentIntentId}`);
-      if (!res.data.success || !res.data.data) throw new Error(res.data.error || 'Failed to verify payment');
+      const res = await apiClient.get<ApiResponse<PaymentIntent>>(
+        `/payments/intents/${paymentIntentId}`,
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.error || "Failed to verify payment");
       return res.data.data;
     } catch (error: any) {
-      logger.error('verifyPaymentStatus failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to verify payment status');
+      logger.error("verifyPaymentStatus failed", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to verify payment status",
+      );
     }
   },
 
@@ -118,7 +149,10 @@ export const paymentsService = {
    */
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
-      const res = await apiClient.get<ApiResponse<SubscriptionStatus>>('/payments/status');
+      const res =
+        await apiClient.get<ApiResponse<SubscriptionStatus>>(
+          "/payments/status",
+        );
       if (!res.data.success || !res.data.data) {
         // Return default status if not found
         return {
@@ -134,10 +168,11 @@ export const paymentsService = {
       const status = res.data.data;
       return {
         ...status,
-        isActive: status.isActive !== undefined ? status.isActive : status.hasPaid,
+        isActive:
+          status.isActive !== undefined ? status.isActive : status.hasPaid,
       };
     } catch (error: any) {
-      logger.error('getSubscriptionStatus failed', error);
+      logger.error("getSubscriptionStatus failed", error);
       // Return default status on error
       return {
         hasPaid: false,
@@ -152,37 +187,49 @@ export const paymentsService = {
 
   async getPaymentHistory(userId?: string): Promise<PaymentRecord[]> {
     try {
-      const res = await apiClient.get<ApiResponse<PaymentRecord[]>>('/payments/history', {
-        params: userId ? { userId } : undefined,
-      });
+      const res = await apiClient.get<ApiResponse<PaymentRecord[]>>(
+        "/payments/history",
+        {
+          params: userId ? { userId } : undefined,
+        },
+      );
       if (!res.data.success || !res.data.data) return [];
       return res.data.data;
     } catch (error: any) {
-      logger.error('getPaymentHistory failed', error);
+      logger.error("getPaymentHistory failed", error);
       return [];
     }
   },
 
   async cancelPaymentIntent(paymentIntentId: string): Promise<void> {
     try {
-      const res = await apiClient.post<ApiResponse<void>>(`/payments/intents/${paymentIntentId}/cancel`);
-      if (!res.data.success) throw new Error(res.data.error || 'Failed to cancel intent');
+      const res = await apiClient.post<ApiResponse<void>>(
+        `/payments/intents/${paymentIntentId}/cancel`,
+      );
+      if (!res.data.success)
+        throw new Error(res.data.error || "Failed to cancel intent");
     } catch (error: any) {
-      logger.error('cancelPaymentIntent failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to cancel payment');
+      logger.error("cancelPaymentIntent failed", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to cancel payment",
+      );
     }
   },
 
   async requestRefund(params: RefundParams): Promise<RefundResponse> {
     try {
-      const res = await apiClient.post<ApiResponse<RefundResponse>>('/payments/refunds', params);
-      if (!res.data.success || !res.data.data) throw new Error(res.data.error || 'Failed to create refund');
+      const res = await apiClient.post<ApiResponse<RefundResponse>>(
+        "/payments/refunds",
+        params,
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.error || "Failed to create refund");
       return res.data.data;
     } catch (error: any) {
-      logger.error('requestRefund failed', error);
-      throw new Error(error?.response?.data?.error || 'Unable to request refund');
+      logger.error("requestRefund failed", error);
+      throw new Error(
+        error?.response?.data?.error || "Unable to request refund",
+      );
     }
   },
 };
-
-

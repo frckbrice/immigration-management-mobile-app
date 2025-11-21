@@ -1,9 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, Image, ActivityIndicator, KeyboardAvoidingView } from "react-native";
+import {
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  Platform,
+  Image,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+} from "react-native";
 import { BackButton } from "@/components/BackButton";
 import FormInput from "@/components/FormInput";
 import { useTheme } from "@react-navigation/native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
 import { apiClient } from "@/lib/api/axios";
@@ -19,14 +33,16 @@ export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ oobCode?: string; mode?: string }>();
   const { showAlert } = useBottomSheetAlert();
-  
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [oobCode, setOobCode] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
-  
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | null
+  >(null);
+
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
 
@@ -44,7 +60,7 @@ export default function ResetPasswordScreen() {
             code = parsed.queryParams?.oobCode as string | undefined;
           }
         } catch (error) {
-          logger.warn('Failed to get initial URL', error);
+          logger.warn("Failed to get initial URL", error);
         }
       }
 
@@ -53,13 +69,15 @@ export default function ResetPasswordScreen() {
       } else {
         // No oobCode found - show error and redirect
         showAlert({
-          title: t('common.error'),
-          message: t('auth.invalidResetLink') || 'Invalid or missing reset link. Please request a new password reset.',
+          title: t("common.error"),
+          message:
+            t("auth.invalidResetLink") ||
+            "Invalid or missing reset link. Please request a new password reset.",
           actions: [
             {
-              text: t('common.ok'),
-              onPress: () => router.replace('/forgot-password'),
-              variant: 'primary',
+              text: t("common.ok"),
+              onPress: () => router.replace("/forgot-password"),
+              variant: "primary",
             },
           ],
         });
@@ -69,7 +87,7 @@ export default function ResetPasswordScreen() {
     extractFromDeepLink();
 
     // Listen for incoming deep links when app is already open
-    const subscription = Linking.addEventListener('url', (event) => {
+    const subscription = Linking.addEventListener("url", (event) => {
       const parsed = Linking.parse(event.url);
       const linkCode = parsed.queryParams?.oobCode as string | undefined;
       if (linkCode) {
@@ -87,7 +105,7 @@ export default function ResetPasswordScreen() {
 
     // Validate password
     if (!password.trim()) {
-      setPasswordError(t('validation.required') || 'Password is required');
+      setPasswordError(t("validation.required") || "Password is required");
       isValid = false;
     } else {
       const validation = validatePassword(password);
@@ -101,10 +119,15 @@ export default function ResetPasswordScreen() {
 
     // Validate confirm password
     if (!confirmPassword.trim()) {
-      setConfirmPasswordError(t('validation.confirmPasswordRequired') || 'Please confirm your password');
+      setConfirmPasswordError(
+        t("validation.confirmPasswordRequired") ||
+          "Please confirm your password",
+      );
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError(t('validation.passwordsDoNotMatch') || 'Passwords do not match');
+      setConfirmPasswordError(
+        t("validation.passwordsDoNotMatch") || "Passwords do not match",
+      );
       isValid = false;
     } else {
       setConfirmPasswordError(null);
@@ -116,8 +139,10 @@ export default function ResetPasswordScreen() {
   const handleResetPassword = async () => {
     if (!oobCode) {
       showAlert({
-        title: t('common.error'),
-        message: t('auth.invalidResetLink') || 'Invalid reset link. Please request a new password reset.',
+        title: t("common.error"),
+        message:
+          t("auth.invalidResetLink") ||
+          "Invalid reset link. Please request a new password reset.",
       });
       return;
     }
@@ -129,60 +154,68 @@ export default function ResetPasswordScreen() {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/reset-password', {
+      const response = await apiClient.post("/auth/reset-password", {
         oobCode,
         password: password.trim(),
       });
 
       if (response.data.success) {
-        logger.info('Password reset successfully', { email: response.data.data?.email });
-        
+        logger.info("Password reset successfully", {
+          email: response.data.data?.email,
+        });
+
         showAlert({
-          title: t('auth.passwordResetSuccess') || 'Password Reset Successful',
-          message: response.data.message || t('auth.passwordResetSuccessMessage') || 'Your password has been reset successfully. You can now login with your new password.',
+          title: t("auth.passwordResetSuccess") || "Password Reset Successful",
+          message:
+            response.data.message ||
+            t("auth.passwordResetSuccessMessage") ||
+            "Your password has been reset successfully. You can now login with your new password.",
           actions: [
             {
-              text: t('auth.login'),
-              onPress: () => router.replace('/login'),
-              variant: 'primary',
+              text: t("auth.login"),
+              onPress: () => router.replace("/login"),
+              variant: "primary",
             },
           ],
         });
       } else {
-        throw new Error(response.data.error || t('errors.generic'));
+        throw new Error(response.data.error || t("errors.generic"));
       }
     } catch (error: any) {
-      logger.error('Password reset error', error);
-      let errorMessage = t('errors.generic');
-      
+      logger.error("Password reset error", error);
+      let errorMessage = t("errors.generic");
+
       if (error.response) {
         const status = error.response.status;
         const data = error.response.data;
-        
+
         if (status === 400) {
           // Invalid/expired code or weak password
-          errorMessage = data.error || t('auth.invalidResetLink') || 'Invalid or expired reset link. Please request a new one.';
+          errorMessage =
+            data.error ||
+            t("auth.invalidResetLink") ||
+            "Invalid or expired reset link. Please request a new one.";
         } else if (status === 500) {
-          errorMessage = data.error || data.message || t('errors.generic');
+          errorMessage = data.error || data.message || t("errors.generic");
         } else {
           errorMessage = data.error || errorMessage;
         }
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       showAlert({
-        title: t('common.error'),
+        title: t("common.error"),
         message: errorMessage,
         actions: [
           {
-            text: t('auth.requestNewLink') || 'Request New Link',
-            onPress: () => router.replace('/forgot-password'),
-            variant: 'primary',
+            text: t("auth.requestNewLink") || "Request New Link",
+            onPress: () => router.replace("/forgot-password"),
+            variant: "primary",
           },
           {
-            text: t('common.cancel'),
-            variant: 'secondary',
+            text: t("common.cancel"),
+            variant: "secondary",
           },
         ],
       });
@@ -196,11 +229,19 @@ export default function ResetPasswordScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
+        <SafeAreaView
+          style={[
+            styles.container,
+            {
+              backgroundColor: theme.dark ? "#1f2937" : theme.colors.background,
+            },
+          ]}
+          edges={["top"]}
+        >
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2196F3" />
             <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-              {t('common.loading') || 'Loading...'}
+              {t("common.loading") || "Loading..."}
             </Text>
           </View>
         </SafeAreaView>
@@ -215,27 +256,40 @@ export default function ResetPasswordScreen() {
           headerShown: false,
         }}
       />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background }]} edges={['top']}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: theme.dark ? "#1f2937" : theme.colors.background },
+        ]}
+        edges={["top"]}
+      >
         <KeyboardAvoidingView
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
         >
-          <ScrollView 
+          <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 100) }]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: Math.max(insets.bottom, 100) },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
             {/* Back Button */}
-            <BackButton onPress={() => router.back()} iconSize={24} style={styles.backButtonWrapper} />
+            <BackButton
+              onPress={() => router.back()}
+              iconSize={24}
+              style={styles.backButtonWrapper}
+            />
 
             {/* Logo */}
             <View style={styles.logoContainer}>
               <View style={styles.logoIconContainer}>
-                <Image 
-                  source={require('@/assets/app_logo.png')}
+                <Image
+                  source={require("@/assets/app_logo.png")}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
@@ -245,37 +299,67 @@ export default function ResetPasswordScreen() {
             {/* Title */}
             <View style={styles.titleContainer}>
               <Text style={[styles.title, { color: theme.colors.text }]}>
-                {t('auth.resetPassword') || 'Reset Password'}
+                {t("auth.resetPassword") || "Reset Password"}
               </Text>
-              <Text style={[styles.subtitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('auth.enterNewPassword') || 'Enter your new password below'}
+              <Text
+                style={[
+                  styles.subtitle,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                {t("auth.enterNewPassword") || "Enter your new password below"}
               </Text>
             </View>
 
             {/* Password Requirements */}
             <View style={styles.requirementsContainer}>
-              <Text style={[styles.requirementsTitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('auth.passwordRequirements') || 'Password must contain:'}
+              <Text
+                style={[
+                  styles.requirementsTitle,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                {t("auth.passwordRequirements") || "Password must contain:"}
               </Text>
-              <Text style={[styles.requirement, { color: theme.dark ? '#98989D' : '#666' }]}>
-                • {t('auth.min8Characters') || 'At least 8 characters'}
+              <Text
+                style={[
+                  styles.requirement,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                • {t("auth.min8Characters") || "At least 8 characters"}
               </Text>
-              <Text style={[styles.requirement, { color: theme.dark ? '#98989D' : '#666' }]}>
-                • {t('auth.oneUppercase') || 'One uppercase letter'}
+              <Text
+                style={[
+                  styles.requirement,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                • {t("auth.oneUppercase") || "One uppercase letter"}
               </Text>
-              <Text style={[styles.requirement, { color: theme.dark ? '#98989D' : '#666' }]}>
-                • {t('auth.oneLowercase') || 'One lowercase letter'}
+              <Text
+                style={[
+                  styles.requirement,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                • {t("auth.oneLowercase") || "One lowercase letter"}
               </Text>
-              <Text style={[styles.requirement, { color: theme.dark ? '#98989D' : '#666' }]}>
-                • {t('auth.oneNumber') || 'One number'}
+              <Text
+                style={[
+                  styles.requirement,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                • {t("auth.oneNumber") || "One number"}
               </Text>
             </View>
 
             {/* Password Input */}
             <FormInput
               ref={passwordInputRef}
-              label={t('auth.newPassword') || 'New Password'}
-              placeholder={t('auth.enterNewPassword') || 'Enter new password'}
+              label={t("auth.newPassword") || "New Password"}
+              placeholder={t("auth.enterNewPassword") || "Enter new password"}
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
@@ -299,8 +383,10 @@ export default function ResetPasswordScreen() {
             {/* Confirm Password Input */}
             <FormInput
               ref={confirmPasswordInputRef}
-              label={t('auth.confirmPassword') || 'Confirm Password'}
-              placeholder={t('auth.confirmNewPassword') || 'Confirm new password'}
+              label={t("auth.confirmPassword") || "Confirm Password"}
+              placeholder={
+                t("auth.confirmNewPassword") || "Confirm new password"
+              }
               value={confirmPassword}
               onChangeText={(text) => {
                 setConfirmPassword(text);
@@ -321,8 +407,11 @@ export default function ResetPasswordScreen() {
             />
 
             {/* Reset Button */}
-            <Pressable 
-              style={[styles.resetButton, isLoading && styles.resetButtonDisabled]}
+            <Pressable
+              style={[
+                styles.resetButton,
+                isLoading && styles.resetButtonDisabled,
+              ]}
               onPress={handleResetPassword}
               disabled={isLoading}
             >
@@ -330,20 +419,23 @@ export default function ResetPasswordScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.resetButtonText}>
-                  {t('auth.resetPassword') || 'Reset Password'}
+                  {t("auth.resetPassword") || "Reset Password"}
                 </Text>
               )}
             </Pressable>
 
             {/* Back to Login Link */}
             <View style={styles.backToLoginContainer}>
-              <Text style={[styles.backToLoginText, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('auth.rememberPassword')}
+              <Text
+                style={[
+                  styles.backToLoginText,
+                  { color: theme.dark ? "#98989D" : "#666" },
+                ]}
+              >
+                {t("auth.rememberPassword")}
               </Text>
-              <Pressable onPress={() => router.replace('/login')}>
-                <Text style={styles.backToLoginLink}>
-                  {t('auth.login')}
-                </Text>
+              <Pressable onPress={() => router.replace("/login")}>
+                <Text style={styles.backToLoginLink}>{t("auth.login")}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -371,8 +463,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
@@ -381,19 +473,19 @@ const styles = StyleSheet.create({
   backButtonWrapper: {
     padding: 8,
     marginBottom: 20,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   logoIconContainer: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -408,17 +500,17 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginBottom: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
     lineHeight: 22,
   },
@@ -426,11 +518,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(33, 150, 243, 0.05)',
+    backgroundColor: "rgba(33, 150, 243, 0.05)",
   },
   requirementsTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   requirement: {
@@ -439,10 +531,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   resetButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
     marginBottom: 24,
   },
@@ -450,22 +542,21 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   resetButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   backToLoginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   backToLoginText: {
     fontSize: 14,
   },
   backToLoginLink: {
     fontSize: 14,
-    color: '#2196F3',
-    fontWeight: '700',
+    color: "#2196F3",
+    fontWeight: "700",
   },
 });
-

@@ -1,14 +1,16 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import React, { useMemo } from "react";
+import { Pressable, StyleProp, StyleSheet, ViewStyle } from "react-native";
 
-import { IconSymbol } from '@/components/IconSymbol';
-import { useAppTheme } from '@/lib/hooks/useAppTheme';
-import { withOpacity } from '@/styles/theme';
+import { IconSymbol } from "@/components/IconSymbol";
+import { useAppTheme } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
 
 type BackButtonProps = {
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
-  hitSlop?: number | { top?: number; right?: number; bottom?: number; left?: number };
+  hitSlop?:
+    | number
+    | { top?: number; right?: number; bottom?: number; left?: number };
   iconSize?: number;
   iconColor?: string;
 };
@@ -25,7 +27,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
 
   const backgroundColor = useMemo(
     () => withOpacity(colors.primary, theme.dark ? 0.22 : 0.12),
-    [colors.primary, theme.dark]
+    [colors.primary, theme.dark],
   );
 
   return (
@@ -35,7 +37,11 @@ export const BackButton: React.FC<BackButtonProps> = ({
       hitSlop={hitSlop}
       style={[styles.button, { backgroundColor }, style]}
     >
-      <IconSymbol name="chevron.left" size={iconSize} color={iconColor ?? colors.text} />
+      <IconSymbol
+        name="chevron.left"
+        size={iconSize}
+        color={iconColor ?? colors.text}
+      />
     </Pressable>
   );
 };
@@ -45,8 +51,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
-

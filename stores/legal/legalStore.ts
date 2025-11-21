@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { legalService } from '@/lib/services/legalService';
-import { logger } from '@/lib/utils/logger';
+import { create } from "zustand";
+import { legalService } from "@/lib/services/legalService";
+import { logger } from "@/lib/utils/logger";
 
-type LegalDocumentType = 'terms' | 'privacy';
+type LegalDocumentType = "terms" | "privacy";
 
 interface CacheEntry {
   content: string;
@@ -14,8 +14,15 @@ interface LegalState {
   cache: Record<LegalDocumentType, Record<string, CacheEntry>>;
   loading: Record<LegalDocumentType, boolean>;
   error: Record<LegalDocumentType, string | null>;
-  getDocument: (type: LegalDocumentType, language: string) => CacheEntry | undefined;
-  fetchDocument: (type: LegalDocumentType, language: string, options?: { force?: boolean }) => Promise<string>;
+  getDocument: (
+    type: LegalDocumentType,
+    language: string,
+  ) => CacheEntry | undefined;
+  fetchDocument: (
+    type: LegalDocumentType,
+    language: string,
+    options?: { force?: boolean },
+  ) => Promise<string>;
   clearError: (type: LegalDocumentType) => void;
 }
 
@@ -47,7 +54,9 @@ export const useLegalStore = create<LegalState>((set, get) => ({
     const force = options?.force ?? false;
     const state = get();
     const cacheEntry = state.cache[type]?.[language];
-    const isFresh = cacheEntry ? Date.now() - cacheEntry.fetchedAt < CACHE_TTL : false;
+    const isFresh = cacheEntry
+      ? Date.now() - cacheEntry.fetchedAt < CACHE_TTL
+      : false;
 
     if (cacheEntry && !force && isFresh) {
       return cacheEntry.content;
@@ -65,9 +74,10 @@ export const useLegalStore = create<LegalState>((set, get) => ({
     }));
 
     try {
-      const content = type === 'terms'
-        ? await legalService.getTerms(language)
-        : await legalService.getPrivacy(language);
+      const content =
+        type === "terms"
+          ? await legalService.getTerms(language)
+          : await legalService.getPrivacy(language);
 
       set((prev) => ({
         cache: {
@@ -89,8 +99,8 @@ export const useLegalStore = create<LegalState>((set, get) => ({
 
       return content;
     } catch (error: any) {
-      const message = error?.message || 'Unable to load content';
-      logger.error('Failed to fetch legal content', error);
+      const message = error?.message || "Unable to load content";
+      logger.error("Failed to fetch legal content", error);
       set((prev) => ({
         error: {
           ...prev.error,

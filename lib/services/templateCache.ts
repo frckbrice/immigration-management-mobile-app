@@ -1,10 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 
-import { logger } from '@/lib/utils/logger';
-import type { Template } from '@/lib/services/templatesService';
+import { logger } from "@/lib/utils/logger";
+import type { Template } from "@/lib/services/templatesService";
 
-const CACHE_STORAGE_KEY = '@mpe/templates/cache/v1';
+const CACHE_STORAGE_KEY = "@mpe/templates/cache/v1";
 const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface CachedTemplateEntry {
@@ -27,7 +27,7 @@ const loadCache = async (): Promise<TemplateCacheRecord> => {
     }
     return JSON.parse(stored) as TemplateCacheRecord;
   } catch (error) {
-    logger.warn('Failed to load template cache', error);
+    logger.warn("Failed to load template cache", error);
     return {};
   }
 };
@@ -36,7 +36,7 @@ const saveCache = async (cache: TemplateCacheRecord) => {
   try {
     await AsyncStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(cache));
   } catch (error) {
-    logger.warn('Failed to persist template cache', error);
+    logger.warn("Failed to persist template cache", error);
   }
 };
 
@@ -50,11 +50,19 @@ const isEntryStale = (entry: CachedTemplateEntry, template: Template) => {
     return true;
   }
 
-  if (template.updatedAt && entry.updatedAt && template.updatedAt !== entry.updatedAt) {
+  if (
+    template.updatedAt &&
+    entry.updatedAt &&
+    template.updatedAt !== entry.updatedAt
+  ) {
     return true;
   }
 
-  if (template.downloadUrl && entry.downloadUrl && template.downloadUrl !== entry.downloadUrl) {
+  if (
+    template.downloadUrl &&
+    entry.downloadUrl &&
+    template.downloadUrl !== entry.downloadUrl
+  ) {
     return true;
   }
 
@@ -66,7 +74,7 @@ const ensureFileExists = async (localUri: string) => {
     const info = await FileSystem.getInfoAsync(localUri);
     return info.exists;
   } catch (error) {
-    logger.warn('Failed to verify cached template file', { error, localUri });
+    logger.warn("Failed to verify cached template file", { error, localUri });
     return false;
   }
 };
@@ -93,7 +101,11 @@ export const templateCache = {
     return entry;
   },
 
-  async set(template: Template, localUri: string, metadata?: Partial<CachedTemplateEntry>) {
+  async set(
+    template: Template,
+    localUri: string,
+    metadata?: Partial<CachedTemplateEntry>,
+  ) {
     const cache = await loadCache();
     const entry: CachedTemplateEntry = {
       id: template.id,
@@ -126,7 +138,11 @@ export const templateCache = {
           await FileSystem.deleteAsync(localUri, { idempotent: true });
         }
       } catch (error) {
-        logger.warn('Failed to remove cached template file', { error, id, localUri });
+        logger.warn("Failed to remove cached template file", {
+          error,
+          id,
+          localUri,
+        });
       }
     }
   },
@@ -135,4 +151,3 @@ export const templateCache = {
     await saveCache({});
   },
 };
-
