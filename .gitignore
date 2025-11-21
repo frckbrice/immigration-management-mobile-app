@@ -41,3 +41,9 @@ yarn.lock
 .env*
 google-services.json
 patrick-travel-agency-firebase-adminsdk-fbsvc-1e2b9eb30c.json
+
+*.md 
+
+!README.md 
+
+docs/

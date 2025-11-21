@@ -38,7 +38,7 @@ const EditablePage = (props: PropsWithChildren) => {
   const [hoveredStack, setHoveredStack] = useState<string[]>([]);
   const [origin, setOrigin] = useState<string | null>(null);
   const [overwrittenProps, setOvewrittenProps] = useState<Record<string, {}>>(
-    {}
+    {},
   );
 
   useEffect(() => {
@@ -80,7 +80,7 @@ const EditablePage = (props: PropsWithChildren) => {
         window.parent.postMessage(message, origin);
       }
     },
-    [origin]
+    [origin],
   );
 
   const onElementClick = (props: ElementProps) => {
@@ -99,7 +99,7 @@ const EditablePage = (props: PropsWithChildren) => {
 
   const popHovered = (hovered: string) => {
     setHoveredStack((hoveredStack) =>
-      hoveredStack.filter((v) => v !== hovered)
+      hoveredStack.filter((v) => v !== hovered),
     );
   };
   return (
@@ -121,7 +121,7 @@ const EditablePage = (props: PropsWithChildren) => {
 };
 
 export default function withEditableWrapper_<P extends PropsWithChildren>(
-  Comp: React.ComponentType<P>
+  Comp: React.ComponentType<P>,
 ) {
   return function Wrapped(props: P) {
     // If we are not running in the web the windows will causes

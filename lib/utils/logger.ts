@@ -1,4 +1,4 @@
-type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+type LogLevel = "info" | "warn" | "error" | "debug";
 
 interface LogEntry {
   level: LogLevel;
@@ -31,35 +31,35 @@ class Logger {
       const formattedMessage = `[${entry.timestamp.toISOString()}] [${level.toUpperCase()}] ${message}`;
 
       switch (level) {
-        case 'error':
-          console.error(formattedMessage, data || '');
+        case "error":
+          console.error(formattedMessage, data || "");
           break;
-        case 'warn':
-          console.warn(formattedMessage, data || '');
+        case "warn":
+          console.warn(formattedMessage, data || "");
           break;
-        case 'debug':
-          console.debug(formattedMessage, data || '');
+        case "debug":
+          console.debug(formattedMessage, data || "");
           break;
         default:
-          console.log(formattedMessage, data || '');
+          console.log(formattedMessage, data || "");
       }
     }
   }
 
   info(message: string, data?: any): void {
-    this.log('info', message, data);
+    this.log("info", message, data);
   }
 
   warn(message: string, data?: any): void {
-    this.log('warn', message, data);
+    this.log("warn", message, data);
   }
 
   error(message: string, error?: any): void {
-    this.log('error', message, error);
+    this.log("error", message, error);
   }
 
   debug(message: string, data?: any): void {
-    this.log('debug', message, data);
+    this.log("debug", message, data);
   }
 
   getLogs(): LogEntry[] {
@@ -76,4 +76,3 @@ class Logger {
 }
 
 export const logger = new Logger();
-

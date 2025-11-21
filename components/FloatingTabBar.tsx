@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,22 +6,22 @@ import {
   StyleSheet,
   Platform,
   Dimensions,
-} from 'react-native';
-import { useRouter, usePathname, type Href } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
-import { BlurView } from 'expo-blur';
-import { useTheme } from '@react-navigation/native';
+} from "react-native";
+import { useRouter, usePathname, type Href } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { IconSymbol } from "@/components/IconSymbol";
+import { BlurView } from "expo-blur";
+import { useTheme } from "@react-navigation/native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   interpolate,
   withTiming,
-} from 'react-native-reanimated';
-import { useScrollContext } from '@/contexts/ScrollContext';
+} from "react-native-reanimated";
+import { useScrollContext } from "@/contexts/ScrollContext";
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get("window");
 
 export interface TabBarItem {
   name: string;
@@ -38,8 +38,11 @@ interface FloatingTabBarProps {
   borderRadius?: number;
   bottomMargin?: number;
   activeRouteName?: string;
+  badges?: Record<string, number>;
   onTabPress?: (tab: TabBarItem) => void;
 }
+
+const normalizeRoute = (value: string) => value.replace(/\/+$/, "");
 
 export default function FloatingTabBar({
   tabs,
@@ -47,6 +50,7 @@ export default function FloatingTabBar({
   borderRadius = 25,
   bottomMargin,
   activeRouteName,
+  badges,
   onTabPress,
 }: FloatingTabBarProps) {
   const router = useRouter();
@@ -58,14 +62,21 @@ export default function FloatingTabBar({
   // Get scroll context to determine visibility
   const { shouldShowTabBar, isScrollingDown, isAtBottom } = useScrollContext();
 
-  console.log('[TabBar] Current pathname:', pathname);
-  console.log('[TabBar] Should show:', shouldShowTabBar);
-  console.log('[TabBar] isScrollingDown:', isScrollingDown, 'isAtBottom:', isAtBottom);
+  console.log("[TabBar] Current pathname:", pathname);
+  console.log("[TabBar] Should show:", shouldShowTabBar);
+  console.log(
+    "[TabBar] isScrollingDown:",
+    isScrollingDown,
+    "isAtBottom:",
+    isAtBottom,
+  );
 
   // Improved active tab detection with better path matching
   const activeTabIndex = React.useMemo(() => {
     if (activeRouteName) {
-      const matchIndex = tabs.findIndex((tab) => tab.routeName === activeRouteName);
+      const matchIndex = tabs.findIndex(
+        (tab) => tab.routeName === activeRouteName,
+      );
       if (matchIndex >= 0) {
         return matchIndex;
       }
@@ -91,7 +102,10 @@ export default function FloatingTabBar({
         score = 60;
       }
       // Check for partial matches in the route
-      else if (tab.route.includes('/(tabs)/') && pathname.includes(tab.route.split('/(tabs)/')[1])) {
+      else if (
+        tab.route.includes("/(tabs)/") &&
+        pathname.includes(tab.route.split("/(tabs)/")[1])
+      ) {
         score = 40;
       }
 
@@ -153,7 +167,7 @@ export default function FloatingTabBar({
           translateX: interpolate(
             animatedValue.value,
             [0, tabs.length - 1],
-            [0, tabWidth * (tabs.length - 1)]
+            [0, tabWidth * (tabs.length - 1)],
           ),
         },
       ],
@@ -167,73 +181,120 @@ export default function FloatingTabBar({
     };
   });
 
+  const activeTab = tabs[activeTabIndex];
+  const isTransparentTabActive = React.useMemo(() => {
+    if (!activeTab) return false;
+    const normalizedRoute = normalizeRoute(activeTab.route);
+    return (
+      normalizedRoute.endsWith("/(home)") ||
+      normalizedRoute.includes("(home)") ||
+      normalizedRoute.endsWith("/profile") ||
+      normalizedRoute.includes("/profile")
+    );
+  }, [activeTab]);
+
   // Dynamic styles based on theme
   const dynamicStyles = {
     blurContainer: {
       ...styles.blurContainer,
       ...Platform.select({
         ios: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.8)'
-            : 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: isTransparentTabActive
+            ? "transparent"
+            : theme.dark
+              ? "rgba(28, 28, 30, 0.8)"
+              : "rgba(255, 255, 255, 0.8)",
         },
         android: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: isTransparentTabActive
+            ? "transparent"
+            : theme.dark
+              ? "rgba(28, 28, 30, 0.95)"
+              : "rgba(255, 255, 255, 0.95)",
           elevation: 8,
         },
         web: {
-          backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
+          backgroundColor: isTransparentTabActive
+            ? "transparent"
+            : theme.dark
+              ? "rgba(28, 28, 30, 0.95)"
+              : "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(10px)",
           boxShadow: theme.dark
-            ? '0 8px 32px rgba(0, 0, 0, 0.4)'
-            : '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ? "0 8px 32px rgba(0, 0, 0, 0.4)"
+            : "0 8px 32px rgba(0, 0, 0, 0.1)",
         },
       }),
     },
     background: {
       ...styles.background,
-      backgroundColor: theme.dark
-        ? (Platform.OS === 'ios' ? 'transparent' : 'rgba(28, 28, 30, 0.1)')
-        : (Platform.OS === 'ios' ? 'transparent' : 'rgba(255, 255, 255, 0.1)'),
+      backgroundColor: isTransparentTabActive
+        ? "transparent"
+        : theme.dark
+          ? Platform.OS === "ios"
+            ? "transparent"
+            : "rgba(28, 28, 30, 0.1)"
+          : Platform.OS === "ios"
+            ? "transparent"
+            : "rgba(255, 255, 255, 0.1)",
     },
     indicator: {
       ...styles.indicator,
       backgroundColor: theme.dark
-        ? 'rgba(255, 255, 255, 0.08)' // Subtle white overlay in dark mode
-        : 'rgba(0, 0, 0, 0.04)', // Subtle black overlay in light mode
+        ? "rgba(255, 255, 255, 0.08)" // Subtle white overlay in dark mode
+        : "rgba(0, 0, 0, 0.04)", // Subtle black overlay in light mode
       // Width is handled in animated style
     },
   };
 
   // Don't show tab bar on onboarding/login screens or any non-tab routes
-  const hideTabBarRoutes = ['/onboarding', '/login', '/register', '/', '/index'];
-  const shouldHide = hideTabBarRoutes.some(route =>
-    pathname === route || pathname.startsWith(route + '/')
+  const normalizedPathname = normalizeRoute(pathname || "");
+  const hideTabBarRoutes = [
+    "/onboarding",
+    "/login",
+    "/register",
+    "/",
+    "/index",
+  ];
+  const shouldHide = hideTabBarRoutes.some((route) => {
+    const normalizedRoute = normalizeRoute(route);
+    return (
+      normalizedPathname === normalizedRoute ||
+      normalizedPathname.startsWith(`${normalizedRoute}/`)
+    );
+  });
+
+  const isTabRoute = normalizedPathname.startsWith("/(tabs)");
+  const mainTabRoutes = React.useMemo(
+    () =>
+      tabs.flatMap((tab) => {
+        const normalized = normalizeRoute(tab.route);
+        return [normalized, `${normalized}/index`];
+      }),
+    [tabs],
   );
 
-  // Also hide if we're not in a tab route
-  const isTabRoute = pathname.startsWith('/(tabs)');
+  const isMainTabRoute = mainTabRoutes.includes(normalizedPathname);
+  const isSubPageWithinTabs = isTabRoute && !isMainTabRoute;
 
-  if (shouldHide || !isTabRoute) {
+  if (shouldHide || !isTabRoute || isSubPageWithinTabs) {
     return null;
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <Animated.View style={[
-        styles.container,
-        containerAnimatedStyle,
-        {
-          width: containerWidth,
-          marginBottom: bottomMargin ?? (Platform.OS === 'ios' ? 10 : 20)
-        }
-      ]}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
+      <Animated.View
+        style={[
+          styles.container,
+          containerAnimatedStyle,
+          {
+            width: containerWidth,
+            marginBottom: bottomMargin ?? (Platform.OS === "ios" ? 10 : 20),
+          },
+        ]}
+      >
         <BlurView
-          intensity={Platform.OS === 'web' ? 0 : 80}
+          intensity={Platform.OS === "web" ? 0 : 80}
           style={[dynamicStyles.blurContainer, { borderRadius }]}
         >
           <View style={dynamicStyles.background} />
@@ -241,6 +302,8 @@ export default function FloatingTabBar({
           <View style={styles.tabsContainer}>
             {tabs.map((tab, index) => {
               const isActive = activeTabIndex === index;
+              const badgeKey = tab.routeName ?? tab.name ?? tab.route;
+              const badgeCount = (badgeKey && badges?.[badgeKey]) || 0;
 
               return (
                 <TouchableOpacity
@@ -250,16 +313,36 @@ export default function FloatingTabBar({
                   activeOpacity={0.7}
                 >
                   <View style={styles.tabContent}>
-                    <IconSymbol
-                      name={isActive ? tab.icon : tab.inactiveIcon ?? tab.icon}
-                      size={24}
-                      color={isActive ? theme.colors.primary : (theme.dark ? '#98989D' : '#8E8E93')}
-                    />
+                    <View style={styles.iconWrapper}>
+                      <IconSymbol
+                        name={
+                          isActive ? tab.icon : (tab.inactiveIcon ?? tab.icon)
+                        }
+                        size={24}
+                        color={
+                          isActive
+                            ? theme.colors.primary
+                            : theme.dark
+                              ? "#98989D"
+                              : "#8E8E93"
+                        }
+                      />
+                      {badgeCount > 0 && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text
                       style={[
                         styles.tabLabel,
-                        { color: theme.dark ? '#98989D' : '#8E8E93' },
-                        isActive && { color: theme.colors.primary, fontWeight: '600' },
+                        { color: theme.dark ? "#98989D" : "#8E8E93" },
+                        isActive && {
+                          color: theme.colors.primary,
+                          fontWeight: "600",
+                        },
                       ]}
                     >
                       {tab.label}
@@ -277,20 +360,20 @@ export default function FloatingTabBar({
 
 const styles = StyleSheet.create({
   safeArea: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
-    alignItems: 'center', // Center the content
+    alignItems: "center", // Center the content
   },
   container: {
     marginHorizontal: 20,
-    alignSelf: 'center',
+    alignSelf: "center",
     // width and marginBottom handled dynamically via props
   },
   blurContainer: {
-    overflow: 'hidden',
+    overflow: "hidden",
     // borderRadius and other styling applied dynamically
   },
   background: {
@@ -298,35 +381,56 @@ const styles = StyleSheet.create({
     // Dynamic styling applied in component
   },
   indicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     left: 8,
     bottom: 8,
     borderRadius: 17,
-    width: `${(100 / 2) - 3}%`, // Default for 2 tabs, will be overridden by dynamic styles
+    width: `${100 / 2 - 3}%`, // Default for 2 tabs, will be overridden by dynamic styles
     // Dynamic styling applied in component
   },
   tabsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 60,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 8,
   },
   tab: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
   },
   tabContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 2,
+  },
+  iconWrapper: {
+    position: "relative",
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 2,
+    backgroundColor: "transparent",
     // Dynamic styling applied in component
+  },
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

@@ -1,6 +1,6 @@
-import { apiClient } from '../api/axios';
-import { logger } from '../utils/logger';
-import type { Notification } from '../types';
+import { apiClient } from "../api/axios";
+import { logger } from "../utils/logger";
+import type { Notification } from "../types";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -14,15 +14,21 @@ export const notificationsService = {
    */
   async getNotifications(page = 1, pageSize = 20): Promise<Notification[]> {
     try {
-      const response = await apiClient.get<ApiResponse<{ notifications: Notification[], unreadCount: number, pagination: any }>>(
-        `/notifications?page=${page}&limit=${pageSize}`
-      );
+      const response = await apiClient.get<
+        ApiResponse<{
+          notifications: Notification[];
+          unreadCount: number;
+          pagination: any;
+        }>
+      >(`/notifications?page=${page}&limit=${pageSize}`);
 
       const notifications = response.data.data?.notifications || [];
-      logger.info('Notifications fetched successfully', { count: notifications.length });
+      logger.info("Notifications fetched successfully", {
+        count: notifications.length,
+      });
       return notifications;
     } catch (error: any) {
-      logger.error('Error fetching notifications', error);
+      logger.error("Error fetching notifications", error);
       throw error;
     }
   },
@@ -33,14 +39,18 @@ export const notificationsService = {
   async getUnreadCount(): Promise<number> {
     try {
       // The API returns unreadCount in the GET /notifications response
-      const response = await apiClient.get<ApiResponse<{ notifications: Notification[], unreadCount: number, pagination: any }>>(
-        '/notifications?page=1&limit=1'
-      );
+      const response = await apiClient.get<
+        ApiResponse<{
+          notifications: Notification[];
+          unreadCount: number;
+          pagination: any;
+        }>
+      >("/notifications?page=1&limit=1");
       const count = response.data.data?.unreadCount || 0;
-      logger.info('Unread notifications count fetched', { count });
+      logger.info("Unread notifications count fetched", { count });
       return count;
     } catch (error: any) {
-      logger.error('Error fetching unread count', error);
+      logger.error("Error fetching unread count", error);
       return 0;
     }
   },
@@ -50,10 +60,12 @@ export const notificationsService = {
    */
   async markAsRead(notificationId: string): Promise<void> {
     try {
-      await apiClient.put<ApiResponse<void>>(`/notifications/${notificationId}`);
-      logger.info('Notification marked as read', { notificationId });
+      await apiClient.put<ApiResponse<void>>(
+        `/notifications/${notificationId}`,
+      );
+      logger.info("Notification marked as read", { notificationId });
     } catch (error: any) {
-      logger.error('Error marking notification as read', error);
+      logger.error("Error marking notification as read", error);
       throw error;
     }
   },
@@ -63,10 +75,10 @@ export const notificationsService = {
    */
   async markAllAsRead(): Promise<void> {
     try {
-      await apiClient.put<ApiResponse<void>>('/notifications/mark-all-read');
-      logger.info('All notifications marked as read');
+      await apiClient.put<ApiResponse<void>>("/notifications/mark-all-read");
+      logger.info("All notifications marked as read");
     } catch (error: any) {
-      logger.error('Error marking all notifications as read', error);
+      logger.error("Error marking all notifications as read", error);
       throw error;
     }
   },
@@ -76,12 +88,13 @@ export const notificationsService = {
    */
   async deleteNotification(notificationId: string): Promise<void> {
     try {
-      await apiClient.delete<ApiResponse<void>>(`/notifications/${notificationId}`);
-      logger.info('Notification deleted successfully', { notificationId });
+      await apiClient.delete<ApiResponse<void>>(
+        `/notifications/${notificationId}`,
+      );
+      logger.info("Notification deleted successfully", { notificationId });
     } catch (error: any) {
-      logger.error('Error deleting notification', error);
+      logger.error("Error deleting notification", error);
       throw error;
     }
   },
 };
-

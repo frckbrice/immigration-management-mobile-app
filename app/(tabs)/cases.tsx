@@ -1,81 +1,140 @@
-
-import React, { useState, useEffect, useCallback } from "react";
-import { ScrollView, Pressable, StyleSheet, View, Text, TextInput, Platform, ActivityIndicator, RefreshControl } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { useTheme } from "@react-navigation/native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  Platform,
+  ActivityIndicator,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
+import { IconSymbol } from "@/components/IconSymbol";
 import { useCasesStore } from "@/stores/cases/casesStore";
 import { useTranslation } from "@/lib/hooks/useTranslation";
+import { BackButton } from "@/components/BackButton";
+import { useAppTheme, useThemeColors } from "@/lib/hooks/useAppTheme";
+import { withOpacity } from "@/styles/theme";
+import { useShallow } from "zustand/react/shallow";
+import { useScrollContext } from "@/contexts/ScrollContext";
 import { useBottomSheetAlert } from "@/components/BottomSheetAlert";
+import { useToast } from "@/components/Toast";
 
-type CaseFilter = 'all' | 'active' | 'action-required' | 'complete';
+type CaseFilter = "all" | "active" | "action-required" | "complete";
 
 const formatServiceTypeLabel = (serviceType?: string) =>
   serviceType
     ? serviceType
-        .replace(/_/g, ' ')
+        .replace(/_/g, " ")
         .toLowerCase()
         .replace(/(^|\s)\w/g, (char) => char.toUpperCase())
-    : '';
+    : "";
 
 const formatDateLabel = (date?: string) => {
-  if (!date) return '—';
+  if (!date) return "—";
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) {
-    return '—';
+    return "—";
   }
   return parsed.toLocaleDateString();
 };
 
-const normalizeStatus = (status?: string | null) => (status ?? '').toLowerCase();
-
-const ACTIVE_STATUS_SET = new Set(['submitted', 'under_review', 'documents_required', 'processing']);
-const ACTION_REQUIRED_STATUS_SET = new Set(['documents_required']);
-const COMPLETED_STATUS_SET = new Set(['approved', 'rejected', 'closed']);
-
-const withOpacity = (hex: string, opacity: number) => {
-  const sanitized = hex.replace('#', '');
-  if (sanitized.length !== 6) {
-    return hex;
-  }
-  const r = parseInt(sanitized.slice(0, 2), 16);
-  const g = parseInt(sanitized.slice(2, 4), 16);
-  const b = parseInt(sanitized.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-};
+const normalizeStatus = (status?: string | null) =>
+  (status ?? "").toLowerCase();
 
 export default function CasesScreen() {
-  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const colors = useThemeColors();
   const router = useRouter();
   const { t } = useTranslation();
+  const [selectedFilter, setSelectedFilter] = useState<CaseFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { cases, isLoading, error, fetchCases, clearError } = useCasesStore(
+    useShallow((state) => ({
+      cases: state.cases,
+      isLoading: state.isLoading,
+      error: state.error,
+      fetchCases: state.fetchCases,
+      clearError: state.clearError,
+    })),
+  );
   const { showAlert } = useBottomSheetAlert();
-  const [selectedFilter, setSelectedFilter] = useState<CaseFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const { cases, isLoading, error, fetchCases, clearError } = useCasesStore();
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const { showToast } = useToast();
+  const uploadableCases = useMemo(
+    () =>
+      cases.filter((caseItem) => {
+        const status = (caseItem.status || "").toUpperCase();
+        return (
+          status !== "CLOSED" && status !== "REJECTED" && status !== "APPROVED"
+        );
+      }),
+    [cases],
+  );
+  const { setScrollDirection, setAtBottom } = useScrollContext();
+  const lastScrollYRef = useRef(0);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const filterOptions = useMemo(
+    () => [
+      { key: "all" as CaseFilter, label: t("cases.filterAll") },
+      { key: "active" as CaseFilter, label: t("cases.filterActive") },
+      {
+        key: "action-required" as CaseFilter,
+        label: t("cases.filterActionRequired", {
+          defaultValue: "Action required",
+        }),
+      },
+      {
+        key: "complete" as CaseFilter,
+        label: t("cases.filterComplete", { defaultValue: "Completed" }),
+      },
+    ],
+    [t],
+  );
+
+  const contentPaddingBottom = useMemo(
+    () => insets.bottom + 160,
+    [insets.bottom],
+  );
+
+  const fabBottom = useMemo(
+    () => insets.bottom + (Platform.OS === "ios" ? 90 : 110),
+    [insets.bottom],
+  );
+
+  const handleBackPress = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/(home)");
+    }
+  }, [router]);
 
   const buildFilters = useCallback(() => {
-    const filters: { status?: string; search?: string } = {};
-    if (selectedFilter === 'active') {
-      filters.status = 'active';
-    } else if (selectedFilter === 'action-required') {
-      filters.status = 'DOCUMENTS_REQUIRED';
-    } else if (selectedFilter === 'complete') {
-      filters.status = 'APPROVED';
-    }
-    if (debouncedSearch) {
-      filters.search = debouncedSearch;
+    const filters: { status?: string } = {};
+    if (selectedFilter === "active") {
+      filters.status = "active";
+    } else if (selectedFilter === "action-required") {
+      filters.status = "DOCUMENTS_REQUIRED";
+    } else if (selectedFilter === "complete") {
+      filters.status = "APPROVED";
     }
     return filters;
-  }, [selectedFilter, debouncedSearch]);
+  }, [selectedFilter]);
 
   useEffect(() => {
     fetchCases(buildFilters());
@@ -91,288 +150,558 @@ export default function CasesScreen() {
     }
   }, [error, clearError]);
 
-  // Memoize status color function to avoid recreating on every render
-  const getStatusColor = useCallback((status: string) => {
-    const normalized = normalizeStatus(status);
-    switch (normalized) {
-      case 'documents_required':
-        return '#FFA726';
-      case 'approved':
-        return '#66BB6A';
-      case 'rejected':
-      case 'closed':
-        return '#757575';
-      case 'submitted':
-      case 'under_review':
-      case 'processing':
-        return '#42A5F5';
-      default:
-        return '#999999';
-    }
-  }, []);
+  const getStatusColor = useCallback(
+    (status: string) => {
+      const normalized = normalizeStatus(status);
+      switch (normalized) {
+        case "documents_required":
+          return colors.warning;
+        case "approved":
+          return colors.success;
+        case "rejected":
+        case "closed":
+          return colors.muted;
+        case "submitted":
+        case "under_review":
+        case "processing":
+          return colors.primary;
+        default:
+          return colors.mutedAlt;
+      }
+    },
+    [colors],
+  );
 
-  // Memoize status label function
-  const getStatusLabel = useCallback((status: string) => {
-    const normalized = normalizeStatus(status);
-    switch (normalized) {
-      case 'documents_required':
-        return t('cases.documentsRequired');
-      case 'approved':
-        return t('cases.approved');
-      case 'submitted':
-        return t('cases.submitted');
-      case 'under_review':
-        return t('cases.underReview');
-      case 'processing':
-        return t('cases.processing');
-      case 'rejected':
-        return t('cases.rejected');
-      case 'closed':
-        return t('cases.closed', { defaultValue: 'Closed' });
-      default:
-        return t('cases.statusUnknown', { defaultValue: 'Unknown status' });
-    }
-  }, [t]);
+  const getStatusLabel = useCallback(
+    (status: string) => {
+      const normalized = normalizeStatus(status);
+      switch (normalized) {
+        case "documents_required":
+          return t("cases.documentsRequired");
+        case "approved":
+          return t("cases.approved");
+        case "submitted":
+          return t("cases.submitted");
+        case "under_review":
+          return t("cases.underReview");
+        case "processing":
+          return t("cases.processing");
+        case "rejected":
+          return t("cases.rejected");
+        case "closed":
+          return t("cases.closed", { defaultValue: "Closed" });
+        default:
+          return t("cases.statusUnknown", { defaultValue: "Unknown status" });
+      }
+    },
+    [t],
+  );
 
   const handleRefresh = useCallback(() => {
     return fetchCases(buildFilters());
   }, [fetchCases, buildFilters]);
 
+  const handleUploadNavigation = useCallback(() => {
+    if (uploadableCases.length === 0) {
+      showToast({
+        title: t("documents.uploadUnavailableTitle", {
+          defaultValue: "Unable to upload",
+        }),
+        message: t("documents.uploadUnavailableMessage", {
+          defaultValue:
+            "All of your cases are closed or rejected. Create a new case to upload documents.",
+        }),
+        type: "info",
+      });
+      showAlert({
+        title: t("documents.uploadUnavailableTitle", {
+          defaultValue: "Unable to upload",
+        }),
+        message: t("documents.uploadUnavailableMessage", {
+          defaultValue:
+            "All of your cases are closed or rejected. Create a new case to upload documents.",
+        }),
+        actions: [{ text: t("common.close"), variant: "primary" }],
+      });
+      return;
+    }
+    router.push("/documents/upload");
+  }, [uploadableCases.length, router, showAlert, showToast, t]);
+
+  const handleTemplateNavigation = useCallback(() => {
+    router.push({
+      pathname: "/(tabs)/documents",
+      params: { tab: "templates" },
+    });
+  }, [router]);
+
+  const handleCasePress = useCallback(
+    (caseItem: any) => {
+      router.push({ pathname: "/case/[id]", params: { id: caseItem.id } });
+    },
+    [router],
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.listHeader}>
+        <View
+          style={[
+            styles.searchContainer,
+            styles.block,
+            {
+              backgroundColor: theme.dark ? "#111827" : colors.surface,
+              borderColor: colors.accent,
+              borderWidth: StyleSheet.hairlineWidth,
+              shadowColor: "green",
+            },
+          ]}
+        >
+          <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder={t("cases.searchPlaceholder")}
+            placeholderTextColor={colors.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setSearchQuery("")}
+              style={styles.searchClearButton}
+            >
+              <IconSymbol
+                name="xmark.circle.fill"
+                size={18}
+                color={colors.muted}
+              />
+            </Pressable>
+          )}
+        </View>
+
+        <View style={[styles.filterRow, styles.block]}>
+          {filterOptions.map((filter) => {
+            const isActive = selectedFilter === filter.key;
+            return (
+              <Pressable
+                key={filter.key}
+                accessibilityRole="button"
+                onPress={() => setSelectedFilter(filter.key)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isActive
+                      ? withOpacity(colors.primary, theme.dark ? 0.32 : 0.16)
+                      : theme.dark
+                        ? colors.surfaceElevated
+                        : colors.surfaceAlt,
+                    borderColor: isActive
+                      ? withOpacity(colors.primary, theme.dark ? 0.7 : 0.8)
+                      : withOpacity(
+                          colors.borderStrong,
+                          theme.dark ? 0.5 : 0.5,
+                        ),
+                    borderWidth: StyleSheet.hairlineWidth * 2,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    {
+                      color: isActive ? colors.primary : colors.muted,
+                    },
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={[styles.actionButtons, styles.block]}>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.actionButtonFirst,
+              {
+                backgroundColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.22 : 0.1,
+                ),
+                borderColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.6 : 0.28,
+                ),
+              },
+            ]}
+            onPress={handleUploadNavigation}
+          >
+            <IconSymbol name="doc.fill" size={22} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>
+              {t("documents.upload")}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: withOpacity(
+                  colors.accent,
+                  theme.dark ? 0.22 : 0.12,
+                ),
+                borderColor: withOpacity(
+                  colors.accent,
+                  theme.dark ? 0.55 : 0.28,
+                ),
+              },
+            ]}
+            onPress={handleTemplateNavigation}
+          >
+            <IconSymbol
+              name="arrow.down.doc.fill"
+              size={22}
+              color={colors.accent}
+            />
+            <Text style={[styles.actionButtonText, { color: colors.accent }]}>
+              {t("documents.downloadTemplates")}
+            </Text>
+          </Pressable>
+        </View>
+
+        {error ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleRefresh}
+            style={[
+              styles.errorContainer,
+              {
+                backgroundColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.25 : 0.1,
+                ),
+                borderColor: withOpacity(
+                  colors.danger,
+                  theme.dark ? 0.55 : 0.3,
+                ),
+              },
+            ]}
+          >
+            <Text style={[styles.errorText, { color: colors.danger }]}>
+              {error}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ),
+    [
+      colors,
+      theme.dark,
+      searchQuery,
+      t,
+      filterOptions,
+      selectedFilter,
+      handleUploadNavigation,
+      handleTemplateNavigation,
+      error,
+      handleRefresh,
+    ],
+  );
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const filteredCases = useMemo(() => {
+    let result = cases;
+
+    // Apply filter based on selectedFilter
+    if (selectedFilter !== "all") {
+      result = result.filter((item) => {
+        const status = normalizeStatus(item.status);
+
+        switch (selectedFilter) {
+          case "active":
+            // Active cases: submitted, under_review, processing, documents_required
+            return [
+              "submitted",
+              "under_review",
+              "processing",
+              "documents_required",
+            ].includes(status);
+          case "action-required":
+            // Action required: documents_required or action-required
+            return (
+              status === "documents_required" || status === "action-required"
+            );
+          case "complete":
+            // Complete: approved
+            return status === "approved";
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply search filter if search query exists
+    if (normalizedSearch) {
+      result = result.filter((item) => {
+        const haystacks = [
+          item.referenceNumber,
+          item.displayName,
+          item.serviceType,
+          item.client?.firstName
+            ? `${item.client.firstName} ${item.client.lastName ?? ""}`
+            : "",
+          item.client?.email ?? "",
+          item.assignedAgent
+            ? `${item.assignedAgent.firstName ?? ""} ${item.assignedAgent.lastName ?? ""}`
+            : "",
+          item.assignedAgent?.email ?? "",
+        ]
+          .filter(Boolean)
+          .map((value) => value.toLowerCase());
+
+        return haystacks.some((value) => value.includes(normalizedSearch));
+      });
+    }
+
+    return result;
+  }, [cases, selectedFilter, normalizedSearch]);
+
+  const listEmptyComponent = useMemo(
+    () =>
+      isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <IconSymbol
+            name="folder.fill"
+            size={64}
+            color={theme.dark ? colors.mutedAlt : colors.muted}
+          />
+          <Text style={[styles.emptyText, { color: colors.muted }]}>
+            {normalizedSearch
+              ? t("cases.noMatches", {
+                  defaultValue: "No cases match your search.",
+                })
+              : t("cases.noCases")}
+          </Text>
+        </View>
+      ),
+    [isLoading, colors, theme.dark, t, normalizedSearch],
+  );
+
+  const renderCaseItem = useCallback(
+    ({ item }: { item: any }) => {
+      const statusColor = getStatusColor(item.status);
+      const progressValue = Math.min(
+        Math.max(Number(item.progress) || 0, 0),
+        100,
+      );
+      return (
+        <Pressable
+          style={[
+            styles.caseCard,
+            {
+              backgroundColor: theme.dark ? "#111827" : colors.surface,
+              borderColor: withOpacity(
+                colors.borderStrong,
+                theme.dark ? 0.35 : 0.16,
+              ),
+              shadowColor: colors.backdrop,
+            },
+          ]}
+          onPress={() => handleCasePress(item)}
+        >
+          <View style={styles.caseHeader}>
+            <View style={styles.caseHeaderLeft}>
+              <Text style={[styles.caseTitle, { color: colors.text }]}>
+                {item.displayName ||
+                  formatServiceTypeLabel(item.serviceType) ||
+                  t("cases.title")}
+              </Text>
+              <Text style={[styles.caseNumber, { color: colors.muted }]}>
+                {item.referenceNumber}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: withOpacity(
+                    statusColor,
+                    theme.dark ? 0.35 : 0.15,
+                  ),
+                },
+              ]}
+            >
+              <View
+                style={[styles.statusDot, { backgroundColor: statusColor }]}
+              />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {getStatusLabel(item.status)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={[styles.progressLabel, { color: colors.muted }]}>
+                {t("cases.progress")}
+              </Text>
+              <Text style={[styles.progressPercentage, { color: colors.text }]}>
+                {progressValue}%
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.progressBar,
+                {
+                  backgroundColor: withOpacity(
+                    colors.muted,
+                    theme.dark ? 0.3 : 0.15,
+                  ),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${progressValue}%`,
+                    backgroundColor: statusColor,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.lastUpdated, { color: colors.muted }]}>
+              {t("cases.lastUpdated")}: {formatDateLabel(item.lastUpdated)}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [colors, theme.dark, getStatusColor, getStatusLabel, handleCasePress, t],
+  );
+
+  const listFooterComponent = useMemo(() => <View style={{ height: 8 }} />, []);
+
+  useEffect(() => {
+    setAtBottom(true);
+    setScrollDirection(false);
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [setAtBottom, setScrollDirection]);
+
   return (
     <>
-      {Platform.OS === 'ios' && (
+      {Platform.OS === "ios" && (
         <Stack.Screen
           options={{
             headerShown: false,
           }}
         />
       )}
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-        {/* Header */}
+      <SafeAreaView
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.dark ? "#1f2937" : colors.background,
+            paddingBottom: insets.bottom,
+            paddingTop: insets.top,
+          },
+        ]}
+        edges={["top"]}
+      >
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('cases.title')}</Text>
-          <Pressable onPress={() => router.push('/(tabs)/notifications')}>
-            <IconSymbol name="bell.fill" size={24} color={theme.colors.text} />
+          <BackButton onPress={handleBackPress} iconSize={22} />
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {t("cases.title")}
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
+              {t("cases.subtitle", {
+                defaultValue:
+                  "Review your case progress and take action quickly.",
+              })}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push("/(tabs)/notifications")}
+            style={[
+              styles.headerAction,
+              {
+                backgroundColor: withOpacity(
+                  colors.primary,
+                  theme.dark ? 0.22 : 0.12,
+                ),
+              },
+            ]}
+          >
+            <IconSymbol name="bell.fill" size={22} color={colors.text} />
           </Pressable>
         </View>
 
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            Platform.OS !== 'ios' && styles.scrollContentWithTabBar
-          ]}
+        <FlatList
+          data={filteredCases}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderCaseItem}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
-          }
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: contentPaddingBottom, paddingTop: 12 },
+          ]}
+          ListHeaderComponent={listHeaderComponent}
+          ListEmptyComponent={listEmptyComponent}
+          ListFooterComponent={listFooterComponent}
+          refreshing={isLoading && cases.length > 0}
+          onRefresh={handleRefresh}
+          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const { contentOffset, layoutMeasurement, contentSize } =
+              event.nativeEvent;
+            if (scrollTimeoutRef.current) {
+              clearTimeout(scrollTimeoutRef.current);
+            }
+            scrollTimeoutRef.current = setTimeout(() => {
+              const currentY = contentOffset.y;
+              const isAtBottom =
+                currentY + layoutMeasurement.height >= contentSize.height - 50;
+              setAtBottom(isAtBottom);
+              const diff = currentY - lastScrollYRef.current;
+              if (Math.abs(diff) > 5) {
+                setScrollDirection(diff > 0);
+                lastScrollYRef.current = currentY;
+              }
+            }, 50);
+          }}
+          scrollEventThrottle={16}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          windowSize={10}
+          removeClippedSubviews
+        />
+
+        <Pressable
+          style={[
+            styles.fab,
+            {
+              bottom: fabBottom,
+              backgroundColor: colors.primary,
+              shadowColor: colors.backdrop,
+            },
+          ]}
+          onPress={() => router.push("/cases/new")}
         >
-          {/* Search Bar */}
-          <View style={[styles.searchContainer, { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' }]}>
-            <IconSymbol name="magnifyingglass" size={20} color={theme.dark ? '#98989D' : '#666'} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.colors.text }]}
-              placeholder={t('cases.searchPlaceholder')}
-              placeholderTextColor={theme.dark ? '#98989D' : '#666'}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {/* Filter Tabs */}
-          <View style={styles.filterContainer}>
-            <Pressable
-              style={[
-                styles.filterTab,
-                selectedFilter === 'all' && { backgroundColor: '#2196F3' },
-                selectedFilter !== 'all' && { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' },
-              ]}
-              onPress={() => setSelectedFilter('all')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  selectedFilter === 'all' ? { color: '#fff' } : { color: theme.colors.text },
-                ]}
-              >
-                {t('cases.filterAll')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.filterTab,
-                selectedFilter === 'active' && { backgroundColor: '#2196F3' },
-                selectedFilter !== 'active' && { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' },
-              ]}
-              onPress={() => setSelectedFilter('active')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  selectedFilter === 'active' ? { color: '#fff' } : { color: theme.colors.text },
-                ]}
-              >
-                {t('cases.filterActive')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.filterTab,
-                selectedFilter === 'action-required' && { backgroundColor: '#2196F3' },
-                selectedFilter !== 'action-required' && { backgroundColor: theme.dark ? '#1C1C1E' : '#F5F5F5' },
-              ]}
-              onPress={() => setSelectedFilter('action-required')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  selectedFilter === 'action-required' ? { color: '#fff' } : { color: theme.colors.text },
-                ]}
-              >
-                {t('cases.filterActionRequired')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <Pressable 
-              style={[styles.actionButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#E3F2FD' }]}
-              onPress={() => router.push('/documents/upload')}
-            >
-              <IconSymbol name="doc.fill" size={24} color="#2196F3" />
-              <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>{t('documents.upload')}</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.actionButton, { backgroundColor: theme.dark ? '#1C1C1E' : '#E3F2FD' }]}
-              onPress={() => router.push('/templates')}
-            >
-              <IconSymbol name="arrow.down.doc.fill" size={24} color="#2196F3" />
-              <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>{t('documents.downloadTemplates')}</Text>
-            </Pressable>
-          </View>
-
-          {/* Loading State */}
-          {isLoading && cases.length === 0 && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2196F3" />
-            </View>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={[styles.errorText, { color: '#F44336' }]}>{error}</Text>
-            </View>
-          )}
-
-          {/* Cases List */}
-          {cases.length === 0 && !isLoading && (
-            <View style={styles.emptyContainer}>
-              <IconSymbol name="folder.fill" size={64} color={theme.dark ? '#98989D' : '#666'} />
-              <Text style={[styles.emptyText, { color: theme.dark ? '#98989D' : '#666' }]}>
-                {t('cases.noCases')}
-              </Text>
-            </View>
-          )}
-
-          {cases.map((caseItem) => (
-            <Pressable
-              key={caseItem.id}
-              style={[styles.caseCard, { backgroundColor: theme.dark ? '#1C1C1E' : '#fff' }]}
-              onPress={() => {
-                const statusKey = normalizeStatus(caseItem.status);
-                if (statusKey !== 'under_review') {
-                  showAlert({
-                    title: t('cases.chatUnavailableTitle', { defaultValue: 'Chat Not Available' }),
-                    message: t('cases.chatUnavailableMessage', { defaultValue: 'Chat will be available once your advisor reviews this case.' }),
-                    actions: [{ text: t('common.close'), variant: 'primary' }],
-                  });
-                  return;
-                }
-
-                if (!caseItem.assignedAgent) {
-                  showAlert({
-                    title: t('cases.chatAwaitingAgentTitle', { defaultValue: 'Advisor Pending' }),
-                    message: t('cases.chatAwaitingAgentMessage', { defaultValue: 'An advisor will contact you shortly. Chat becomes available after the assignment.' }),
-                    actions: [{ text: t('common.close'), variant: 'primary' }],
-                  });
-                  return;
-                }
-
-                router.push({
-                  pathname: '/chat',
-                  params: { id: caseItem.id, caseId: caseItem.id }
-                });
-              }}
-              onLongPress={() => router.push({ pathname: '/case/[id]', params: { id: caseItem.id } })}
-            >
-              <View style={styles.caseHeader}>
-                <View style={styles.caseHeaderLeft}>
-                  <Text style={[styles.caseTitle, { color: theme.colors.text }]}>
-                    {caseItem.displayName || formatServiceTypeLabel(caseItem.serviceType) || t('cases.title')}
-                  </Text>
-                  <Text style={[styles.caseNumber, { color: theme.dark ? '#98989D' : '#666' }]}>
-                    {caseItem.referenceNumber}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: withOpacity(getStatusColor(caseItem.status), 0.15) },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: getStatusColor(caseItem.status) },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: getStatusColor(caseItem.status) },
-                    ]}
-                  >
-                    {getStatusLabel(caseItem.status)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.progressContainer}>
-                <View style={styles.progressHeader}>
-                  <Text style={[styles.progressLabel, { color: theme.dark ? '#98989D' : '#666' }]}>
-                    {t('cases.progress')}
-                  </Text>
-                  <Text style={[styles.progressPercentage, { color: theme.colors.text }]}>
-                    {caseItem.progress}%
-                  </Text>
-                </View>
-                <View style={[styles.progressBar, { backgroundColor: theme.dark ? '#2C2C2E' : '#E0E0E0' }]}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${caseItem.progress}%`,
-                        backgroundColor: getStatusColor(caseItem.status),
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.lastUpdated, { color: theme.dark ? '#98989D' : '#666' }]}>
-                  {t('cases.lastUpdated')}: {formatDateLabel(caseItem.lastUpdated)}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Floating Action Button */}
-        <Pressable 
-          style={styles.fab}
-          onPress={() => router.push('/cases/new')}
-        >
-          <IconSymbol name="plus" size={28} color="#fff" />
+          <IconSymbol name="plus" size={28} color={colors.onPrimary} />
         </Pressable>
       </SafeAreaView>
     </>
@@ -384,153 +713,178 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: "700",
   },
-  scrollView: {
-    flex: 1,
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
   },
-  scrollContent: {
+  headerAction: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
+  },
+  listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
   },
-  scrollContentWithTabBar: {
-    paddingBottom: 100,
+  listHeader: {
+    paddingBottom: 8,
+  },
+  block: {
+    marginBottom: 16,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
+    marginHorizontal: 12,
     fontSize: 16,
   },
-  filterContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+  searchClearButton: {
+    padding: 4,
   },
-  filterTab: {
-    paddingHorizontal: 20,
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  filterChip: {
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginRight: 8,
+    marginBottom: 8,
   },
-  filterText: {
+  filterChipText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  actionButtonFirst: {
+    marginRight: 12,
   },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: "600",
+    marginLeft: 10,
   },
   caseCard: {
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 3,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   caseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   caseHeaderLeft: {
     flex: 1,
+    marginRight: 12,
   },
   caseTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 4,
   },
   caseNumber: {
-    fontSize: 14,
+    fontSize: 13,
+    letterSpacing: 0.15,
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    gap: 6,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginRight: 6,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressContainer: {
-    gap: 8,
+    marginTop: 8,
   },
   progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   progressLabel: {
     fontSize: 14,
   },
   progressPercentage: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   progressBar: {
     height: 8,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
+    marginTop: 8,
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 4,
   },
   lastUpdated: {
     fontSize: 12,
+    marginTop: 8,
   },
   fab: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 100 : 120,
+    position: "absolute",
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2196F3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -538,26 +892,27 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorContainer: {
     padding: 16,
-    marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#FFEBEE',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   errorText: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyContainer: {
     paddingVertical: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyText: {
     fontSize: 16,
+    textAlign: "center",
+    paddingHorizontal: 24,
     marginTop: 16,
   },
 });

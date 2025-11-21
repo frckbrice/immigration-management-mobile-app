@@ -65,10 +65,10 @@ export default function EditableElement_(_props: PropsWithChildren<any>) {
           outline: "1px solid blue",
         }
       : hovered === id
-      ? {
-          outline: "1px dashed blue",
-        }
-      : {};
+        ? {
+            outline: "1px dashed blue",
+          }
+        : {};
 
   const onClick = (ev: any) => {
     ev.stopPropagation();

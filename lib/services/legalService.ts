@@ -1,37 +1,81 @@
-import { apiClient } from '../api/axios';
-import { logger } from '../utils/logger';
+import { apiClient } from "../api/axios";
+import { logger } from "../utils/logger";
 
-interface LegalResponse {
-    success: boolean;
-    data?: { content: string } | string;
-    error?: string;
+interface LegalDocument {
+  id?: string;
+  title?: string;
+  version?: string | null;
+  content?: string | null;
+  language?: string;
+  isActive?: boolean;
+  publishedAt?: string | null;
+  updatedAt?: string;
 }
 
-function normalizeContent(data?: { content: string } | string): string {
-    if (!data) return '';
-    if (typeof data === 'string') return data;
-    return data.content || '';
+interface LegalResponse {
+  success: boolean;
+  data?:
+    | {
+        document?: LegalDocument | null;
+        documents?: LegalDocument[];
+        content?: string;
+      }
+    | LegalDocument
+    | string
+    | null;
+  error?: string;
+}
+
+function extractContent(payload: LegalResponse["data"]): string {
+  if (!payload) {
+    return "";
+  }
+
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  if ("content" in payload && typeof payload.content === "string") {
+    return payload.content;
+  }
+
+  if ("document" in payload && payload.document) {
+    return payload.document?.content ?? "";
+  }
+
+  if ("documents" in payload && Array.isArray(payload.documents)) {
+    const [first] = payload.documents;
+    return first?.content ?? "";
+  }
+
+  return "";
+}
+
+async function fetchLegalContent(
+  endpoint: string,
+  language: string = "en",
+): Promise<string> {
+  try {
+    const res = await apiClient.get<LegalResponse>(endpoint, {
+      params: {
+        latest: true,
+        language,
+      },
+    });
+    return extractContent(res.data?.data);
+  } catch (error: any) {
+    logger.error(`Failed to load legal content from ${endpoint}`, error);
+    throw new Error(
+      error?.response?.data?.error || "Unable to load legal content",
+    );
+  }
 }
 
 export const legalService = {
-    async getPrivacy(): Promise<string> {
-        try {
-            const res = await apiClient.get<LegalResponse>('/legal/privacy');
-            return normalizeContent(res.data.data);
-        } catch (error: any) {
-            logger.error('Failed to load privacy', error);
-            throw new Error(error?.response?.data?.error || 'Unable to load privacy policy');
-        }
-    },
-    async getTerms(): Promise<string> {
-        try {
-            const res = await apiClient.get<LegalResponse>('/legal/terms');
-            return normalizeContent(res.data.data);
-        } catch (error: any) {
-            logger.error('Failed to load terms', error);
-            throw new Error(error?.response?.data?.error || 'Unable to load terms');
-        }
-    },
+  async getPrivacy(language?: string): Promise<string> {
+    return fetchLegalContent("/legal/privacy", language);
+  },
+  async getTerms(language?: string): Promise<string> {
+    return fetchLegalContent("/legal/terms", language);
+  },
 };
-
-

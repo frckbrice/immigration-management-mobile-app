@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from "react";
 
 interface ScrollContextType {
   isScrollingDown: boolean;
@@ -10,7 +10,9 @@ interface ScrollContextType {
 
 const ScrollContext = createContext<ScrollContextType | undefined>(undefined);
 
-export const ScrollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ScrollProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [isScrollingDown, setIsScrollingDown] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true); // Start at bottom (show tab bar initially)
 
@@ -45,8 +47,7 @@ export const ScrollProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 export const useScrollContext = (): ScrollContextType => {
   const context = useContext(ScrollContext);
   if (!context) {
-    throw new Error('useScrollContext must be used within ScrollProvider');
+    throw new Error("useScrollContext must be used within ScrollProvider");
   }
   return context;
 };
-

@@ -1,5 +1,6 @@
 {
   "common": {
+    "reset": "Reset",
     "welcome": "Welcome",
     "loading": "Loading...",
     "error": "Error",
@@ -19,7 +20,33 @@
     "viewAll": "View All",
     "noResults": "No results found",
     "retry": "Retry",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "resultsCount": "{{count}} result(s)",
+    "validation": "Validation",
+    "ok": "OK",
+    "unknownDate": "Unknown date",
+    "unknownError": "Unknown error",
+    "now": "Now"
+  },
+  "email": {
+    "detailTitle": "Email",
+    "loadError": "Unable to load this email.",
+    "downloadSuccessTitle": "Download complete",
+    "downloadSuccessMessage": "You can find this file under Downloads in Documents.",
+    "downloadFailedTitle": "Download failed",
+    "downloadFailedMessage": "Unable to download this attachment.",
+    "replyNotSupportedTitle": "Unable to reply",
+    "replyNotSupportedMessage": "This email thread cannot be replied to.",
+    "replySentTitle": "Reply sent",
+    "replySentMessage": "Your message has been delivered to your advisor.",
+    "replyFailedTitle": "Reply failed",
+    "replyFailedMessage": "Unable to send this reply. Please try again later.",
+    "reply": "Reply",
+    "replyPlaceholder": "Write your reply...",
+    "sendReply": "Send reply",
+    "viewCase": "View case",
+    "emptyBody": "No message content.",
+    "attachmentsTitle": "Attachments"
   },
   "auth": {
     "login": "Login",
@@ -41,8 +68,28 @@
     "confirmPassword": "Confirm Password",
     "acceptTerms": "I accept the Terms and Conditions",
     "acceptPrivacy": "I accept the Privacy Policy",
-    "registrationSuccess": "Registration Successful",
-    "checkEmail": "Please check your inbox to verify your email before logging in."
+    "registrationSuccess": "Registration Successful!",
+    "checkEmail": "We've sent a verification email to your inbox. Please check your email and verify your account before logging in.",
+    "continueToLogin": "Continue to Login",
+    "passwordResetSent": "Password Reset Email Sent",
+    "checkEmailForReset": "We've sent a password reset link to your email. Please check your inbox, click the link, and set a new password. You can then login with your new password.",
+    "enterEmailForReset": "Enter your email address and we'll send you instructions to reset your password.",
+    "sendResetLink": "Send Reset Link",
+    "rememberPassword": "Remember your password? ",
+    "userNotFound": "No account found with this email.",
+    "resetPassword": "Reset Password",
+    "enterNewPassword": "Enter your new password below",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm new password",
+    "passwordResetSuccess": "Password Reset Successful",
+    "passwordResetSuccessMessage": "Your password has been reset successfully. You can now login with your new password.",
+    "invalidResetLink": "Invalid or expired reset link. Please request a new one.",
+    "requestNewLink": "Request New Link",
+    "passwordRequirements": "Password must contain:",
+    "min8Characters": "At least 8 characters",
+    "oneUppercase": "One uppercase letter",
+    "oneLowercase": "One lowercase letter",
+    "oneNumber": "One number"
   },
   "onboarding": {
     "welcome": "Welcome to Our App",
@@ -54,6 +101,13 @@
     "getStarted": "Get Started",
     "getStartedDescription": "Ready to begin? Let's get you set up and start managing your services.",
     "skip": "Skip"
+  },
+  "getStarted": {
+    "welcomeTo": "Welcome to",
+    "companyName": "Patrick Travel Agency",
+    "tagline": "Your trusted partner for seamless travel experiences",
+    "description": "Discover a world of possibilities with our comprehensive travel services. From visa applications to travel planning, we're here to make your journey smooth and memorable.",
+    "getStartedButton": "Get Started"
   },
   "home": {
     "title": "Home",
@@ -85,7 +139,10 @@
     "noPendingActionsTitle": "No pending actions",
     "noPendingActionsDescription": "Great job! You are all caught up.",
     "updatedOn": "Updated on {{date}}",
-    "noCaseForPayment": "No case is ready for payment yet."
+    "noCaseForPayment": "No case is ready for payment yet.",
+    "appointmentLocation": "Location: {{location}}",
+    "appointmentAdvisor": "Advisor: {{name}}",
+    "appointmentNotes": "Notes: {{notes}}"
   },
   "cases": {
     "title": "My Cases",
@@ -109,10 +166,32 @@
     "rejected": "Rejected",
     "closed": "Closed",
     "statusUnknown": "Unknown status",
+    "subscriptionRequired": "Active payment required to create cases. Please make a payment first to continue.",
+    "subscriptionExpired": "Your payment has expired. Please renew your payment to create cases.",
+    "subscriptionTitle": "Payment Required",
+    "subscribe": "Subscribe",
+    "caseCreationFailed": "Failed to create case. Please try again.",
     "chatUnavailableTitle": "Chat Not Available",
     "chatUnavailableMessage": "Chat will be available once your advisor reviews this case.",
     "chatAwaitingAgentTitle": "Advisor Pending",
-    "chatAwaitingAgentMessage": "An advisor will contact you shortly. Chat becomes available after the assignment."
+    "chatAwaitingAgentMessage": "An advisor will contact you shortly. Chat becomes available after the assignment.",
+    "statusLabels": {
+      "submitted": "Submitted",
+      "under_review": "Under Review",
+      "documents_required": "Documents Required",
+      "processing": "Processing",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "closed": "Closed",
+      "unknown": "Unknown"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "normal": "Normal",
+      "low": "Low",
+      "unknown": "Unknown"
+    }
   },
   "caseDetails": {
     "title": "Case Details",
@@ -131,9 +210,65 @@
     "serviceType": "Service Type",
     "priority": "Priority",
     "required": "Required",
+    "heroTitle": "Let's set up your case",
+    "heroSubtitle": "Tell us what you need help with and how soon you need it. tap the card to select.",
+    "destination": "Destination Country",
+    "destinationHelper": "Where are you planning to travel or settle?",
+    "destinationLoading": "Loading destinations...",
+    "destinationEmpty": "Destinations are currently unavailable.",
+    "destinationError": "We couldn't load destinations. Please try again.",
+    "destinationRetry": "Refresh",
+    "destinationDefaultDescription": "Destination code {{code}}",
+    "serviceTypeHelper": "Select the immigration service that best fits your situation.",
+    "priorityHelper": "Let us know how urgent this request is so we can support you accordingly.",
+    "submitCta": "Submit Case",
     "fillAllFields": "Please fill in all required fields",
     "caseCreated": "Case created successfully",
-    "caseFailed": "Failed to create case. Please try again."
+    "caseFailed": "Failed to create case. Please try again.",
+    "serviceTypes": {
+      "student_visa": {
+        "title": "Student Visa",
+        "description": "Support for academic admissions, study permits, and university transitions."
+      },
+      "work_permit": {
+        "title": "Work Permit",
+        "description": "Employment-based applications including renewals and employer sponsorship."
+      },
+      "family_reunification": {
+        "title": "Family Reunification",
+        "description": "Guidance for reunifying with loved ones through spousal or dependent visas."
+      },
+      "tourist_visa": {
+        "title": "Tourist Visa",
+        "description": "Short-term travel visas for vacations, events, and short-stay visits."
+      },
+      "business_visa": {
+        "title": "Business Visa",
+        "description": "Corporate travel, conferences, and investment-related immigration needs."
+      },
+      "permanent_residency": {
+        "title": "Permanent Residency",
+        "description": "Long-term residency planning, eligibility assessments, and documentation."
+      }
+    },
+    "priorities": {
+      "low": {
+        "title": "Low",
+        "description": "Flexible timeline — I'm planning ahead."
+      },
+      "normal": {
+        "title": "Normal",
+        "description": "Standard processing speed is fine for me."
+      },
+      "high": {
+        "title": "High",
+        "description": "Time-sensitive — I prefer regular updates."
+      },
+      "urgent": {
+        "title": "Urgent",
+        "description": "Critical deadline — I need immediate assistance."
+      }
+    }
   },
   "documents": {
     "title": "Documents",
@@ -181,9 +316,20 @@
     "downloadFailedMessage": "Unable to download this template.",
     "downloadOpenErrorTitle": "Unable to open file",
     "downloadOpenErrorMessage": "This file cannot be opened on your device.",
+    "tapToDownload": "Tap to download",
     "noTemplates": "No templates available right now.",
     "noDownloads": "No downloads yet.",
     "downloadedAt": "Downloaded at {{date}}",
+    "shareUnavailableTitle": "Share unavailable",
+    "shareUnavailableMessage": "We could not access the downloaded file on this device. Try downloading again.",
+    "shareUnsupportedMessage": "Sharing is not supported on this device.",
+    "shareFailedTitle": "Share failed",
+    "shareFailedMessage": "Unable to share this file right now.",
+    "downloadSuccessTitle": "Template downloaded",
+    "downloadSuccessMessage": "You can find this template in the Downloads tab.",
+    "downloadRemovedMessage": "Removed from Downloads.",
+    "downloadRemoveFailedTitle": "Delete failed",
+    "downloadRemoveFailedMessage": "Unable to remove this download.",
     "noCaseTitle": "No case available",
     "noCaseMessage": "Create a case before uploading documents.",
     "searchTemplates": "Search templates...",
@@ -211,12 +357,146 @@
     "supportedFormats": "Supported Formats",
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
   },
+  "payments": {
+    "title": "Payment",
+    "paymentSummary": "Payment Summary",
+    "caseReference": "Case Reference",
+    "description": "Description",
+    "totalAmount": "Total Amount",
+    "cardDetails": "Card Details",
+    "basicTierDescription": "Basic Tier - One-time payment",
+    "incompleteCard": "Incomplete Card",
+    "incompleteCardMessage": "Please enter complete card details",
+    "paymentFailed": "Payment Failed",
+    "paymentFailedMessage": "An error occurred during payment processing",
+    "paymentError": "Payment Error",
+    "paymentSuccessful": "Payment Successful",
+    "paymentSuccessfulMessage": "Your payment of ${{amount}} has been processed successfully. You can now create cases.",
+    "paymentProcessing": "Payment Processing",
+    "paymentProcessingMessage": "Your payment is being processed. Please check your payment history for updates.",
+    "paymentProcessingMessageShort": "Your payment is being processed. Check your history for updates.",
+    "paymentSubmitted": "Payment Submitted",
+    "paymentSubmittedMessage": "Your payment of ${{amount}} has been submitted. You will receive a confirmation shortly.",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
+    "paymentVerificationFailed": "Payment Verification Failed",
+    "paymentVerificationFailedMessage": "We couldn't verify your payment with our server. Please try again or contact support if the issue persists.",
+    "alreadyPaidTitle": "Payment Already Made",
+    "alreadyPaidMessage": "You have already made a one-time payment. Your payment is active.",
+    "subscriptionExpired": "Your one-time payment has expired. Please select a payment tier to renew.",
+    "subscriptionRequired": "Active one-time payment required. Please select a payment tier to continue.",
+    "paymentRequiredTitle": "Payment Required",
+    "testMode": "Test Mode: Use card 4242 4242 4242 4242 with any future date and CVC",
+    "securityNotice": "Your payment information is encrypted and secure",
+    "paymentInformation": "Payment Information",
+    "paymentInfoBullets": "• Payments are processed securely through Stripe\n• You will receive a receipt via email\n• Refunds take 5-10 business days\n• Contact support for payment issues",
+    "contactSupport": "Contact support for payment issues",
+    "payButton": "Pay ${{amount}}",
+    "cancel": "Cancel",
+    "web": {
+      "notAvailable": "Payment Not Available on Web",
+      "notAvailableMessage": "Stripe payment processing is only available on iOS and Android devices. Please use the mobile app to complete your payment.",
+      "downloadApp": "Download the mobile app from the App Store or Google Play to make payments securely.",
+      "alternativeOptions": "Alternative Options",
+      "useMobileApp": "Use Mobile App",
+      "useMobileAppDescription": "Download our iOS or Android app for full payment functionality",
+      "contactSupport": "Contact Support",
+      "contactSupportDescription": "Reach out to our support team for alternative payment methods",
+      "goBack": "Go Back"
+    },
+    "history": {
+      "title": "Payment History",
+      "recentPayments": "Recent Payments",
+      "summary": {
+        "totalPaid": "Total Paid",
+        "transactions": "Transactions"
+      },
+      "status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed",
+        "processing": "Processing",
+        "unknown": "Unknown"
+      },
+      "caseLabel": "Case: {{caseNumber}}",
+      "caseUnknown": "N/A",
+      "actions": {
+        "makePayment": "Make New Payment"
+      },
+      "empty": {
+        "title": "No Payments Yet",
+        "description": "Your payment history will appear here"
+      },
+      "sheet": {
+        "title": "Choose a Case",
+        "subtitle": "Select a pending or in-progress case to continue.",
+        "secondaryInfo": "Tap to review and pay this case in full.",
+        "empty": {
+          "title": "All caught up!",
+          "subtitle": "You have no outstanding cases that require payment."
+        }
+      },
+      "priorityLabel": "Priority • {{priority}}"
+    }
+  },
   "messages": {
     "title": "Messages",
+    "subtitle": "Stay connected with your advisors and keep track of updates.",
     "noMessages": "No messages yet",
     "chat": "Chat",
+    "email": "Email",
     "newMessage": "New Message",
-    "conversations": "Conversations"
+    "conversations": "Conversations",
+    "inbox": "Inbox",
+    "sent": "Sent",
+    "noInboxMessages": "Inbox is empty",
+    "noSentMessages": "No sent messages",
+    "noConversations": "No conversations yet",
+    "agent": "Advisor",
+    "justNow": "Just now",
+    "markAsRead": "Mark as read",
+    "markAsUnread": "Mark as unread",
+    "fromLabel": "From {{name}}",
+    "toLabel": "To {{name}}",
+    "caseLabel": "Case {{reference}}",
+    "noSubject": "(No subject)",
+    "composeTitle": "New email",
+    "composeSubtitle": "Start a fresh conversation with your advisor via email.",
+    "composeSelectCase": "Choose the case",
+    "composeSelectCaseHint": "Pick the advisor linked to the case you want to email.",
+    "composeSelectAgent": "Choose an advisor",
+    "composeSelectAgentHint": "Pick the advisor and case you want to contact via email.",
+    "composeDetailsTitle": "Message details",
+    "composeDetailsHint": "Add a clear subject and message so your advisor can respond quickly.",
+    "composeSubjectLabel": "Subject",
+    "composeSubjectPlaceholder": "Visa interview preparation",
+    "composeBodyLabel": "Message",
+    "composeBodyHelper": "Share all the context your advisor needs.",
+    "composeBodyPlaceholder": "Hello advisor,\n\nI would like to clarify the remaining steps for my application...",
+    "composeCharacterCount": "{{count}} / 4000",
+    "composeSendCta": "Send email",
+    "composeNoAgent": "Advisor pending",
+    "composeNoAgentEmail": "Awaiting assignment",
+    "composeSelectAgentError": "Select a case and advisor before sending your email.",
+    "composeAdvisorLabel": "Advisor",
+    "composeAdvisorPlaceholder": "Select advisor",
+    "composeCaseLabel": "Case",
+    "composeCasePlaceholder": "Select case",
+    "composeAgentPickerTitle": "Choose advisor",
+    "composeCasePickerTitle": "Choose case",
+    "composeAgentCasesCount_one": "{{count}} case",
+    "composeAgentCasesCount_other": "{{count}} cases",
+    "composeSubjectRequired": "Subject is required",
+    "composeBodyTooShort": "Enter at least 10 characters.",
+    "composeSuccessTitle": "Email sent",
+    "composeSuccessMessage": "Your advisor will receive your message shortly.",
+    "composeSendError": "We could not send your email. Please try again.",
+    "composeLoadingCases": "Loading your cases...",
+    "composeCasesErrorTitle": "Unable to load advisors",
+    "composeCasesErrorBody": "We couldn't retrieve your cases. Please try again.",
+    "composeRetry": "Try again",
+    "composeNoCasesTitle": "No advisors available yet",
+    "composeNoCasesDescription": "Once one of your cases is assigned to an advisor you can start an email directly from here.",
+    "composeGoToCases": "View my cases"
   },
   "chat": {
     "title": "Chat",
@@ -252,17 +532,31 @@
     "caseUpdate": "Case Status Updated",
     "documentApproved": "Document Approved",
     "documentRejected": "Document Rejected",
-    "urgent": "Urgent"
+    "urgent": "Urgent",
+    "newNotification": "New notification",
+    "openAppMessage": "Open the app to view the latest update."
   },
   "profile": {
-    "title": "Profile & Settings",
+    "title": "Profil",
     "editProfile": "Edit Profile",
+    "deleteAccountWarning": "This will permanently delete your account and data.",
+    "deleteAccountButton": "Delete Account",
+    "exportSubtitle": "Request a copy of your personal data for your records.",
+    "exportCardTitle": "Request your personal data",
+    "exportCardDescription": "We will package your submissions, case files, and account activity into a download link delivered via email.",
+    "exportCta": "Submit export request",
+    "exportSuccessMessage": "Your data export has been emailed to you.",
+    "exportErrorMessage": "We couldn't start the export. Please try again shortly.",
+    "editProfileSubtitle": "Update your personal details so we can stay in touch.",
     "logout": "Log Out",
     "personalInfo": "Personal Information",
+    "personalInfoSubtitle": "Everything we know about you in one place.",
     "changePassword": "Change Password",
+    "changePasswordSubtitle": "Use a strong password that you have not used elsewhere.",
     "paymentHistory": "Payment History",
     "exportMyData": "Export My Data",
     "deleteAccount": "Delete Account",
+    "noChanges": "No changes to save. Update a field first.",
     "sections": {
       "accountSettings": "ACCOUNT SETTINGS",
       "preferences": "PREFERENCES",
@@ -271,12 +565,58 @@
     },
     "name": "Name",
     "email": "Email",
+    "emailReadOnly": "Email cannot be changed",
+    "addEmail": "Add your email",
     "phone": "Phone",
+    "phonePlaceholder": "Add a phone number for quick contact",
+    "addPhone": "Add a phone number",
     "address": "Address",
+    "addressPlaceholder": "Street, City, Country",
+    "syncNotice": "Your updates sync instantly across all your devices.",
     "notifications": "Notifications",
     "pushNotifications": "Push Notifications",
     "emailNotifications": "Email Notifications",
+    "notificationsDescription": "Enable alerts for new messages and case updates.",
+    "notificationsEnabledMessage": "You will now receive email and push notifications for new emails, case updates, and advisor messages.",
+    "notificationsDisabledTitle": "Notifications Off",
+    "notificationsDisabledMessage": "Email and push alerts are muted. You will still see badge counts when new updates arrive.",
+    "notificationsEnableError": "Unable to enable notifications. Check your device permissions and try again.",
+    "notificationsUpdateError": "Failed to save notification preference. Please try again.",
+    "notificationsToggleError": "We could not update your notification preference right now. Please try again later.",
+    "openPreferences": "Theme, Language & Notifications",
+    "preferencesRowDescription": "Manage appearance preferences and alert settings in one place.",
+    "preferencesTitle": "Theme, Language & Notifications",
+    "preferencesSubtitle": "Personalize the interface, choose your language, and control notification alerts.",
+    "themeSectionTitle": "Appearance",
+    "languageSectionTitle": "Language",
+    "notificationSectionTitle": "Notifications",
+    "notificationSectionSubtitle": "Enable email and push alerts for new messages and case updates.",
+    "theme": "Theme",
+    "themeDescription": "Match system or choose light and dark modes.",
+    "themePickerTitle": "Choose Theme",
+    "themePickerSubtitle": "Instantly apply your preferred look.",
+    "themeUpdated": "Theme preference updated.",
+    "themeUpdateError": "Unable to update theme preference.",
+    "themeOptions": {
+      "system": "Match System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "themeSystemDescription": "Follow your device preference automatically.",
+    "themeLightDescription": "Bright background with high contrast.",
+    "themeDarkDescription": "Dimmed tones that are easier on the eyes.",
     "language": "Language",
+    "languageDescription": "Choose the language used across the app.",
+    "languagePickerTitle": "Choose Language",
+    "languagePickerSubtitle": "Switch between English and French.",
+    "languageUpdated": "Language updated successfully.",
+    "languageUpdateError": "Unable to change language right now.",
+    "languageOptions": {
+      "en": "English",
+      "fr": "Français"
+    },
+    "languageEnDescription": "Use English across menus and content.",
+    "languageFrDescription": "Use French across menus and content.",
     "english": "English",
     "french": "French",
     "privacy": "Privacy",
@@ -285,20 +625,72 @@
     "version": "Version",
     "help": "Help & Support",
     "contactUs": "Contact Us",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "faqHeroTitle": "How can we help today?",
+    "faqHeroSubtitle": "Browse our curated knowledge base or reach out to support if you need a hand.",
+    "faqSearchPlaceholder": "Search questions or keywords",
+    "faqResultsSummary": "Showing {{count}} result(s)",
+    "faqEmptyDescription": "Try a different keyword or reach out to our support specialists.",
+    "securityHeadline": "Your data stays secure",
+    "securityCopy": "We use industry-leading encryption to protect your personal information.",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "passwordHint": "Passwords must be at least 8 characters and include a combination of numbers and letters.",
+    "passwordUpdated": "Your password has been changed.",
+    "passwordUpdateFailed": "Failed to change password.",
+    "deleteAccountSubtitle": "Permanently remove your account and all associated data.",
+    "deleteAccountWarningTitle": "Warning",
+    "deleteAccountWarningMessage": "This will permanently delete your account and all associated data including:\n\n• All your cases and documents\n• Your payment history\n• Your messages and conversations\n• Your profile information\n\nThis action cannot be undone.",
+    "deleteAccountInfo": "If you have any pending cases or payments, please ",
+    "deleteAccountInfoSuffix": " before deleting your account.",
+    "deleteAccountConfirmTitle": "Confirm Deletion",
+    "deleteAccountConfirmMessage": "This action is irreversible. All your data will be permanently deleted. Continue?",
+    "deleteAccountConfirm": "Delete",
+    "deleteAccountError": "Failed to delete account. Please try again."
+  },
+  "legal": {
+    "termsHeroTitle": "Review our latest Terms & Conditions",
+    "termsHeroSubtitle": "We keep these policies up to date so you always know how we collaborate.",
+    "privacyHeroTitle": "Your privacy is built into every feature",
+    "privacyHeroSubtitle": "Learn how we safeguard your information and respect your choices.",
+    "lastUpdated": "Last synced {{date}}",
+    "lastUpdatedUnknown": "Last updated recently",
+    "refreshFailed": "Unable to refresh right now. Showing the last saved version."
+  },
+  "support": {
+    "contactSupport": "Contact Support",
+    "messageRequired": "Please provide a message so we can assist you.",
+    "missingEmail": "We could not find an email address on your account. Please update your profile and try again.",
+    "unknownUser": "Customer",
+    "messageSent": "Your message has been sent. We will get back to you shortly.",
+    "sendError": "Failed to send"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "network": "Network error. Please check your connection.",
     "unauthorized": "You are not authorized to perform this action.",
     "notFound": "Resource not found.",
-    "serverError": "Server error. Please try again later."
+    "serverError": "Server error. Please try again later.",
+    "somethingWentWrong": "Something went wrong",
+    "restartApp": "Please restart the app",
+    "rootLayoutError": "Root Layout Error"
   },
   "validation": {
     "required": "This field is required",
     "invalidEmail": "Please enter a valid email address",
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordsDontMatch": "Passwords do not match",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "confirmPasswordRequired": "Please confirm your password",
     "acceptTerms": "You must accept Terms and Privacy Policy"
+  },
+  "modals": {
+    "standardModal": "Standard Modal",
+    "standardModalDescription": "This is a modal presentation.",
+    "formSheetModal": "Form Sheet Modal",
+    "formSheetModalDescription": "Drag the grabber to resize!",
+    "transparentModal": "Transparent Modal",
+    "transparentModalDescription": "Tap outside to dismiss",
+    "closeModal": "Close Modal"
   }
 }

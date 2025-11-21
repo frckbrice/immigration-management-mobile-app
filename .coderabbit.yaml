@@ -1,0 +1,100 @@
+# CodeRabbit Configuration
+# https://docs.coderabbit.ai/configuration
+
+language: en
+
+# Enable or disable CodeRabbit
+enable: true
+
+# Review settings
+reviews:
+  # Automatically review pull requests
+  auto_review: true
+  
+  # Request changes automatically for critical issues
+  auto_review_comment: true
+  
+  # Review only changed files
+  review_only_changed_files: true
+  
+  # Paths to include in reviews
+  paths:
+    - "app/**"
+    - "components/**"
+    - "lib/**"
+    - "stores/**"
+    - "*.ts"
+    - "*.tsx"
+    - "*.js"
+    - "*.jsx"
+  
+  # Paths to exclude from reviews
+  ignore:
+    - "node_modules/**"
+    - ".expo/**"
+    - "dist/**"
+    - "build/**"
+    - "*.lock"
+    - "*.log"
+    - "coverage/**"
+    - ".git/**"
+    - "android/**"
+    - "ios/**"
+    - "web-build/**"
+
+# Chat settings
+chat:
+  # Enable chat functionality
+  enabled: true
+  
+  # Auto-generate PR descriptions
+  auto_generate_description: true
+
+# Suggestions
+suggestions:
+  # Enable code suggestions
+  enabled: true
+  
+  # Focus areas for suggestions
+  focus:
+    - "code_quality"
+    - "performance"
+    - "security"
+    - "best_practices"
+    - "accessibility"
+    - "i18n"
+    - "error_handling"
+
+# Commit message settings
+commit_message:
+  # Enable commit message generation
+  enabled: true
+  
+  # Commit message format
+  format: "conventional"
+
+# Language-specific settings
+typescript:
+  enabled: true
+  strict: true
+
+react:
+  enabled: true
+  hooks: true
+  best_practices: true
+
+react_native:
+  enabled: true
+  expo: true
+
+# Custom instructions
+instructions:
+  - "This is a React Native Expo application"
+  - "Follow TypeScript best practices"
+  - "Ensure proper error handling"
+  - "Maintain i18n translations for all user-facing strings"
+  - "Follow React Native performance best practices"
+  - "Ensure accessibility compliance"
+  - "Check for proper TypeScript types"
+  - "Verify proper use of React hooks"
+

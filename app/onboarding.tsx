@@ -3,7 +3,7 @@
  * Beautiful onboarding experience with smooth animations
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,9 +13,9 @@ import {
   FlatList,
   ViewToken,
   Image,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,12 +24,13 @@ import Animated, {
   Extrapolate,
   useAnimatedScrollHandler,
   SharedValue,
-} from 'react-native-reanimated';
-import { StatusBar } from 'expo-status-bar';
-import { completeOnboarding } from '../lib/utils/onboarding';
-import { useTranslation } from '../lib/hooks/useTranslation';
+} from "react-native-reanimated";
+import { StatusBar } from "expo-status-bar";
+import { completeOnboarding } from "../lib/utils/onboarding";
+import { useTranslation } from "../lib/hooks/useTranslation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingSlide {
   id: string;
@@ -41,32 +42,32 @@ interface OnboardingSlide {
 
 const getOnboardingSlides = (t: (key: string) => string): OnboardingSlide[] => [
   {
-    id: '1',
-    title: t('onboarding.welcome'),
-    description: t('onboarding.welcomeDescription'),
-    icon: 'airplane-takeoff',
-    color: '#0066CC',
+    id: "1",
+    title: t("onboarding.welcome"),
+    description: t("onboarding.welcomeDescription"),
+    icon: "airplane-takeoff",
+    color: "#0066CC",
   },
   {
-    id: '2',
-    title: t('onboarding.manageDocuments'),
-    description: t('onboarding.manageDocumentsDescription'),
-    icon: 'file-document-multiple',
-    color: '#28A745',
+    id: "2",
+    title: t("onboarding.manageDocuments"),
+    description: t("onboarding.manageDocumentsDescription"),
+    icon: "file-document-multiple",
+    color: "#28A745",
   },
   {
-    id: '3',
-    title: t('onboarding.stayConnected'),
-    description: t('onboarding.stayConnectedDescription'),
-    icon: 'message-text',
-    color: '#DC3545',
+    id: "3",
+    title: t("onboarding.stayConnected"),
+    description: t("onboarding.stayConnectedDescription"),
+    icon: "message-text",
+    color: "#DC3545",
   },
   {
-    id: '4',
-    title: t('onboarding.getStarted'),
-    description: t('onboarding.getStartedDescription'),
-    icon: 'cloud-upload',
-    color: '#FFC107',
+    id: "4",
+    title: t("onboarding.getStarted"),
+    description: t("onboarding.getStartedDescription"),
+    icon: "cloud-upload",
+    color: "#FFC107",
   },
 ];
 
@@ -90,14 +91,14 @@ const OnboardingItem = ({
       scrollX.value,
       inputRange,
       [0.8, 1, 0.8],
-      Extrapolate.CLAMP
+      Extrapolate.CLAMP,
     );
 
     const opacity = interpolate(
       scrollX.value,
       inputRange,
       [0.5, 1, 0.5],
-      Extrapolate.CLAMP
+      Extrapolate.CLAMP,
     );
 
     return {
@@ -111,14 +112,14 @@ const OnboardingItem = ({
       scrollX.value,
       inputRange,
       [50, 0, -50],
-      Extrapolate.CLAMP
+      Extrapolate.CLAMP,
     );
 
     const opacity = interpolate(
       scrollX.value,
       inputRange,
       [0, 1, 0],
-      Extrapolate.CLAMP
+      Extrapolate.CLAMP,
     );
 
     return {
@@ -140,7 +141,7 @@ const OnboardingItem = ({
       >
         {isFirstSlide ? (
           <Image
-            source={require('../assets/app_logo.png')}
+            source={require("../assets/app_logo.png")}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -170,14 +171,14 @@ const PaginationDot = React.memo(
         scrollX.value,
         inputRange,
         [8, 24, 8],
-        Extrapolate.CLAMP
+        Extrapolate.CLAMP,
       );
 
       const opacity = interpolate(
         scrollX.value,
         inputRange,
         [0.3, 1, 0.3],
-        Extrapolate.CLAMP
+        Extrapolate.CLAMP,
       );
 
       return {
@@ -187,7 +188,7 @@ const PaginationDot = React.memo(
     });
 
     return <Animated.View style={[styles.dot, dotAnimatedStyle]} />;
-  }
+  },
 );
 
 const Pagination = ({
@@ -207,25 +208,17 @@ const Pagination = ({
 };
 
 export default function OnboardingScreen() {
-  console.log('[Onboarding] Screen rendering');
+  console.log("[Onboarding] Screen rendering");
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, currentLanguage } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useSharedValue(0);
-  
-  // Wrap in try-catch to handle translation errors
-  let ONBOARDING_SLIDES: OnboardingSlide[] = [];
-  try {
-    ONBOARDING_SLIDES = getOnboardingSlides(t);
-    console.log('[Onboarding] Slides loaded:', ONBOARDING_SLIDES.length);
-  } catch (error) {
-    console.error('[Onboarding] Error loading slides:', error);
-    // Fallback slides if translation fails
-    ONBOARDING_SLIDES = [
-      { id: '1', title: 'Welcome', description: 'Welcome to our app', icon: 'airplane-takeoff', color: '#0066CC' },
-    ];
-  }
+  const { bottom: bottomInset } = useSafeAreaInsets();
+  // Load onboarding slides with translations - recompute when language changes
+  const ONBOARDING_SLIDES = useMemo(() => {
+    return getOnboardingSlides(t);
+  }, [t, currentLanguage]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -245,7 +238,7 @@ export default function OnboardingScreen() {
       ) {
         setCurrentIndex(viewableItems[0].index);
       }
-    }
+    },
   ).current;
 
   const handleNext = () => {
@@ -266,19 +259,19 @@ export default function OnboardingScreen() {
   const handleGetStarted = async () => {
     // Mark onboarding as completed (persists across sessions until app uninstall)
     await completeOnboarding();
-    router.replace('/login');
+    router.replace("/login");
   };
 
   const isLastSlide = currentIndex === ONBOARDING_SLIDES.length - 1;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomInset }]}>
       <StatusBar style="dark" />
 
       {/* Skip Button */}
       {!isLastSlide && (
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
+          <Text style={styles.skipText}>{t("onboarding.skip")}</Text>
         </TouchableOpacity>
       )}
 
@@ -306,10 +299,10 @@ export default function OnboardingScreen() {
       {/* Next/Get Started Button */}
       <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
         <Text style={styles.nextButtonText}>
-          {isLastSlide ? t('onboarding.getStarted') : t('common.next')}
+          {isLastSlide ? t("onboarding.getStarted") : t("common.next")}
         </Text>
         <MaterialCommunityIcons
-          name={isLastSlide ? 'check' : 'arrow-right'}
+          name={isLastSlide ? "check" : "arrow-right"}
           size={24}
           color="#FFFFFF"
         />
@@ -321,22 +314,22 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   slide: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 40,
   },
   iconContainer: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 40,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -350,36 +343,36 @@ const styles = StyleSheet.create({
     height: 140,
   },
   textContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#212529',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#212529",
+    textAlign: "center",
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
-    color: '#6C757D',
-    textAlign: 'center',
+    color: "#6C757D",
+    textAlign: "center",
     lineHeight: 24,
   },
   pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 40,
   },
   dot: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#0066CC',
+    backgroundColor: "#0066CC",
     marginHorizontal: 4,
   },
   skipButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     right: 20,
     zIndex: 10,
@@ -387,19 +380,19 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
-    color: '#6C757D',
-    fontWeight: '600',
+    color: "#6C757D",
+    fontWeight: "600",
   },
   nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0066CC',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0066CC",
     marginHorizontal: 40,
     marginBottom: 40,
     paddingVertical: 16,
     borderRadius: 12,
-    shadowColor: '#0066CC',
+    shadowColor: "#0066CC",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -410,9 +403,8 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginRight: 8,
   },
 });
-

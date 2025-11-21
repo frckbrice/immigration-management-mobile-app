@@ -1,5 +1,6 @@
 {
   "common": {
+    "reset": "Réinitialiser",
     "welcome": "Bienvenue",
     "loading": "Chargement...",
     "error": "Erreur",
@@ -19,7 +20,33 @@
     "viewAll": "Voir tout",
     "noResults": "Aucun résultat trouvé",
     "retry": "Réessayer",
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "resultsCount": "{{count}} résultat(s)",
+    "validation": "Validation",
+    "ok": "OK",
+    "unknownDate": "Date inconnue",
+    "unknownError": "Erreur inconnue",
+    "now": "Maintenant"
+  },
+  "email": {
+    "detailTitle": "Courriel",
+    "loadError": "Impossible de charger ce courriel.",
+    "downloadSuccessTitle": "Téléchargement terminé",
+    "downloadSuccessMessage": "Retrouvez ce fichier dans l'onglet Téléchargements des Documents.",
+    "downloadFailedTitle": "Échec du téléchargement",
+    "downloadFailedMessage": "Impossible de télécharger cette pièce jointe.",
+    "replyNotSupportedTitle": "Réponse impossible",
+    "replyNotSupportedMessage": "Il n'est pas possible de répondre à ce fil de discussion.",
+    "replySentTitle": "Réponse envoyée",
+    "replySentMessage": "Votre message a été transmis à votre conseiller.",
+    "replyFailedTitle": "Échec de l'envoi",
+    "replyFailedMessage": "Impossible d'envoyer cette réponse. Veuillez réessayer plus tard.",
+    "reply": "Répondre",
+    "replyPlaceholder": "Écrivez votre réponse...",
+    "sendReply": "Envoyer",
+    "viewCase": "Voir le dossier",
+    "emptyBody": "Aucun contenu dans ce message.",
+    "attachmentsTitle": "Pièces jointes"
   },
   "auth": {
     "login": "Connexion",
@@ -42,7 +69,13 @@
     "acceptTerms": "J'accepte les Conditions d'utilisation",
     "acceptPrivacy": "J'accepte la Politique de confidentialité",
     "registrationSuccess": "Inscription réussie",
-    "checkEmail": "Veuillez vérifier votre boîte de réception pour vérifier votre email avant de vous connecter."
+    "checkEmail": "Veuillez vérifier votre boîte de réception pour vérifier votre email avant de vous connecter.",
+    "passwordResetSent": "Réinitialisation du mot de passe envoyée",
+    "checkEmailForReset": "Veuillez vérifier votre email pour les instructions de réinitialisation du mot de passe.",
+    "enterEmailForReset": "Entrez votre adresse email et nous vous enverrons les instructions pour réinitialiser votre mot de passe.",
+    "sendResetLink": "Envoyer le lien de réinitialisation",
+    "rememberPassword": "Vous vous souvenez de votre mot de passe ? ",
+    "userNotFound": "Aucun compte trouvé avec cet email."
   },
   "onboarding": {
     "welcome": "Bienvenue dans notre application",
@@ -54,6 +87,13 @@
     "getStarted": "Commencer",
     "getStartedDescription": "Prêt à commencer? Configurons votre compte et commençons à gérer vos services.",
     "skip": "Passer"
+  },
+  "getStarted": {
+    "welcomeTo": "Bienvenue chez",
+    "companyName": "Patrick Travel Agency",
+    "tagline": "Votre partenaire de confiance pour des expériences de voyage sans faille",
+    "description": "Découvrez un monde de possibilités avec nos services de voyage complets. Des demandes de visa à la planification de voyage, nous sommes là pour rendre votre voyage fluide et mémorable.",
+    "getStartedButton": "Commencer"
   },
   "home": {
     "title": "Accueil",
@@ -85,7 +125,10 @@
     "noPendingActionsTitle": "Aucune action requise",
     "noPendingActionsDescription": "Bravo ! Vous êtes à jour.",
     "updatedOn": "Mis à jour le {{date}}",
-    "noCaseForPayment": "Aucun dossier n'est prêt pour le paiement pour le moment."
+    "noCaseForPayment": "Aucun dossier n'est prêt pour le paiement pour le moment.",
+    "appointmentLocation": "Lieu : {{location}}",
+    "appointmentAdvisor": "Conseiller : {{name}}",
+    "appointmentNotes": "Notes : {{notes}}"
   },
   "cases": {
     "title": "Mes dossiers",
@@ -109,10 +152,32 @@
     "rejected": "Rejeté",
     "closed": "Clôturé",
     "statusUnknown": "Statut inconnu",
+    "subscriptionRequired": "Un paiement actif est requis pour créer des dossiers. Veuillez d'abord effectuer un paiement pour continuer.",
+    "subscriptionExpired": "Votre paiement a expiré. Veuillez renouveler votre paiement pour créer des dossiers.",
+    "subscriptionTitle": "Paiement requis",
+    "subscribe": "S'abonner",
+    "caseCreationFailed": "Échec de la création du dossier. Veuillez réessayer.",
     "chatUnavailableTitle": "Discussion indisponible",
     "chatUnavailableMessage": "La discussion sera disponible lorsque votre conseiller aura examiné ce dossier.",
     "chatAwaitingAgentTitle": "Conseiller en attente",
-    "chatAwaitingAgentMessage": "Un conseiller vous contactera bientôt. La discussion sera ouverte après l'assignation."
+    "chatAwaitingAgentMessage": "Un conseiller vous contactera bientôt. La discussion sera ouverte après l'assignation.",
+    "statusLabels": {
+      "submitted": "Soumis",
+      "under_review": "En révision",
+      "documents_required": "Documents requis",
+      "processing": "En traitement",
+      "approved": "Approuvé",
+      "rejected": "Rejeté",
+      "closed": "Clôturé",
+      "unknown": "Inconnu"
+    },
+    "priority": {
+      "urgent": "Urgente",
+      "high": "Haute",
+      "normal": "Normale",
+      "low": "Basse",
+      "unknown": "Inconnue"
+    }
   },
   "caseDetails": {
     "title": "Détails du dossier",
@@ -131,9 +196,65 @@
     "serviceType": "Type de service",
     "priority": "Priorité",
     "required": "Requis",
+    "heroTitle": "Créons votre dossier",
+    "heroSubtitle": "Indiquez-nous vos besoins et votre échéance.",
+    "destination": "Pays de destination",
+    "destinationHelper": "Où prévoyez-vous de voyager ou de vous installer ?",
+    "destinationLoading": "Chargement des destinations...",
+    "destinationEmpty": "Les destinations ne sont pas disponibles pour le moment.",
+    "destinationError": "Impossible de charger les destinations. Veuillez réessayer.",
+    "destinationRetry": "Actualiser",
+    "destinationDefaultDescription": "Code destination {{code}}",
+    "serviceTypeHelper": "Sélectionnez le service d'immigration qui correspond le mieux à votre situation.",
+    "priorityHelper": "Précisez le niveau d'urgence afin d'adapter notre accompagnement.",
+    "submitCta": "Soumettre le dossier",
     "fillAllFields": "Veuillez remplir tous les champs requis",
     "caseCreated": "Dossier créé avec succès",
-    "caseFailed": "Échec de la création du dossier. Veuillez réessayer."
+    "caseFailed": "Échec de la création du dossier. Veuillez réessayer.",
+    "serviceTypes": {
+      "student_visa": {
+        "title": "Visa étudiant",
+        "description": "Accompagnement pour les admissions académiques, permis d'études et installations universitaires."
+      },
+      "work_permit": {
+        "title": "Permis de travail",
+        "description": "Démarches liées à l'emploi, y compris les renouvellements et les parrainages d'employeurs."
+      },
+      "family_reunification": {
+        "title": "Regroupement familial",
+        "description": "Conseils pour réunir vos proches via des visas pour conjoint ou personnes à charge."
+      },
+      "tourist_visa": {
+        "title": "Visa touristique",
+        "description": "Visas de court séjour pour vacances, événements ou visites de courte durée."
+      },
+      "business_visa": {
+        "title": "Visa d'affaires",
+        "description": "Déplacements professionnels, conférences et besoins d'immigration liés aux investissements."
+      },
+      "permanent_residency": {
+        "title": "Résidence permanente",
+        "description": "Planification à long terme, évaluations d'admissibilité et préparation des dossiers."
+      }
+    },
+    "priorities": {
+      "low": {
+        "title": "Basse",
+        "description": "Calendrier flexible — je planifie à l'avance."
+      },
+      "normal": {
+        "title": "Normale",
+        "description": "Un traitement standard me convient."
+      },
+      "high": {
+        "title": "Haute",
+        "description": "Approche urgente — je souhaite des mises à jour régulières."
+      },
+      "urgent": {
+        "title": "Urgente",
+        "description": "Échéance critique — j'ai besoin d'une assistance immédiate."
+      }
+    }
   },
   "documents": {
     "title": "Documents",
@@ -181,9 +302,20 @@
     "downloadFailedMessage": "Impossible de télécharger ce modèle.",
     "downloadOpenErrorTitle": "Impossible d'ouvrir le fichier",
     "downloadOpenErrorMessage": "Ce fichier ne peut pas être ouvert sur votre appareil.",
+    "tapToDownload": "Appuyez pour télécharger",
     "noTemplates": "Aucun modèle disponible pour le moment.",
     "noDownloads": "Aucun téléchargement pour le moment.",
     "downloadedAt": "Téléchargé le {{date}}",
+    "shareUnavailableTitle": "Partage indisponible",
+    "shareUnavailableMessage": "Impossible d'accéder au fichier téléchargé sur cet appareil. Veuillez le télécharger à nouveau.",
+    "shareUnsupportedMessage": "Le partage n'est pas pris en charge sur cet appareil.",
+    "shareFailedTitle": "Échec du partage",
+    "shareFailedMessage": "Impossible de partager ce fichier pour le moment.",
+    "downloadSuccessTitle": "Modèle téléchargé",
+    "downloadSuccessMessage": "Retrouvez ce modèle dans l'onglet Téléchargements.",
+    "downloadRemovedMessage": "Supprimé des téléchargements.",
+    "downloadRemoveFailedTitle": "Suppression impossible",
+    "downloadRemoveFailedMessage": "Impossible de supprimer ce téléchargement.",
     "noCaseTitle": "Aucun dossier disponible",
     "noCaseMessage": "Créez un dossier avant de téléverser des documents.",
     "searchTemplates": "Rechercher des modèles...",
@@ -211,12 +343,142 @@
     "supportedFormats": "Formats pris en charge",
     "formatsInfo": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)"
   },
+  "payments": {
+    "title": "Paiement",
+    "paymentSummary": "Résumé du paiement",
+    "caseReference": "Référence du dossier",
+    "description": "Description",
+    "totalAmount": "Montant total",
+    "cardDetails": "Détails de la carte",
+    "basicTierDescription": "Niveau de base - Paiement unique",
+    "incompleteCard": "Carte incomplète",
+    "incompleteCardMessage": "Veuillez saisir tous les détails de la carte",
+    "paymentFailed": "Échec du paiement",
+    "paymentFailedMessage": "Une erreur s'est produite lors du traitement du paiement",
+    "paymentError": "Erreur de paiement",
+    "paymentSuccessful": "Paiement réussi",
+    "paymentSuccessfulMessage": "Votre paiement de {{amount}} $ a été traité avec succès. Vous pouvez maintenant créer des dossiers.",
+    "paymentProcessing": "Traitement du paiement",
+    "paymentProcessingMessage": "Votre paiement est en cours de traitement. Veuillez consulter votre historique de paiement pour les mises à jour.",
+    "paymentProcessingMessageShort": "Votre paiement est en cours de traitement. Consultez votre historique pour les mises à jour.",
+    "paymentSubmitted": "Paiement soumis",
+    "paymentSubmittedMessage": "Votre paiement de {{amount}} $ a été soumis. Vous recevrez une confirmation sous peu.",
+    "unexpectedError": "Une erreur inattendue s'est produite. Veuillez réessayer.",
+    "paymentVerificationFailed": "Échec de la vérification du paiement",
+    "paymentVerificationFailedMessage": "Nous n'avons pas pu vérifier votre paiement avec notre serveur. Veuillez réessayer ou contacter le support si le problème persiste.",
+    "alreadyPaidTitle": "Paiement déjà effectué",
+    "alreadyPaidMessage": "Vous avez déjà effectué un paiement unique. Votre paiement est actif.",
+    "subscriptionExpired": "Votre paiement unique a expiré. Veuillez sélectionner un niveau de paiement pour renouveler.",
+    "subscriptionRequired": "Un paiement unique actif est requis. Veuillez sélectionner un niveau de paiement pour continuer.",
+    "paymentRequiredTitle": "Paiement requis",
+    "testMode": "Mode test : Utilisez la carte 4242 4242 4242 4242 avec n'importe quelle date future et CVC",
+    "securityNotice": "Vos informations de paiement sont cryptées et sécurisées",
+    "paymentInformation": "Informations de paiement",
+    "paymentInfoBullets": "• Les paiements sont traités en toute sécurité via Stripe\n• Vous recevrez un reçu par email\n• Les remboursements prennent 5 à 10 jours ouvrables\n• Contactez le support pour les problèmes de paiement",
+    "contactSupport": "Contactez le support pour les problèmes de paiement",
+    "payButton": "Payer {{amount}} $",
+    "cancel": "Annuler",
+    "web": {
+      "notAvailable": "Paiement non disponible sur le Web",
+      "notAvailableMessage": "Le traitement des paiements Stripe n'est disponible que sur les appareils iOS et Android. Veuillez utiliser l'application mobile pour compléter votre paiement.",
+      "downloadApp": "Téléchargez l'application mobile depuis l'App Store ou Google Play pour effectuer des paiements en toute sécurité.",
+      "alternativeOptions": "Options alternatives",
+      "useMobileApp": "Utiliser l'application mobile",
+      "useMobileAppDescription": "Téléchargez notre application iOS ou Android pour une fonctionnalité de paiement complète",
+      "contactSupport": "Contacter le support",
+      "contactSupportDescription": "Contactez notre équipe de support pour des méthodes de paiement alternatives",
+      "goBack": "Retour"
+    },
+    "history": {
+      "title": "Historique des paiements",
+      "recentPayments": "Paiements récents",
+      "summary": {
+        "totalPaid": "Total payé",
+        "transactions": "Transactions"
+      },
+      "status": {
+        "completed": "Terminé",
+        "pending": "En attente",
+        "failed": "Échoué",
+        "processing": "En cours",
+        "unknown": "Inconnu"
+      },
+      "caseLabel": "Dossier : {{caseNumber}}",
+      "caseUnknown": "N/A",
+      "actions": {
+        "makePayment": "Effectuer un paiement"
+      },
+      "empty": {
+        "title": "Aucun paiement pour le moment",
+        "description": "Votre historique de paiement apparaîtra ici"
+      },
+      "sheet": {
+        "title": "Choisissez un dossier",
+        "subtitle": "Sélectionnez un dossier en attente ou en cours pour continuer.",
+        "secondaryInfo": "Appuyez pour consulter et régler ce dossier.",
+        "empty": {
+          "title": "Tout est à jour !",
+          "subtitle": "Vous n'avez aucun dossier nécessitant un paiement."
+        }
+      },
+      "priorityLabel": "Priorité • {{priority}}"
+    }
+  },
   "messages": {
     "title": "Messages",
+    "subtitle": "Restez en contact avec vos conseillers et suivez les mises à jour.",
     "noMessages": "Aucun message pour le moment",
     "chat": "Chat",
+    "email": "Courriel",
     "newMessage": "Nouveau message",
-    "conversations": "Conversations"
+    "conversations": "Conversations",
+    "inbox": "Boîte de réception",
+    "sent": "Envoyés",
+    "noInboxMessages": "Votre boîte de réception est vide",
+    "noSentMessages": "Aucun message envoyé",
+    "noConversations": "Aucune conversation pour le moment",
+    "agent": "Conseiller",
+    "justNow": "À l'instant",
+    "markAsRead": "Marquer comme lu",
+    "markAsUnread": "Marquer comme non lu",
+    "fromLabel": "De {{name}}",
+    "toLabel": "À {{name}}",
+    "caseLabel": "Dossier {{reference}}",
+    "noSubject": "(Sans objet)",
+    "composeSelectAgent": "Choisir un conseiller",
+    "composeSelectAgentHint": "Sélectionnez le conseiller et le dossier à contacter par e-mail.",
+    "composeDetailsTitle": "Détails du message",
+    "composeDetailsHint": "Ajoutez un objet et un message clairs pour recevoir une réponse rapidement.",
+    "composeSubjectLabel": "Objet",
+    "composeSubjectPlaceholder": "Préparation à l'entretien de visa",
+    "composeBodyLabel": "Message",
+    "composeBodyHelper": "Partagez tout le contexte dont votre conseiller a besoin.",
+    "composeBodyPlaceholder": "Bonjour conseiller,\n\nJe souhaite clarifier les étapes restantes pour ma demande...",
+    "composeCharacterCount": "{{count}} / 4000",
+    "composeSendCta": "Envoyer l'e-mail",
+    "composeNoAgent": "Conseiller en attente",
+    "composeNoAgentEmail": "En attente d'attribution",
+    "composeSelectAgentError": "Sélectionnez un dossier et un conseiller avant d'envoyer votre e-mail.",
+    "composeAdvisorLabel": "Conseiller",
+    "composeAdvisorPlaceholder": "Sélectionner un conseiller",
+    "composeCaseLabel": "Dossier",
+    "composeCasePlaceholder": "Sélectionner un dossier",
+    "composeAgentPickerTitle": "Choisir un conseiller",
+    "composeCasePickerTitle": "Choisir un dossier",
+    "composeAgentCasesCount_one": "{{count}} dossier",
+    "composeAgentCasesCount_other": "{{count}} dossiers",
+    "composeSubjectRequired": "L'objet est obligatoire",
+    "composeBodyTooShort": "Saisissez au moins 10 caractères.",
+    "composeSuccessTitle": "E-mail envoyé",
+    "composeSuccessMessage": "Votre conseiller recevra votre message sous peu.",
+    "composeSendError": "Nous n'avons pas pu envoyer votre e-mail. Veuillez réessayer.",
+    "composeLoadingCases": "Chargement de vos dossiers...",
+    "composeCasesErrorTitle": "Impossible de charger les conseillers",
+    "composeCasesErrorBody": "Nous n'avons pas pu récupérer vos dossiers. Veuillez réessayer.",
+    "composeRetry": "Réessayer",
+    "composeNoCasesTitle": "Aucun conseiller disponible pour le moment",
+    "composeNoCasesDescription": "Lorsqu'un conseiller sera assigné à l'un de vos dossiers, vous pourrez démarrer un courriel directement ici.",
+    "composeGoToCases": "Voir mes dossiers"
   },
   "chat": {
     "title": "Chat",
@@ -252,17 +514,31 @@
     "caseUpdate": "Statut du dossier mis à jour",
     "documentApproved": "Document approuvé",
     "documentRejected": "Document rejeté",
-    "urgent": "Urgent"
+    "urgent": "Urgent",
+    "newNotification": "Nouvelle notification",
+    "openAppMessage": "Ouvrez l'application pour voir la dernière mise à jour."
   },
   "profile": {
-    "title": "Profil et paramètres",
+    "title": "Profile",
     "editProfile": "Modifier le profil",
+    "deleteAccountWarning": "Cela supprimera définitivement votre compte et vos données.",
+    "deleteAccountButton": "Supprimer le compte",
+    "exportSubtitle": "Demandez une copie de vos données personnelles pour vos archives.",
+    "exportCardTitle": "Demandez vos données personnelles",
+    "exportCardDescription": "Nous regrouperons vos soumissions, fichiers de dossier et activité de compte dans un lien de téléchargement livré par email.",
+    "exportCta": "Soumettre la demande d'export",
+    "exportSuccessMessage": "Votre export de données vous a été envoyé par email.",
+    "exportErrorMessage": "Nous n'avons pas pu démarrer l'export. Veuillez réessayer sous peu.",
+    "editProfileSubtitle": "Mettez à jour vos informations pour que nous puissions rester en contact.",
     "logout": "Se déconnecter",
     "personalInfo": "Informations personnelles",
+    "personalInfoSubtitle": "Tout ce que nous savons sur vous est rassemblé ici.",
     "changePassword": "Changer le mot de passe",
+    "changePasswordSubtitle": "Utilisez un mot de passe fort que vous n'utilisez nulle part ailleurs.",
     "paymentHistory": "Historique des paiements",
     "exportMyData": "Exporter mes données",
     "deleteAccount": "Supprimer le compte",
+    "noChanges": "Aucun changement à enregistrer. Modifiez un champ d'abord.",
     "sections": {
       "accountSettings": "PARAMÈTRES DU COMPTE",
       "preferences": "PRÉFÉRENCES",
@@ -271,12 +547,58 @@
     },
     "name": "Nom",
     "email": "Email",
+    "emailReadOnly": "L'email ne peut pas être modifié",
+    "addEmail": "Ajoutez votre email",
     "phone": "Téléphone",
+    "phonePlaceholder": "Ajoutez un numéro pour un contact rapide",
+    "addPhone": "Ajoutez un numéro de téléphone",
     "address": "Adresse",
+    "addressPlaceholder": "Rue, Ville, Pays",
+    "syncNotice": "Vos mises à jour se synchronisent instantanément sur tous vos appareils.",
     "notifications": "Notifications",
     "pushNotifications": "Notifications push",
     "emailNotifications": "Notifications par email",
+    "notificationsDescription": "Activez les alertes pour les nouveaux messages et les mises à jour de dossier.",
+    "notificationsEnabledMessage": "Vous recevrez désormais des emails et notifications push pour les nouveaux courriels, mises à jour de dossier et messages.",
+    "notificationsDisabledTitle": "Notifications désactivées",
+    "notificationsDisabledMessage": "Les alertes email et push sont coupées. Le compteur de notifications continuera d'indiquer les nouvelles mises à jour.",
+    "notificationsEnableError": "Impossible d'activer les notifications. Vérifiez les autorisations de votre appareil puis réessayez.",
+    "notificationsUpdateError": "Impossible d'enregistrer la préférence de notification. Veuillez réessayer.",
+    "notificationsToggleError": "Impossible de mettre à jour votre préférence de notification pour le moment. Veuillez réessayer plus tard.",
+    "openPreferences": "Thème, langue et notifications",
+    "preferencesRowDescription": "Gérez l'apparence et les paramètres d'alertes depuis un même endroit.",
+    "preferencesTitle": "Thème, langue et notifications",
+    "preferencesSubtitle": "Personnalisez l'interface, choisissez la langue et contrôlez les alertes de notification.",
+    "themeSectionTitle": "Apparence",
+    "languageSectionTitle": "Langue",
+    "notificationSectionTitle": "Notifications",
+    "notificationSectionSubtitle": "Activez les alertes email et push pour les nouveaux messages et mises à jour de dossier.",
+    "theme": "Thème",
+    "themeDescription": "Adaptez le thème au système ou choisissez clair et sombre.",
+    "themePickerTitle": "Choisir un thème",
+    "themePickerSubtitle": "Appliquez instantanément l'apparence de votre choix.",
+    "themeUpdated": "Préférence de thème mise à jour.",
+    "themeUpdateError": "Impossible de mettre à jour la préférence de thème.",
+    "themeOptions": {
+      "system": "S'adapter au système",
+      "light": "Clair",
+      "dark": "Sombre"
+    },
+    "themeSystemDescription": "Suivre automatiquement la préférence de votre appareil.",
+    "themeLightDescription": "Arrière-plan clair avec un fort contraste.",
+    "themeDarkDescription": "Tons assombris plus reposants pour les yeux.",
     "language": "Langue",
+    "languageDescription": "Choisissez la langue utilisée dans l'application.",
+    "languagePickerTitle": "Choisir une langue",
+    "languagePickerSubtitle": "Passez entre l'anglais et le français.",
+    "languageUpdated": "Langue mise à jour avec succès.",
+    "languageUpdateError": "Impossible de changer de langue pour le moment.",
+    "languageOptions": {
+      "en": "English",
+      "fr": "Français"
+    },
+    "languageEnDescription": "Utiliser l'anglais pour les menus et contenus.",
+    "languageFrDescription": "Utiliser le français pour l'ensemble des sections.",
     "english": "Anglais",
     "french": "Français",
     "privacy": "Confidentialité",
@@ -285,14 +607,55 @@
     "version": "Version",
     "help": "Aide et support",
     "contactUs": "Nous contacter",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "faqHeroTitle": "Comment pouvons-nous vous aider aujourd'hui ?",
+    "faqHeroSubtitle": "Parcourez notre base de connaissances ou contactez le support si vous avez besoin d'aide.",
+    "faqSearchPlaceholder": "Rechercher des questions ou des mots-clés",
+    "faqResultsSummary": "Affichage de {{count}} résultat(s)",
+    "faqEmptyDescription": "Essayez un autre mot-clé ou contactez nos spécialistes du support.",
+    "securityHeadline": "Vos données restent protégées",
+    "securityCopy": "Nous utilisons un chiffrement de pointe pour protéger vos informations personnelles.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "passwordHint": "Les mots de passe doivent contenir au moins 8 caractères et inclure des chiffres et des lettres.",
+    "passwordUpdated": "Votre mot de passe a été modifié.",
+    "passwordUpdateFailed": "Échec du changement de mot de passe.",
+    "deleteAccountSubtitle": "Supprimer définitivement votre compte et toutes les données associées.",
+    "deleteAccountWarningTitle": "Avertissement",
+    "deleteAccountWarningMessage": "Cela supprimera définitivement votre compte et toutes les données associées, notamment :\n\n• Tous vos dossiers et documents\n• Votre historique de paiement\n• Vos messages et conversations\n• Vos informations de profil\n\nCette action est irréversible.",
+    "deleteAccountInfo": "Si vous avez des dossiers en attente ou des paiements, veuillez ",
+    "deleteAccountInfoSuffix": " avant de supprimer votre compte.",
+    "deleteAccountConfirmTitle": "Confirmer la suppression",
+    "deleteAccountConfirmMessage": "Cette action est irréversible. Toutes vos données seront définitivement supprimées. Continuer ?",
+    "deleteAccountConfirm": "Supprimer",
+    "deleteAccountError": "Échec de la suppression du compte. Veuillez réessayer."
+  },
+  "legal": {
+    "termsHeroTitle": "Consultez nos dernières conditions générales",
+    "termsHeroSubtitle": "Nous tenons ces politiques à jour pour que vous sachiez toujours comment nous collaborons.",
+    "privacyHeroTitle": "La confidentialité est intégrée à chaque fonctionnalité",
+    "privacyHeroSubtitle": "Découvrez comment nous protégeons vos informations et respectons vos choix.",
+    "lastUpdated": "Dernière synchronisation {{date}}",
+    "lastUpdatedUnknown": "Dernière mise à jour récente",
+    "refreshFailed": "Impossible d'actualiser pour le moment. Affichage de la dernière version enregistrée."
+  },
+  "support": {
+    "contactSupport": "Contacter le support",
+    "messageRequired": "Veuillez fournir un message afin que nous puissions vous aider.",
+    "missingEmail": "Nous n'avons pas pu trouver d'adresse email sur votre compte. Veuillez mettre à jour votre profil et réessayer.",
+    "unknownUser": "Client",
+    "messageSent": "Votre message a été envoyé. Nous vous répondrons sous peu.",
+    "sendError": "Échec de l'envoi"
   },
   "errors": {
     "generic": "Une erreur s'est produite. Veuillez réessayer.",
     "network": "Erreur réseau. Veuillez vérifier votre connexion.",
     "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
     "notFound": "Ressource introuvable.",
-    "serverError": "Erreur serveur. Veuillez réessayer plus tard."
+    "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
+    "somethingWentWrong": "Une erreur s'est produite",
+    "restartApp": "Veuillez redémarrer l'application",
+    "rootLayoutError": "Erreur de mise en page racine"
   },
   "validation": {
     "required": "Ce champ est requis",
@@ -300,5 +663,14 @@
     "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
     "passwordsDontMatch": "Les mots de passe ne correspondent pas",
     "acceptTerms": "Vous devez accepter les Conditions d'utilisation et la Politique de confidentialité"
+  },
+  "modals": {
+    "standardModal": "Modal standard",
+    "standardModalDescription": "Ceci est une présentation modale.",
+    "formSheetModal": "Modal de formulaire",
+    "formSheetModalDescription": "Faites glisser la poignée pour redimensionner !",
+    "transparentModal": "Modal transparent",
+    "transparentModalDescription": "Appuyez à l'extérieur pour fermer",
+    "closeModal": "Fermer le modal"
   }
 }
