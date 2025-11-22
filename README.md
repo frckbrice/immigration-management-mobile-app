@@ -227,6 +227,7 @@ pnpm build:prod:ios
 
 - TypeScript compilation checks
 - ESLint with React Native and Expo rules
+- CodeRabbit AI for automated code reviews and suggestions
 - Error boundaries for crash prevention
 - Logging service for production debugging
 

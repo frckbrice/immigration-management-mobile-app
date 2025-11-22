@@ -73,7 +73,6 @@ export default function TabLayout() {
   const tabBadges = useMemo<Record<string, number>>(
     () => ({
       messages: totalUnreadMessages,
-      messages: totalUnreadMessages,
       "/(tabs)/messages": totalUnreadMessages,
     }),
     [totalUnreadMessages],

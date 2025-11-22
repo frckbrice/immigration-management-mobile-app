@@ -48,12 +48,8 @@ const SERVICE_ICONS: Record<string, string> = {
   PERMANENT_RESIDENCY: "house.fill",
 };
 
-const SERVICE_TYPES = Object.keys(SERVICE_ICONS) as Array<
-  keyof typeof SERVICE_ICONS
->;
-const PRIORITY_TYPES = Object.keys(PRIORITY_ACCENTS) as Array<
-  "LOW" | "NORMAL" | "HIGH" | "URGENT"
->;
+const SERVICE_TYPES = Object.keys(SERVICE_ICONS) as (keyof typeof SERVICE_ICONS)[];
+const PRIORITY_TYPES = Object.keys(PRIORITY_ACCENTS) as ("LOW" | "NORMAL" | "HIGH" | "URGENT")[];
 
 export default function NewCaseScreen() {
   const theme = useTheme();

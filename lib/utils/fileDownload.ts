@@ -77,7 +77,7 @@ export const downloadAndTrackFile = async ({
     let fileSize: number | undefined;
     try {
       const info = await FileSystem.getInfoAsync(finalUri);
-      fileSize = typeof info.size === "number" ? info.size : undefined;
+      fileSize = info.exists && typeof info.size === "number" ? info.size : undefined;
     } catch (infoError) {
       logger.warn("Unable to determine downloaded file size", infoError);
     }

@@ -58,7 +58,7 @@ const formatRelativeTime = (
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
   if (diffMinutes < 1)
-    return t ? t("common.now", { defaultValue: "Now" }) : "Now";
+    return t ? (t as any)("common.now", { defaultValue: "Now" }) : "Now";
   if (diffMinutes < 60) return `${diffMinutes}m`;
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
@@ -735,11 +735,9 @@ export default function MessagesScreen() {
 
   const isChatSegment = activeSegment === "chat";
 
-  const listData = useMemo<Array<Conversation | Message>>(
+  const listData = useMemo<(Conversation | Message)[]>(
     () =>
-      (isChatSegment ? filteredConversations : filteredEmailData) as Array<
-        Conversation | Message
-      >,
+      (isChatSegment ? filteredConversations : filteredEmailData) as (Conversation | Message)[],
     [filteredConversations, filteredEmailData, isChatSegment],
   );
 

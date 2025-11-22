@@ -624,7 +624,7 @@ export default function HomeScreen() {
       }
 
       // Then fetch fresh data in background (non-blocking)
-      const tasks: Array<Promise<unknown>> = [
+      const tasks: Promise<unknown>[] = [
         fetchCasesRef.current(),
         fetchUnreadCountRef.current(),
         fetchMessagesRef.current(),

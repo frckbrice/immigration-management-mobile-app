@@ -33,11 +33,11 @@ import type { Case } from "@/lib/types";
 import { useThemeColors } from "@/lib/hooks/useAppTheme";
 import { withOpacity } from "@/styles/theme";
 
-const DOCUMENT_TYPE_OPTIONS: Array<{
+const DOCUMENT_TYPE_OPTIONS: {
   value: string;
   icon: string;
   labelKey: string;
-}> = [
+}[] = [
   { value: "PASSPORT", icon: "globe", labelKey: "documents.types.passport" },
   {
     value: "ID_CARD",

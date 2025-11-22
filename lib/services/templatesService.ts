@@ -325,7 +325,7 @@ export const templatesService = {
             cachedEntry.fileName ||
             template.fileName ||
             sanitizeFileName(template.name),
-          fileSize: typeof info.size === "number" ? info.size : undefined,
+          fileSize: info.exists && typeof info.size === "number" ? info.size : undefined,
           mimeType: template.mimeType,
           fromCache: true,
         };
@@ -382,7 +382,7 @@ export const templatesService = {
         localUri: downloadResult.uri,
         remoteUrl,
         fileName: finalFileName,
-        fileSize: typeof fileInfo.size === "number" ? fileInfo.size : undefined,
+        fileSize: fileInfo.exists && typeof fileInfo.size === "number" ? fileInfo.size : undefined,
         mimeType,
         fromCache: false,
       };

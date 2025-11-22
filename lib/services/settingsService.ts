@@ -2,7 +2,7 @@ import { apiClient } from "../api/axios";
 import { logger } from "../utils/logger";
 import type { NotificationSettings } from "../types";
 
-const BACKEND_SETTING_KEYS: Array<keyof NotificationSettings> = [
+const BACKEND_SETTING_KEYS: (keyof NotificationSettings)[] = [
   "emailNotifications",
   "pushNotifications",
   "smsNotifications",

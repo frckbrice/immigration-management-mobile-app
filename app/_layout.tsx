@@ -4,16 +4,6 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-// Safely import SystemBars with fallback
-let SystemBars: React.ComponentType<{ style: "light" | "dark" }> | null = null;
-try {
-  const edgeToEdgeModule = require("react-native-edge-to-edge");
-  SystemBars = edgeToEdgeModule?.SystemBars || null;
-} catch (error) {
-  if (__DEV__) {
-    console.warn("SystemBars not available, will skip rendering", error);
-  }
-}
 import { ThemeProvider } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -38,6 +28,16 @@ import { presenceService } from "@/lib/services/presenceService";
 import i18n from "@/lib/i18n";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
+// Safely import SystemBars with fallback
+let SystemBars: React.ComponentType<{ style: "light" | "dark" }> | null = null;
+try {
+  const edgeToEdgeModule = require("react-native-edge-to-edge");
+  SystemBars = edgeToEdgeModule?.SystemBars || null;
+} catch (error) {
+  if (__DEV__) {
+    console.warn("SystemBars not available, will skip rendering", error);
+  }
+}
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
