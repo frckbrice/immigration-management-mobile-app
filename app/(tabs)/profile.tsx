@@ -34,6 +34,7 @@ import * as Linking from "expo-linking";
 import { uploadFileToAPI } from "@/lib/services/fileUpload";
 import { logger } from "@/lib/utils/logger";
 import { useToast } from "@/components/Toast";
+import { useLegalStore } from "@/stores/legal/legalStore";
 
 export default function ProfileScreen() {
   const theme = useAppTheme();
@@ -43,9 +44,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, isLoading, fetchProfile, updateProfile } = useProfileStore();
   const { user, logout } = useAuthStore();
+  const { currentLanguage } = useTranslation();
+  const preloadDocuments = useLegalStore((state) => state.preloadDocuments);
   const scrollViewRef = useRef<ScrollView>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const { showToast } = useToast();
 
   const avatarUri = useMemo(() => {
@@ -54,6 +58,11 @@ export default function ProfileScreen() {
     }
     return profile?.profilePicture || profile?.avatar || user?.photoURL || null;
   }, [avatarPreview, profile?.profilePicture, profile?.avatar, user?.photoURL]);
+
+  // Reset image error when avatarUri changes
+  useEffect(() => {
+    setImageLoadError(false);
+  }, [avatarUri]);
 
   const uploadAndSave = useCallback(
     async (asset: ImagePicker.ImagePickerAsset) => {
@@ -72,8 +81,24 @@ export default function ProfileScreen() {
           );
         }
 
-        await updateProfile({ avatar: uploadResult.url });
-        setAvatarPreview(uploadResult.url);
+        // Validate the URL - ensure it's absolute
+        const imageUrl = uploadResult.url;
+        if (!imageUrl || (typeof imageUrl === "string" && !imageUrl.startsWith("http"))) {
+          logger.error("Invalid image URL received from upload", { url: imageUrl });
+          throw new Error("Invalid image URL received from server");
+        }
+
+        logger.info("Uploading profile picture", { url: imageUrl });
+
+        // Update both fields to ensure consistency with backend
+        // Backend may use either profilePicture or avatar field
+        await updateProfile({
+          avatar: imageUrl,
+          profilePicture: imageUrl,
+        });
+        setAvatarPreview(imageUrl);
+        setImageLoadError(false); // Reset error state on new upload
+
         fetchProfile().catch((error) => {
           logger.warn("Failed to refresh profile after photo upload", error);
         });
@@ -186,6 +211,17 @@ export default function ProfileScreen() {
     fetchProfile();
   }, [fetchProfile]);
 
+  // Preload legal documents (terms and privacy) when profile page loads
+  // This ensures they're available immediately when user navigates to those pages
+  useEffect(() => {
+    if (user && currentLanguage) {
+      preloadDocuments(currentLanguage).catch((error) => {
+        // Silently fail - documents will be fetched when user visits those pages
+        logger.warn("Failed to preload legal documents", error);
+      });
+    }
+  }, [user, currentLanguage, preloadDocuments]);
+
   useEffect(() => {
     if (
       avatarPreview &&
@@ -245,10 +281,21 @@ export default function ProfileScreen() {
           >
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarLarge}>
-                {avatarUri ? (
+                {avatarUri && !imageLoadError ? (
                   <Image
                     source={{ uri: avatarUri }}
                     style={styles.avatarImage}
+                    onError={(error) => {
+                      logger.error("Profile picture failed to load", {
+                        uri: avatarUri,
+                        error: error.nativeEvent?.error || "Unknown error",
+                      });
+                      setImageLoadError(true);
+                    }}
+                    onLoad={() => {
+                      logger.info("Profile picture loaded successfully", { uri: avatarUri });
+                      setImageLoadError(false);
+                    }}
                   />
                 ) : (
                   <IconSymbol name="person.fill" size={48} color="#fff" />

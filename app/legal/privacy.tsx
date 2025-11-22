@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "@react-navigation/native";
 import { useTranslation } from "@/lib/hooks/useTranslation";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -45,11 +45,19 @@ export default function PrivacyPolicyScreen() {
   const isInitialLoading = !hasContent && loading;
   const isRefreshing = hasContent && loading;
 
-  useEffect(() => {
-    fetchDocument("privacy", currentLanguage).catch(() => {
-      // handled via store error state
-    });
-  }, [currentLanguage, fetchDocument]);
+  // Only fetch if content is not already in store (preloaded from profile page)
+  // Content should be preloaded when user visits profile page, so this only runs as fallback
+  useFocusEffect(
+    useCallback(() => {
+      // Only fetch if content is not already available in store
+      // This allows preloaded content from profile page to be used immediately
+      if (!hasContent) {
+        fetchDocument("privacy", currentLanguage, { force: true }).catch(() => {
+          // handled via store error state
+        });
+      }
+    }, [currentLanguage, fetchDocument, hasContent]),
+  );
 
   const handleRefresh = useCallback(() => {
     fetchDocument("privacy", currentLanguage, { force: true }).catch(() => {

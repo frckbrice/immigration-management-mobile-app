@@ -394,23 +394,18 @@ export default function DocumentsScreen() {
     async (template: Template) => {
       try {
         const remoteUrl = templatesService.getTemplateDownloadUrl(template);
-        const canOpen = await Linking.canOpenURL(remoteUrl);
 
-        if (!canOpen) {
-          showAlert({
-            title: t("documents.previewUnavailableTitle", {
-              defaultValue: "Preview unavailable",
-            }),
-            message: t("documents.previewUnavailableMessage", {
-              defaultValue:
-                "We could not open this template. Please download it instead.",
-            }),
-            actions: [{ text: t("common.close"), variant: "primary" }],
-          });
-          return;
-        }
-
-        await Linking.openURL(remoteUrl);
+        // Navigate to in-app preview
+        router.push({
+          pathname: "/documents/preview",
+          params: {
+            uri: remoteUrl,
+            url: remoteUrl,
+            title: template.name || "Template Preview",
+            type: template.fileType,
+            mimeType: template.mimeType,
+          },
+        });
       } catch (error: any) {
         logger.error("Failed to open template preview", error);
         showAlert({
@@ -427,7 +422,7 @@ export default function DocumentsScreen() {
         });
       }
     },
-    [showAlert, t],
+    [router, showAlert, t],
   );
 
   const sanitizeDownloadName = useCallback(
@@ -545,52 +540,42 @@ export default function DocumentsScreen() {
   const handleDownloadOpen = useCallback(
     async (item: DownloadRecord) => {
       try {
-        const candidateUris: string[] = [];
+        // Determine the best URI to use (prefer local, fallback to remote)
+        let previewUri = item.localUri || item.url;
 
-        if (item.localUri) {
-          if (Platform.OS === "android") {
-            try {
-              const contentUri = await FileSystem.getContentUriAsync(
-                item.localUri,
-              );
-              candidateUris.push(contentUri);
-            } catch (uriError) {
-              logger.warn("Failed to resolve content URI for download", {
-                downloadId: item.id,
-                error: uriError,
-              });
-              candidateUris.push(item.localUri);
-            }
-          } else {
-            candidateUris.push(item.localUri);
-          }
+        if (!previewUri) {
+          showAlert({
+            title: t("documents.downloadOpenErrorTitle", {
+              defaultValue: "Unable to open file",
+            }),
+            message: t("documents.downloadOpenErrorMessage", {
+              defaultValue: "This download cannot be opened on your device.",
+            }),
+            actions: [{ text: t("common.close"), variant: "primary" }],
+          });
+          return;
         }
 
-        const remoteUrl = item.url;
-        if (remoteUrl) {
-          candidateUris.push(remoteUrl);
-        }
+        // Use file URI directly - modern viewers can handle file:// URIs
+        // Skip deprecated file existence check - if file doesn't exist, preview will handle the error
+        // This avoids deprecation warnings from getInfoAsync
 
-        for (const uri of candidateUris) {
-          if (!uri) continue;
-          const canOpen = await Linking.canOpenURL(uri);
-          if (canOpen) {
-            await Linking.openURL(uri);
-            return;
-          }
-        }
-
-        showAlert({
-          title: t("documents.downloadOpenErrorTitle", {
-            defaultValue: "Unable to open file",
-          }),
-          message: t("documents.downloadOpenErrorMessage", {
-            defaultValue: "This download cannot be opened on your device.",
-          }),
-          actions: [{ text: t("common.close"), variant: "primary" }],
+        // Navigate to in-app preview
+        router.push({
+          pathname: "/documents/preview",
+          params: {
+            uri: previewUri,
+            url: item.url || previewUri,
+            title: item.name || "Document Preview",
+            type: item.fileType,
+            mimeType: item.mimeType,
+          },
         });
       } catch (error) {
-        logger.error("Failed to open downloaded file", error);
+        logger.error("Failed to open downloaded file", {
+          downloadId: item.id,
+          error,
+        });
         showAlert({
           title: t("documents.downloadOpenErrorTitle", {
             defaultValue: "Unable to open file",
@@ -602,7 +587,7 @@ export default function DocumentsScreen() {
         });
       }
     },
-    [showAlert, t],
+    [router, showAlert, t],
   );
 
   const handleDownloadShare = useCallback(

@@ -23,6 +23,7 @@ interface LegalState {
     language: string,
     options?: { force?: boolean },
   ) => Promise<string>;
+  preloadDocuments: (language: string) => Promise<void>;
   clearError: (type: LegalDocumentType) => void;
 }
 
@@ -57,9 +58,27 @@ export const useLegalStore = create<LegalState>((set, get) => ({
     const isFresh = cacheEntry
       ? Date.now() - cacheEntry.fetchedAt < CACHE_TTL
       : false;
+    const hasContent = cacheEntry?.content?.trim().length > 0;
 
-    if (cacheEntry && !force && isFresh) {
+    // Only return cached content if:
+    // 1. Cache exists
+    // 2. Content is not empty
+    // 3. Cache is still fresh
+    // 4. Not forcing a refresh
+    if (cacheEntry && hasContent && !force && isFresh) {
       return cacheEntry.content;
+    }
+
+    // Prevent duplicate fetches - if already loading, wait for existing fetch
+    // This prevents race conditions when preloadDocuments and page fetch run simultaneously
+    if (state.loading[type] && !force) {
+      // Wait a bit and check cache again (the in-progress fetch might complete)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const updatedState = get();
+      const updatedCache = updatedState.cache[type]?.[language];
+      if (updatedCache?.content?.trim().length > 0) {
+        return updatedCache.content;
+      }
     }
 
     set((prev) => ({
@@ -112,6 +131,41 @@ export const useLegalStore = create<LegalState>((set, get) => ({
         },
       }));
       throw error;
+    }
+  },
+  preloadDocuments: async (language) => {
+    // Preload both terms and privacy documents in parallel
+    // Only fetch if not already cached or cache is stale
+    const state = get();
+    const promises: Promise<string>[] = [];
+
+    // Check terms
+    const termsCache = state.cache.terms?.[language];
+    const termsIsFresh = termsCache
+      ? Date.now() - termsCache.fetchedAt < CACHE_TTL
+      : false;
+    const termsHasContent = termsCache?.content?.trim().length > 0;
+
+    if (!termsHasContent || !termsIsFresh) {
+      promises.push(get().fetchDocument("terms", language, { force: false }));
+    }
+
+    // Check privacy
+    const privacyCache = state.cache.privacy?.[language];
+    const privacyIsFresh = privacyCache
+      ? Date.now() - privacyCache.fetchedAt < CACHE_TTL
+      : false;
+    const privacyHasContent = privacyCache?.content?.trim().length > 0;
+
+    if (!privacyHasContent || !privacyIsFresh) {
+      promises.push(get().fetchDocument("privacy", language, { force: false }));
+    }
+
+    // Fetch both in parallel, but don't throw errors - they'll be handled by individual fetchDocument calls
+    if (promises.length > 0) {
+      await Promise.allSettled(promises).catch(() => {
+        // Errors are already handled in fetchDocument
+      });
     }
   },
 }));

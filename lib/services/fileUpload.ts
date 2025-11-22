@@ -57,12 +57,28 @@ export async function uploadFileToAPI(
 
     const uploadedUrl = response.data.data?.url;
     if (!uploadedUrl) {
-      throw new Error(response.data.error || "Upload failed: No URL returned");
+      const errorMessage = response.data.error || "Upload failed: No URL returned";
+      logger.error("File upload failed: No URL returned", {
+        fileName,
+        response: response.data,
+        status: response.status,
+      });
+      throw new Error(errorMessage);
+    }
+
+    // Validate URL is absolute
+    if (!uploadedUrl.startsWith("http://") && !uploadedUrl.startsWith("https://")) {
+      logger.error("File upload returned invalid URL (not absolute)", {
+        fileName,
+        url: uploadedUrl,
+      });
+      throw new Error("Upload failed: Invalid URL returned from server");
     }
 
     logger.info("File uploaded successfully", {
       fileName,
       url: uploadedUrl,
+      urlLength: uploadedUrl.length,
     });
 
     return {
@@ -70,10 +86,32 @@ export async function uploadFileToAPI(
       url: uploadedUrl,
     };
   } catch (error: any) {
-    logger.error("File upload error", error);
+    const errorStatus = error.response?.status;
+    const errorMessage = error.response?.data?.error || error.message || "Upload failed";
+    
+    logger.error("File upload error", {
+      fileName,
+      status: errorStatus,
+      message: errorMessage,
+      error: error.response?.data || error.message,
+      url: error.config?.url,
+    });
+
+    // Provide user-friendly error message based on status code
+    let userMessage = errorMessage;
+    if (errorStatus === 404) {
+      userMessage = "Upload endpoint not found. Please contact support.";
+    } else if (errorStatus === 413) {
+      userMessage = "File too large. Please choose a smaller image.";
+    } else if (errorStatus === 415) {
+      userMessage = "Unsupported file type. Please use a valid image format.";
+    } else if (errorStatus >= 500) {
+      userMessage = "Server error during upload. Please try again later.";
+    }
+
     return {
       success: false,
-      error: error.response?.data?.error || error.message || "Upload failed",
+      error: userMessage,
     };
   }
 }

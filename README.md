@@ -1,247 +1,281 @@
-# immigration platform app – Mobile App
+# immigration Travel Agency – Mobile Platform
 
-Status Performance Security Platform
+> **Modern React Native application** powering an end-to-end immigration and travel services platform. Built with **Expo SDK 54**, **TypeScript**, and **React 19**, featuring real-time communication, secure document management, and seamless payment integration.
 
-> React Native + Expo client powering the Patrick Digital Services immigration platform.
->
-> **Actively Developed** | **Performance Optimised** | **iOS & Android Ready** | **GDPR Compliant**
+[![React Native](https://img.shields.io/badge/React%20Native-0.81-blue?logo=react)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-SDK%2054-000020?logo=expo)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react)](https://react.dev/)
+
+---
 
 ## Overview
-The mobile app enables clients to:
 
-* Track immigration cases across every stage
-* Upload, preview, and manage supporting documents
-* Chat securely with legal advisors
-* Receive push notifications with deep links
-* Monitor payments and billing history
-* Access FAQs, support contacts, and legal resources
+A production-ready mobile application that streamlines the immigration and travel services workflow. Clients can track cases, manage documents, communicate with advisors in real-time, and process payments—all within a polished, performant, and secure mobile experience.
 
-## Recent Updates (November 2025)
-* Fully transparent bottom tab bar with shared styling across tabs
-* Modernised change password flow aligned with profile design system
-* Themed placeholder colours and input surfaces for a contemporary look
-* Hardened Firebase auth initialisation and bottom sheet modal provider logic
+### Key Capabilities
 
-## Feature Set
+**Case Management** – Track immigration cases with real-time status updates  
+**Document Hub** – Upload, preview, and organize supporting documents with offline caching  
+**Real-time Chat** – Secure messaging powered by Firebase Realtime Database  
+**Push Notifications** – FCM-based notifications with deep linking  
+**Payment Integration** – Stripe-powered transactions with receipt management  
+**i18n Ready** – Full internationalization support (EN/FR)  
+**Adaptive Design** – Light/dark mode with system-aware theming  
 
-### Authentication & Security
-* Email/password sign-in via Firebase Auth
-* Session persistence with secure token storage
-* Password reset, change password, and logout workflows
-* GDPR-ready consent wording and legal screens
+---
 
-### Dashboard & Cases
-* Home dashboard with memoised KPIs and quick actions
-* Case list with normalised statuses and filters
-* Case detail timeline and related document access
+## Architecture
 
-### Document Management
-* Upload wizard supporting camera and library sources
-* File metadata preview and server-side validation
-* Templates library for repeatable document types
+Built with modern best practices and a scalable, maintainable architecture:
 
-### Messaging & Notifications
-* In-app chat powered by Firebase
-* Push notifications (FCM) bridged to deep links
-* Toasts and bottom-sheet alerts for contextual updates
+### Core Stack
 
-### Profile & Settings
-* Editable profile information with dirty state detection
-* Change password with real-time validation feedback
-* Data export, account deletion, and support contact options
+- **Framework**: React Native 0.81.5 + Expo SDK 54 (New Architecture enabled)
+- **Language**: TypeScript with strict mode
+- **Navigation**: Expo Router 6 (file-based routing with typed routes)
+- **State Management**: Zustand (domain-driven stores)
+- **Data Fetching**: TanStack Query v5 with caching & optimistic updates
+- **Authentication**: Firebase Authentication with secure token storage
+- **Real-time**: Firebase Realtime Database
+- **Payments**: Stripe React Native SDK
+- **Localization**: i18next with dynamic language switching
 
-### Payments
-* Payment history screen with receipt details
-* Integration hooks for Stripe-backed flows
+### Architecture Patterns
+
+- **Domain-Driven Design** – Organized stores and services by business domain
+- **Service Layer** – Clean separation between UI, state, and API logic
+- **Error Boundaries** – Comprehensive error handling with graceful degradation
+- **Type Safety** – End-to-end TypeScript coverage with strict checks
+- **Performance** – Memoization, lazy loading, and optimized re-renders
+
+### Project Structure
+
+```
+app/                    # Expo Router file-based routes
+├── (tabs)/            # Tab navigation screens
+├── legal/             # Terms & Privacy policies
+├── documents/         # Document management flows
+└── ...
+
+stores/                 # Zustand state management
+├── auth/              # Authentication state
+├── cases/             # Case management state
+├── documents/         # Document state & caching
+└── ...
+
+lib/
+├── services/          # API integration layer
+├── hooks/             # Custom React hooks
+├── utils/             # Shared utilities
+└── api/               # Axios client with interceptors
+
+components/            # Reusable UI components
+contexts/              # React contexts (Theme, Scroll, etc.)
+styles/                # Design system & theming
+```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
-* Node.js 18+
-* pnpm (`npm install -g pnpm`)
-* Expo CLI (bundled via `npx expo`)
-* Xcode for iOS simulator (macOS) / Android Studio for Android emulator
 
-### Install
+- **Node.js** 22+ and **pnpm**
+- **Expo CLI** (via `npx expo`)
+- **iOS**: Xcode 15+ (macOS only)
+- **Android**: Android Studio with SDK 33+
+
+### Installation
+
 ```bash
+# Clone repository
+git clone <repository-url>
+cd "patrick mobile 2"
+
+# Install dependencies
 pnpm install
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your Firebase, Stripe, and API keys
 ```
-
-### Configure
-Populate Expo config extras (`app.config.ts`) and Firebase settings (`lib/firebase/config.ts`). Required values include:
-
-```
-EXPO_PUBLIC_FIREBASE_API_KEY=
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-EXPO_PUBLIC_FIREBASE_APP_ID=
-EXPO_PUBLIC_FIREBASE_DATABASE_URL=
-```
-
-Confirm push notification credentials in `lib/services/pushNotifications.ts` and Stripe keys inside `docs/STRIPE_SETUP_GUIDE.md`.
-
-### Run
-```
-pnpm start        # Expo dev server
-pnpm ios          # run on iOS simulator
-pnpm android      # run on Android emulator
-pnpm web          # run in browser
-```
-
-## Tech Stack
-
-| Layer        | Technology                          |
-| ------------ | ------------------------------------ |
-| Framework    | React Native + Expo SDK              |
-| Navigation   | Expo Router 2                        |
-| State        | Zustand                              |
-| Data Fetch   | React Query (TanStack Query)         |
-| Auth         | Firebase Authentication              |
-| Storage      | Expo Secure Store, Async Storage     |
-| HTTP         | Axios with interceptors              |
-| UI           | Custom design system + Expo Symbols  |
-| Language     | TypeScript                           |
-
-## Project Structure
-```
-app/                 # Expo Router route tree (auth, tabs, modals)
-components/          # Shared UI components (tab bar, inputs, alerts, toasts)
-contexts/            # Providers (scroll, widget, bottom sheet)
-docs/                # Platform documentation and integration guides
-lib/                 # Hooks, services, Firebase config, utilities
-stores/              # Zustand stores per domain (auth, cases, profile, etc.)
-styles/              # Theme definitions and shared style helpers
-assets/              # Fonts, icons, images
-```
-
-## Development
-```
-pnpm lint            # run ESLint
-pnpm typecheck       # run TypeScript (if script defined)
-pnpm format          # apply Prettier formatting (if configured)
-```
-
-Guidelines:
-* Reuse components in `components/` and theme tokens from `styles/theme.ts`
-* Centralise strings via `lib/i18n/locales`
-* Keep domain logic inside `lib/services` backed by respective Zustand stores
-
-## Code Review
-
-This project uses [CodeRabbit](https://coderabbit.ai) for automated code reviews and AI-powered code suggestions.
-
-### CodeRabbit Features
-* **Automated PR Reviews**: CodeRabbit automatically reviews pull requests for code quality, security, performance, and best practices
-* **AI-Powered Suggestions**: Get intelligent suggestions for improvements, bug fixes, and optimizations
-* **TypeScript & React Native Focus**: Specialized reviews for TypeScript, React, and React Native/Expo patterns
-* **i18n Compliance**: Ensures all user-facing strings are properly translated
-* **Accessibility Checks**: Reviews code for accessibility best practices
 
 ### Configuration
-CodeRabbit is configured via `.coderabbit.yaml` in the project root. The configuration includes:
-* Review paths (app, components, lib, stores)
-* Focus areas (code quality, performance, security, best practices, accessibility, i18n)
-* Language-specific settings for TypeScript, React, and React Native
-* Custom instructions for project-specific requirements
 
-### Getting Reviews
-CodeRabbit automatically reviews pull requests when they are opened. To get the most out of CodeRabbit:
-1. Open a pull request as usual
-2. CodeRabbit will automatically analyze your changes
-3. Review the suggestions and comments
-4. Address any critical issues before merging
+Set required environment variables in `app.config.ts` or `.env`:
 
-For more information, visit [CodeRabbit Documentation](https://docs.coderabbit.ai).
-
-## Builds (EAS)
+```env
+EXPO_PUBLIC_API_PROD_URL=https://api.production.com
+EXPO_PUBLIC_FIREBASE_API_KEY=your_key
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_key
+# ... additional config
 ```
-eas build --profile preview --platform ios
-eas build --profile preview --platform android
-eas build --profile production --platform ios
-eas build --profile production --platform android
+
+### Development
+
+```bash
+# Start Expo dev server
+pnpm dev
+
+# Run on iOS simulator
+pnpm ios
+
+# Run on Android emulator
+pnpm android
+
+# Run in web browser
+pnpm web
 ```
-Before building, verify configuration values (`app.config.ts`) and credentials for push notifications, Firebase, and Stripe.
+
+---
+
+## Development Workflow
+
+### Code Quality
+
+```bash
+pnpm lint              # ESLint checks
+pnpm type-check        # TypeScript validation
+pnpm format            # Prettier formatting
+```
+
+### Building
+
+Using **EAS Build** for cloud builds:
+
+```bash
+# Development build
+pnpm build:dev:android
+pnpm build:dev:ios
+
+# Preview/Staging build
+pnpm build:preview:android
+pnpm build:preview:ios
+
+# Production build
+pnpm build:prod:android
+pnpm build:prod:ios
+```
+
+---
+
+## Technical Highlights
+
+### State Management
+- **Zustand** with persistence middleware for offline-first experience
+- Domain-specific stores for modular state (auth, cases, documents, etc.)
+- Optimized selectors to minimize re-renders
+
+### Data Fetching
+- **TanStack Query** for server state with automatic caching
+- Optimistic updates for instant UI feedback
+- Background refetching and stale-while-revalidate patterns
+
+### Real-time Features
+- Firebase Realtime Database for live chat and presence
+- FCM push notifications with deep linking
+- Optimistic UI updates with conflict resolution
+
+### Security
+- Secure token storage via Expo SecureStore
+- HTTPS-only API communication with interceptors
+- Firebase Security Rules aligned with authenticated sessions
+- GDPR-compliant data handling
+
+### Performance
+- React 19 concurrent features (Suspense, transitions)
+- Memoization with `useMemo` and `useCallback`
+- Image optimization and lazy loading
+- Efficient list rendering with FlatList optimizations
+
+### Developer Experience
+- **TypeScript strict mode** for maximum type safety
+- **Expo Router** with typed routes for navigation
+- Hot reloading and fast refresh
+- Comprehensive error logging and monitoring
+
+---
+
+## Features
+
+### User-Facing
+- Secure authentication with email/password and social login
+- Dashboard with case overview and quick actions
+- Case management with timeline tracking
+- Document upload, preview, and download with offline support
+- Real-time messaging with advisors
+- Push notifications with action handling
+- Payment processing and history
+- Profile management with image upload
+- FAQ and support contact integration
+- Legal document viewing (Terms, Privacy)
+
+### Developer Features
+- System-aware dark/light theme
+- Consistent design system with reusable components
+- Pull-to-refresh on data screens
+- Offline-first architecture with caching
+- Full i18n support (English/French)
+- Accessibility considerations
+- Error tracking and logging
+
+---
+
+## Testing & Quality
+
+- TypeScript compilation checks
+- ESLint with React Native and Expo rules
+- Error boundaries for crash prevention
+- Logging service for production debugging
+
+---
+
+## Deployment
+
+The app is configured for deployment via **Expo Application Services (EAS)**:
+
+- **Development**: Internal distribution for testing
+- **Preview**: Staging builds for QA
+- **Production**: App Store and Play Store releases
+
+Runtime versioning policy ensures smooth OTA updates via Expo Updates.
+
+---
 
 ## Security & Compliance
-* HTTPS-only API communication enforced by Axios client
-* Tokens stored via `expo-secure-store`
-* Firebase security rules aligned with authenticated UID usage
-* GDPR assets: privacy policy, terms, consent logging
 
-## Key Documentation
-* Stripe setup: `docs/STRIPE_SETUP_GUIDE.md`
-* Payment integration overview: `docs/PAYMENT_INTEGRATION_OVERVIEW.md`
-* Go-live checklist: `docs/GO_LIVE_CHECKLIST.md`
-* Implementation summary: `docs/IMPLEMENTATION_SUMMARY.md`
+- Secure token storage
+- Firebase Authentication with session persistence
+- Certificate pinning (configurable)
+- GDPR-compliant data handling
+- PCI-DSS compliant payment processing via Stripe
 
-## Troubleshooting
-* **Firebase initialisation fails** – ensure config values exist and `initializeAuth` guards against hot reloads.
-* **Bottom sheet context error** – `BottomSheetModalProvider` wrapped conditionally in `components/BottomSheetAlert.tsx`.
-* **Duplicate tab bar on profile** – profile screen now relies solely on shared tab layout.
-* **Metro cache issues** – run `npx expo start -c`.
+---
 
-## Implementation Status
-### Core Domains (13/15 – in progress)
-- [x] Authentication & onboarding
-- [x] Dashboard metrics and quick actions
-- [x] Case management screens
-- [x] Document upload and preview flows
-- [x] Messaging and notifications
-- [x] Profile edit and change password
-- [x] Payment history
-- [x] Data export / delete account
-- [x] Toast and bottom sheet alert system
-- [x] Themable design system (light/dark)
-- [ ] Advanced analytics tile set
-- [ ] In-app guided tour
+## Contributing
 
-### Screens (completed vs planned)
-- [x] Onboarding, login, register, forgot password
-- [x] Dashboard `(tabs)/(home)`
-- [x] Cases list, case detail
-- [x] Documents list, upload
-- [x] Notifications center
-- [x] Messages screen, chat view
-- [x] Profile main, personal info, change password
-- [ ] Additional analytics and admin tools
+This project follows conventional commit messages and feature branch workflow. Please ensure:
 
-## Git Workflow
-1. Branch from `feature/app-updates`:
-   ```bash
-   git checkout -b feature/short-description
-   ```
-2. Stage and commit using conventional messages:
-   ```bash
-   git add .
-   git commit -m "feat: update profile tab styling"
-   ```
-3. Rebase with upstream frequently:
-   ```bash
-   git fetch origin
-   git rebase origin/feature/app-updates
-   ```
-4. Push and open a pull request:
-   ```bash
-   git push -u origin feature/short-description
-   ```
-5. Include testing notes and screenshots for UI changes in PR descriptions.
+1. TypeScript compilation passes
+2. ESLint checks pass
+3. Manual testing on target platforms
+4. PR descriptions include testing notes and screenshots for UI changes
 
-### Feature Branches to Review
-1. `feature/auth-refresh` – authentication flows parity
-2. `feature/home-metrics` – dashboard KPI memoisation
-3. `feature/document-uploads` – document upload improvements
-4. `feature/profile-refresh` – profile tab styling & logout button
-5. `fix/bottom-sheet-context` – provider guard for BottomSheetModal
-6. `etc`
+---
 
-### Next Steps
-1. Merge outstanding feature branches and resolve conflicts
-2. Run smoke tests on physical devices (iOS and Android)
-3. Finalise analytics/insights screen backlog
-4. Conduct beta testing with partner cohort
-5. Prepare release notes and store assets
-6. Submit builds to App Store Connect and Google Play Console
+## License
 
-Built and maintained by the Avom brice. check me at https://maebrieporfolio.vercel.app.
+MIT
+
+---
+
+## Author
+
+**Avom Brice**  
+[Portfolio](https://maebrieporfolio.vercel.app)
+
+---
+
+*Built with React Native and Expo*
