@@ -618,71 +618,73 @@ export default function PreferencesScreen() {
             <View style={styles.cardBody}>{renderLanguageOptions()}</View>
           </View>
 
-          {/* Developer/Test Options */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: theme.dark ? "#111827" : "#FFFFFF" },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>
-                {t("profile.developerSectionTitle", {
-                  defaultValue: "Developer Options",
-                })}
-              </Text>
-            </View>
-            <View style={styles.cardBody}>
-              <Pressable
-                style={[
-                  styles.optionRow,
-                  {
-                    borderColor: theme.dark ? "#1F2937" : "#E2E8F0",
-                    backgroundColor: theme.dark ? "#111827" : "#F8FAFC",
-                    opacity: resettingOnboarding ? 0.6 : 1,
-                  },
-                ]}
-                onPress={handleResetOnboarding}
-                disabled={resettingOnboarding}
-              >
-                <View style={styles.optionContent}>
-                  <View
-                    style={[
-                      styles.optionIcon,
-                      { backgroundColor: "#EF4444" + "15" },
-                    ]}
-                  >
-                    <IconSymbol
-                      name="arrow.counterclockwise"
-                      size={22}
-                      color="#EF4444"
-                    />
-                  </View>
-                  <View style={styles.optionTextContainer}>
-                    <Text style={[styles.optionTitle, { color: colors.text }]}>
-                      {t("profile.resetOnboarding", {
-                        defaultValue: "Reset Onboarding",
-                      })}
-                    </Text>
-                    <Text
+          {/* Developer/Test Options - Only visible in development */}
+          {__DEV__ && (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: theme.dark ? "#111827" : "#FFFFFF" },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>
+                  {t("profile.developerSectionTitle", {
+                    defaultValue: "Developer Options",
+                  })}
+                </Text>
+              </View>
+              <View style={styles.cardBody}>
+                <Pressable
+                  style={[
+                    styles.optionRow,
+                    {
+                      borderColor: theme.dark ? "#1F2937" : "#E2E8F0",
+                      backgroundColor: theme.dark ? "#111827" : "#F8FAFC",
+                      opacity: resettingOnboarding ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={handleResetOnboarding}
+                  disabled={resettingOnboarding}
+                >
+                  <View style={styles.optionContent}>
+                    <View
                       style={[
-                        styles.optionDescription,
-                        { color: colors.muted },
+                        styles.optionIcon,
+                        { backgroundColor: "#EF4444" + "15" },
                       ]}
                     >
-                      {t("profile.resetOnboardingDescription", {
-                        defaultValue:
-                          "Reset onboarding and return to welcome screens immediately.",
-                      })}
-                    </Text>
+                      <IconSymbol
+                        name="arrow.counterclockwise"
+                        size={22}
+                        color="#EF4444"
+                      />
+                    </View>
+                    <View style={styles.optionTextContainer}>
+                      <Text style={[styles.optionTitle, { color: colors.text }]}>
+                        {t("profile.resetOnboarding", {
+                          defaultValue: "Reset Onboarding",
+                        })}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.optionDescription,
+                          { color: colors.muted },
+                        ]}
+                      >
+                        {t("profile.resetOnboardingDescription", {
+                          defaultValue:
+                            "Reset onboarding and return to welcome screens immediately.",
+                        })}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                {resettingOnboarding && (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                )}
-              </Pressable>
+                  {resettingOnboarding && (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  )}
+                </Pressable>
+              </View>
             </View>
-          </View>
+          )}
 
           {isUpdating && (
             <View style={styles.updatingIndicator}>
